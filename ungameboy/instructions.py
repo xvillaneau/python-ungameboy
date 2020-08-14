@@ -22,6 +22,10 @@ class Instruction:
         args_str = ', '.join(map(str, self.args))
         return f"{self.type} {args_str}".strip().lower()
 
+    @property
+    def next_address(self):
+        return self.address + self.length
+
 
 class CodePoint:
     param_type: Optional[ParameterMeta]

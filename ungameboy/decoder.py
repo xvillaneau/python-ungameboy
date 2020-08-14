@@ -10,10 +10,14 @@ class ROMBytes:
     this object should be used to
     """
 
-    def __init__(self, rom_path):
+    def __init__(self, rom_file):
         # Just store the entire ROM in memory
+        self.rom = rom_file.read()
+
+    @classmethod
+    def from_path(cls, rom_path):
         with open(rom_path, 'rb') as rom_file:
-            self.rom = rom_file.read()
+            return cls(rom_file)
 
     def __len__(self):
         return len(self.rom)
