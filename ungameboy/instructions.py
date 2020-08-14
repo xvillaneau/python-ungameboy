@@ -13,8 +13,10 @@ __all__ = ['CODE_POINTS', 'CodePoint', 'Instruction']
 @dataclass(frozen=True)
 class Instruction:
     type: Operation
-    length: int
     args: Tuple
+    address: int
+    length: int
+    bytes: bytes
 
     def __str__(self):
         args_str = ', '.join(map(str, self.args))
@@ -43,11 +45,16 @@ class CodePoint:
         args_str = ', '.join(map(str, self.visual_args))
         return f"{self.type} {args_str}".strip().lower()
 
-    def make_instance(self, param=b'') -> Instruction:
-        if param is None and self.length > 1:
-            raise ValueError(f"Expected {self.length - 1} arguments, got none")
+    def make_instance(self, address: int, parameters: bytes) -> Instruction:
+        if len(parameters) + 1 != self.length:
+            raise ValueError(
+                f"Expected {self.length - 1} arguments, got {len(parameters)}"
+            )
+
         if self.param_type is not None:
-            param = self.param_type(int.from_bytes(param, 'little'))
+            param = self.param_type(int.from_bytes(parameters, 'little'))
+        else:
+            param = 0
 
         args = []
         for arg in self.visual_args:
@@ -60,9 +67,11 @@ class CodePoint:
                 args.append(arg)
 
         return Instruction(
-            self.type,
-            self.length,
-            tuple(args),
+            type=self.type,
+            args=tuple(args),
+            address=address,
+            length=self.length,
+            bytes=bytes([self.code_point]) + parameters,
         )
 
 
@@ -73,15 +82,20 @@ class BitwiseOps(CodePoint):
         self.length = 2
         self.param_type = Byte
 
-    def make_instance(self, param=b'') -> Instruction:
-        param = self.param_type(int.from_bytes(param, 'little'))
-        op_type, bit, operand = BITWISE_CODE_POINTS[param]
+    def make_instance(self, address: int, parameters: bytes) -> Instruction:
+        if len(parameters) != 1:
+            raise ValueError(f"Expected 1 argument, got {len(parameters)}")
+
+        op_code = ord(parameters)
+        op_type, bit, operand = BITWISE_CODE_POINTS[op_code]
         args = (operand,) if bit is None else (bit, operand)
 
         return Instruction(
             type=op_type,
-            length=2,
             args=args,
+            address=address,
+            length=2,
+            bytes=bytes([self.code_point, op_code])
         )
 
 

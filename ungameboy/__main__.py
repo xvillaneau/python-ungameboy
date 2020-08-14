@@ -1,11 +1,10 @@
-from ungameboy import Disassembler
+from ungameboy import ROMBytes
 
 
 if __name__ == '__main__':
     import sys
 
     path = sys.argv[1]
-    dis = Disassembler(path)
-    for addr, instr in dis:
-        binary = dis.rom[addr:addr+instr.length]
-        print(f'{addr:06x} {binary.hex():<6}', instr)
+    rom = ROMBytes(path)
+    for instr in rom.decode():
+        print(f'{instr.address:06x} {instr.bytes.hex():<6} {instr}')
