@@ -1,19 +1,19 @@
 from typing import List
 
-from ungameboy import ROMBytes, Instruction
+from ..disassembler import Disassembler, AsmData
 
 
 class AsmBuffer:
     padding = 64
     bs = 256
 
-    def __init__(self, rom: ROMBytes, address=0, height=1):
-        self.rom = rom
+    def __init__(self, asm: Disassembler, address=0, height=1):
+        self.asm = asm
         self.scroll_address = address
         self.scroll_index = 0
         self.height = height
 
-        self._buffer: List[Instruction] = []
+        self._buffer: List[AsmData] = []
         self.refresh()
 
     def __getitem__(self, item):
@@ -45,10 +45,8 @@ class AsmBuffer:
         self._buffer.clear()
         self.scroll_index = 0
 
-        decoder = self.rom.decode(self.scroll_address)
-
-        for instr in decoder:
-            self._buffer.append(instr)
+        for data in self.asm[self.scroll_address:]:
+            self._buffer.append(data)
             if len(self) >= self.height:
                 break
         else:
@@ -63,29 +61,28 @@ class AsmBuffer:
         a, b = 0, len(self) - 1
         while True:
             pivot = a + (b - a) // 2
-            instr = self[pivot]
-            if instr.address <= address < instr.next_address:
+            data = self[pivot]
+            if data.address <= address < data.next_address:
                 return pivot
-            if instr.address < address:
+            if data.binary.address < address:
                 a = pivot + 1
             else:
                 b = pivot - 1
 
     def _extend_down(self, new_end_address: int):
-        if self.end_address == len(self.rom):
+        if self.end_address == len(self.asm):
             return
         if new_end_address <= self.end_address:
             return
-        if new_end_address > len(self.rom):
-            new_end_address = len(self.rom)
+        if new_end_address > len(self.asm):
+            new_end_address = len(self.asm)
         # Round up to nearest block
         new_end_address = ((new_end_address - 1) // self.bs + 1) * self.bs
 
-        decoder = self.rom.decode(start=self.end_address)
         new_block = []
-        for instr in decoder:
-            new_block.append(instr)
-            if instr.next_address >= new_end_address:
+        for data in self.asm[self.end_address:]:
+            new_block.append(data)
+            if data.next_address >= new_end_address:
                 break
 
         self._buffer.extend(new_block)
@@ -98,22 +95,21 @@ class AsmBuffer:
         # Round down to nearest block
         new_start_address = (new_start_address // 256) * 256
 
-        decoder = self.rom.decode(start=new_start_address)
         lines_trim = 0
         target_address = self[lines_trim].address
         new_block = []
 
-        for instr in decoder:
-            new_block.append(instr)
+        for data in self.asm[new_start_address:]:
+            new_block.append(data)
 
-            if instr.next_address < target_address:
+            if data.next_address < target_address:
                 continue
 
-            while instr.next_address > target_address:
+            while data.next_address > target_address:
                 lines_trim += 1
                 target_address = self[lines_trim].address
 
-            if instr.next_address == target_address:
+            if data.next_address == target_address:
                 break
 
         self._buffer = new_block + self._buffer[lines_trim:]
@@ -155,7 +151,7 @@ class AsmBuffer:
             self._extend_down(end_address + self.padding)
             self._trim_up()
 
-            if end_address >= len(self.rom):
+            if end_address >= len(self.asm):
                 return
 
     def move_up(self, lines: int):

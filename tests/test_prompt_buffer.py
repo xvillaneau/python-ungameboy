@@ -4,6 +4,7 @@ from hypothesis import given, strategies as st
 import pytest
 
 from ungameboy.decoder import ROMBytes
+from ungameboy.disassembler import Disassembler
 from ungameboy.prompt.buffer import AsmBuffer
 
 EXAMPLE_CODE = bytes.fromhex(
@@ -39,19 +40,19 @@ START_POS = [0, 5, 31, 33]
 
 @pytest.mark.parametrize('start', START_POS)
 def test_load(start):
-    rom = ROMBytes(BytesIO(EXAMPLE_CODE))
-    buffer = AsmBuffer(rom, address=start, height=5)
+    asm = Disassembler(ROMBytes(BytesIO(EXAMPLE_CODE)))
+    buffer = AsmBuffer(asm, address=start, height=5)
 
     # ROM is short enough for everything to be loaded
     assert buffer.start_address == 0
-    assert buffer.end_address == len(rom)
+    assert buffer.end_address == len(asm)
     assert len(buffer.window()) == 5
 
 
 @given(st.binary(min_size=16, max_size=32768), st.lists(st.integers()))
 def test_random_binary(binary, moves):
-    rom = ROMBytes(BytesIO(binary))
-    buffer = AsmBuffer(rom, height=5)
+    asm = Disassembler(ROMBytes(BytesIO(binary)))
+    buffer = AsmBuffer(asm, height=5)
 
     assert buffer.start_address == 0
     assert buffer.scroll_address == 0

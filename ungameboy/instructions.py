@@ -18,6 +18,11 @@ class Instruction:
     length: int
     bytes: bytes
 
+    def __contains__(self, item):
+        if not isinstance(item, int):
+            return False
+        return self.address <= item < self.next_address
+
     def __str__(self):
         args_str = ', '.join(map(str, self.args))
         return f"{self.type} {args_str}".strip().lower()

@@ -1,10 +1,12 @@
+from operator import getitem
 from typing import Callable, Optional
 
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
 from .buffer import AsmBuffer
-from ..decoder import ROMBytes
+from .render import render_data
+from ..disassembler import Disassembler
 
 
 class ROMControl(UIControl):
@@ -14,8 +16,8 @@ class ROMControl(UIControl):
         show_cursor=False,
     )
 
-    def __init__(self, rom: Optional[ROMBytes] = None):
-        self.buffer = None if rom is None else AsmBuffer(rom)
+    def __init__(self, asm: Optional[Disassembler] = None):
+        self.buffer = None if asm is None else AsmBuffer(asm)
         self.scroll_offset = 0
         self.cursor_offset = 0
 
@@ -30,21 +32,13 @@ class ROMControl(UIControl):
             self.buffer.height = height
             self.buffer.refresh()
 
-        window = self.buffer.window()
-
-        def get_line(num):
-            instr = window[num]
-            return [
-                ('class:ugb.address', f'{instr.address:07x}'),
-                ('', '  '),
-                ('class:ugb.bin', f'{instr.bytes.hex():<6}'),
-                ('', '  '),
-                ('', str(instr)),
-            ]
+        lines = []
+        for element in self.buffer.window():
+            lines.extend(render_data(element))
 
         return UIContent(
-            get_line,
-            line_count=len(window),
+            lines.__getitem__,
+            line_count=len(lines),
             show_cursor=False,
         )
 
