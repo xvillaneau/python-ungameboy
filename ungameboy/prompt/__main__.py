@@ -5,10 +5,11 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import HSplit, Layout, Window
 from prompt_toolkit.styles import Style
 
+from ungameboy.address import Address, ROM0
 from ungameboy.data_block import DataBlock
 from ungameboy.decoder import ROMBytes
 from ungameboy.disassembler import Disassembler
-from ungameboy.prompt.control import ROMControl
+from ungameboy.prompt.control import AsmControl
 
 
 class DisassemblyEditor:
@@ -16,7 +17,7 @@ class DisassemblyEditor:
     running_command = None
 
     def __init__(self, asm=None):
-        self.control = ROMControl(asm)
+        self.control = AsmControl(asm)
 
         ugb_style = Style.from_dict({
             'ugb.address': 'fg:green',
@@ -51,8 +52,8 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
         _asm = Disassembler(ROMBytes.from_path(sys.argv[1]))
-        _asm.data.insert(DataBlock(0x104, 0x30, "Nintendo logo"))
-        _asm.data.insert(DataBlock(0x134, 0x1c, "Cartridge header"))
+        _asm.data.insert(DataBlock(Address(ROM0, 0x104), 0x30, "Nintendo logo"))
+        _asm.data.insert(DataBlock(Address(ROM0, 0x134), 0x1c, "Cartridge header"))
     else:
         _asm = None
     DisassemblyEditor(_asm).run()

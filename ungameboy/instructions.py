@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+from .address import Address
 from .models import (
     Op, Operation, Ref, IORef,
     ParameterMeta, Byte, Word, SignedByte, SPOffset,
@@ -14,12 +15,12 @@ __all__ = ['CODE_POINTS', 'CodePoint', 'Instruction']
 class Instruction:
     type: Operation
     args: Tuple
-    address: int
+    address: Address
     length: int
     bytes: bytes
 
     def __contains__(self, item):
-        if not isinstance(item, int):
+        if not isinstance(item, Address):
             return False
         return self.address <= item < self.next_address
 
@@ -28,7 +29,7 @@ class Instruction:
         return f"{self.type} {args_str}".strip().lower()
 
     @property
-    def next_address(self):
+    def next_address(self) -> Address:
         return self.address + self.length
 
 
@@ -54,7 +55,7 @@ class CodePoint:
         args_str = ', '.join(map(str, self.visual_args))
         return f"{self.type} {args_str}".strip().lower()
 
-    def make_instance(self, address: int, parameters: bytes) -> Instruction:
+    def make_instance(self, address: Address, parameters: bytes) -> Instruction:
         if len(parameters) + 1 != self.length:
             raise ValueError(
                 f"Expected {self.length - 1} arguments, got {len(parameters)}"
@@ -91,7 +92,7 @@ class BitwiseOps(CodePoint):
         self.length = 2
         self.param_type = Byte
 
-    def make_instance(self, address: int, parameters: bytes) -> Instruction:
+    def make_instance(self, address: Address, parameters: bytes) -> Instruction:
         if len(parameters) != 1:
             raise ValueError(f"Expected 1 argument, got {len(parameters)}")
 

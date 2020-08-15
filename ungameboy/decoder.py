@@ -1,3 +1,4 @@
+from .address import Address
 from .models import Op
 from .instructions import CODE_POINTS, Instruction
 
@@ -58,6 +59,11 @@ class Decoder:
         Decode the instruction for which the code is at a given address.
         This may read more than one byte, or return invalid data.
         """
+        if isinstance(index, Address):
+            addr = index
+            index = addr.rom_file_offset
+        else:
+            addr = Address.from_rom_offset(index)
         op = CODE_POINTS[self.rom[index]]
 
         if op.length == 1:
@@ -69,10 +75,10 @@ class Decoder:
             if len(parameters) + 1 != op.length:
                 binary = bytes(self.rom[index:index + op.length])
                 return Instruction(
-                    Op.Invalid, (), index, len(binary), binary
+                    Op.Invalid, (), addr, len(binary), binary
                 )
 
-        return op.make_instance(index, parameters)
+        return op.make_instance(addr, parameters)
 
     def __iter__(self):
         return self

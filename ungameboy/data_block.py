@@ -1,20 +1,22 @@
 from dataclasses import dataclass
 from typing import Dict
 
+from .address import Address
+
 
 @dataclass
 class DataBlock:
-    address: int
+    address: Address
     length: int
     description: str = ""
 
     def __contains__(self, item):
-        if not isinstance(item, int):
+        if not isinstance(item, Address):
             return False
         return self.address <= item < self.next_address
 
     @property
-    def next_address(self):
+    def next_address(self) -> Address:
         return self.address + self.length
 
 
@@ -25,7 +27,7 @@ class Empty(DataBlock):
 
 class DataManager:
     def __init__(self):
-        self.inventory: Dict[int, DataBlock] = {}
+        self.inventory: Dict[Address, DataBlock] = {}
 
     def insert(self, data: DataBlock):
         if self.get_data(data.address) is not None:

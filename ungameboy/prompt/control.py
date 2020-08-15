@@ -5,10 +5,10 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 
 from .buffer import AsmBuffer
 from .render import render_data
-from ..disassembler import Disassembler
+from ..disassembler import Disassembler, ROMView
 
 
-class ROMControl(UIControl):
+class AsmControl(UIControl):
     NO_ROM = UIContent(
         lambda _: [('', "No ROM loaded")],
         line_count=1,
@@ -16,7 +16,7 @@ class ROMControl(UIControl):
     )
 
     def __init__(self, asm: Optional[Disassembler] = None):
-        self.buffer = None if asm is None else AsmBuffer(asm)
+        self.buffer = None if asm is None else AsmBuffer(ROMView(asm))
         self.scroll_offset = 0
         self.cursor_offset = 0
 
@@ -49,7 +49,7 @@ def rom_control_event(func: Callable[[AsmBuffer], None]):
 
     def handler(event: KeyPressEvent) -> None:
         control = event.app.layout.current_control
-        if isinstance(control, ROMControl):
+        if isinstance(control, AsmControl):
             buffer = control.buffer
             if buffer is not None:
                 func(buffer)
