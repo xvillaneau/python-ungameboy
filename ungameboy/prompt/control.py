@@ -1,4 +1,3 @@
-from operator import getitem
 from typing import Callable, Optional
 
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
