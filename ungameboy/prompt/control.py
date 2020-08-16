@@ -16,6 +16,9 @@ class AsmControl(UIControl):
         self.asm = asm
         self.buffer = AsmBuffer(ROMView(asm))
 
+    def refresh(self) -> None:
+        self.buffer.refresh()
+
     def is_focusable(self) -> bool:
         return True
 

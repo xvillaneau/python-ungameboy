@@ -224,3 +224,22 @@ class AsmBuffer:
 
             if self.scroll_index == 0:
                 count = 0
+
+    def move_to(self, index: int):
+        distance = index - self.scroll_index
+        # The use of padding as limit for the relative moves is
+        # completely arbitrary, and incorrect. That's OK.
+        if 0 <= distance <= self.padding:  # New pos is lower
+            self.move_down(distance)
+        elif 0 < -distance <= self.padding:  # New pos is higher
+            self.move_up(-distance)
+        else:
+            index = max(0, min(index, len(self.view)))
+            self.scroll_index = index
+            self.refresh()
+
+    def seek(self, address):
+        index = self.view.address_to_index(address)
+        if index is None:
+            raise ValueError("Not a valid address for this scope")
+        self.move_to(index)

@@ -21,13 +21,13 @@ def load_layout_bindings(editor):
     @bindings.add(":", filter=~prompt_active)
     def _focus_prompt(event):
         editor.prompt_active = True
-        event.app.layout.focus(editor.editor_layout.prompt)
+        event.app.layout.focus(editor.prompt.container)
 
     @bindings.add("c-c", filter=prompt_active)
     @bindings.add(Keys.Escape, filter=prompt_active)
     def _quit_prompt(event):
         editor.prompt_active = False
-        editor.editor_layout.prompt.buffer.reset()
+        editor.prompt.reset()
         event.app.layout.focus_last()
 
     return bindings

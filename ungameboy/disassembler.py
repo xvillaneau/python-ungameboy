@@ -85,7 +85,12 @@ class AssemblyView(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def index_to_address(cls, index: int):
+    def index_to_address(cls, index: int) -> Address:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def address_to_index(cls, address: Address) -> Optional[int]:
         pass
 
     @property
@@ -123,8 +128,14 @@ class AssemblyView(metaclass=ABCMeta):
 class ROMView(AssemblyView):
     """View that only includes the ROM"""
     @classmethod
-    def index_to_address(cls, index: int):
+    def index_to_address(cls, index: int) -> Address:
         return Address.from_rom_offset(index)
+
+    @classmethod
+    def address_to_index(cls, address: Address) -> Optional[int]:
+        if address.zone.type is not ROM:
+            return None
+        return address.rom_file_offset
 
     @property
     def end(self):

@@ -113,7 +113,7 @@ class Address(NamedTuple):
 
     _addr_re = re.compile(
         r"""
-        (?:  
+        (?:
           0x | \$ |        # For mem addresses, hex prefix compulsory
           (?:
             ([a-z]{3,4})?  # Mem type optional, defaults to ROM
@@ -121,7 +121,7 @@ class Address(NamedTuple):
             :
           )
         )
-        ([0-9a-f]{,4})      # Address offset limited to $FFFF 
+        ([0-9a-f]{,4})      # Address offset limited to $FFFF
         """,
         flags=re.IGNORECASE | re.VERBOSE,
     )
