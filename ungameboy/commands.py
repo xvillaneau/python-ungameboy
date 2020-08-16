@@ -53,3 +53,8 @@ def data_rename(asm: Disassembler, address: Address, name: str):
     if data is None:
         return
     data.description = name
+
+
+@register('label.create')
+def data_create(asm: Disassembler, address: Address, name: str):
+    asm.labels.create(address, name)

@@ -6,9 +6,15 @@ from ..instructions import Instruction
 MARGIN = ('', '    ')
 
 
-def render_data(data: ViewItem):
+def render_data(item: ViewItem):
     lines = []
-    data = data.data
+    data = item.data
+
+    for label in data.labels:
+        lines.append([
+            ('class:ugb.label.global', label.name),
+            ('', ':'),
+        ])
 
     if isinstance(data.binary, Instruction):
         instr = data.binary

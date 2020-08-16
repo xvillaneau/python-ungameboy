@@ -1,11 +1,12 @@
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
-from typing import BinaryIO, NamedTuple, Optional, Union
+from dataclasses import dataclass, field
+from typing import BinaryIO, List, NamedTuple, Optional, Union
 
 from .address import Address, ROM
 from .data_block import DataBlock, DataManager
 from .decoder import ROMBytes
 from .instructions import Instruction
+from .labels import Label, LabelManager
 
 __all__ = ['AsmData', 'AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
 
@@ -13,6 +14,7 @@ __all__ = ['AsmData', 'AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
 @dataclass
 class AsmData:
     binary: Union[DataBlock, Instruction]
+    labels: List[Label] = field(default_factory=list)
 
     @property
     def address(self) -> Address:
@@ -44,6 +46,7 @@ class Disassembler:
     def __init__(self):
         self.rom: Optional[ROMBytes] = None
         self.data = DataManager()
+        self.labels = LabelManager()
 
     @property
     def is_ready(self):
@@ -65,7 +68,9 @@ class Disassembler:
             binary = self.rom.decode_instruction(item.rom_file_offset)
         else:
             raise ValueError()
-        return AsmData(binary)
+        labels = self.labels.labels_at(item)
+
+        return AsmData(binary, labels)
 
 
 class AssemblyView(metaclass=ABCMeta):
