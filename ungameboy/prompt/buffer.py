@@ -63,6 +63,8 @@ class AsmBuffer:
         """Clear the buffer and re-render from the current index"""
         self._buffer.clear()
         self.scroll_pos = 0
+        if not self.view.asm.is_ready:
+            return
 
         for data in self.view[self.scroll_index:]:
             self._buffer.append(data)

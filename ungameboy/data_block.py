@@ -29,6 +29,10 @@ class DataManager:
     def __init__(self):
         self.inventory: Dict[Address, DataBlock] = {}
 
+    def create(self, address: Address, length=1, description=''):
+        block = DataBlock(address, length, description)
+        self.insert(block)
+
     def insert(self, data: DataBlock):
         if self.get_data(data.address) is not None:
             raise ValueError("Data overlap detected")

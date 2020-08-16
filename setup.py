@@ -6,4 +6,9 @@ setuptools.setup(
     author="Xavier Villaneau",
     packages=setuptools.find_packages(),
     python_requires=">=3.7",
+    entry_points={
+        "console_scripts": [
+            "ungameboy = ungameboy.prompt.application:run"
+        ]
+    }
 )

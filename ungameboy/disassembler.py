@@ -1,10 +1,10 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import NamedTuple, Union
+from typing import BinaryIO, NamedTuple, Optional, Union
 
 from .address import Address, ROM
 from .data_block import DataBlock, DataManager
-from .decoder import Decoder, ROMBytes
+from .decoder import ROMBytes
 from .instructions import Instruction
 
 __all__ = ['AsmData', 'AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
@@ -41,13 +41,20 @@ class Disassembler:
     The disassembler is where all the data is combined into a single
     record for each address.
     """
-    def __init__(self, rom: ROMBytes):
-        self.rom = rom
+    def __init__(self):
+        self.rom: Optional[ROMBytes] = None
         self.data = DataManager()
 
-        self._decoder = Decoder(self.rom)
+    @property
+    def is_ready(self):
+        return self.rom is not None
+
+    def load_rom(self, rom_file: BinaryIO):
+        self.rom = ROMBytes(rom_file)
 
     def __getitem__(self, item):
+        if self.rom is None:
+            raise ValueError("No ROM loaded")
         if not isinstance(item, Address):
             raise TypeError()
 
@@ -55,7 +62,7 @@ class Disassembler:
         if data is not None:
             binary = data
         elif item.zone.type is ROM:
-            binary = self._decoder.decode_instruction(item.rom_file_offset)
+            binary = self.rom.decode_instruction(item.rom_file_offset)
         else:
             raise ValueError()
         return AsmData(binary)
@@ -81,14 +88,20 @@ class AssemblyView(metaclass=ABCMeta):
     def index_to_address(cls, index: int):
         pass
 
+    @property
     @abstractmethod
-    def __len__(self):
+    def end(self) -> int:
         pass
+
+    def __len__(self):
+        return self.end
 
     def seek(self, index: int):
         self.index = index
 
     def __getitem__(self, item):
+        if not self.asm.is_ready:
+            raise ValueError
         if isinstance(item, slice):
             return self.__class__(self.asm, item.start or 0)
         elif not isinstance(item, int):
@@ -98,7 +111,7 @@ class AssemblyView(metaclass=ABCMeta):
     def __iter__(self):
         return self
 
-    def __next__(self):
+    def __next__(self) -> ViewItem:
         if self.index >= len(self):
             raise StopIteration()
         data = self[self.index]
@@ -113,5 +126,6 @@ class ROMView(AssemblyView):
     def index_to_address(cls, index: int):
         return Address.from_rom_offset(index)
 
-    def __len__(self):
+    @property
+    def end(self):
         return len(self.asm.rom)

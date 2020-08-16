@@ -2,7 +2,7 @@ from .address import Address
 from .models import Op
 from .instructions import CODE_POINTS, Instruction
 
-__all__ = ['ROMBytes', 'Decoder']
+__all__ = ['ROMBytes']
 
 
 class ROMBytes:
@@ -35,6 +35,32 @@ class ROMBytes:
             raise IndexError("Decoding cannot stop before its start")
         return Decoder(self, start, stop)
 
+    def decode_instruction(self, offset: int) -> Instruction:
+        """
+        Decode the instruction for which the code is at a given address.
+        This may read more than one byte, or return invalid data.
+        """
+        if isinstance(offset, Address):
+            addr = offset
+            offset = addr.rom_file_offset
+        else:
+            addr = Address.from_rom_offset(offset)
+        op = CODE_POINTS[self.rom[offset]]
+
+        if op.length == 1:
+            parameters = b''
+
+        else:  # length >= 2
+            parameters = bytes(self.rom[offset + 1:offset + op.length])
+
+            if len(parameters) + 1 != op.length:
+                binary = bytes(self.rom[offset:offset + op.length])
+                return Instruction(
+                    Op.Invalid, (), addr, len(binary), binary
+                )
+
+        return op.make_instance(addr, parameters)
+
 
 class Decoder:
     """
@@ -54,43 +80,12 @@ class Decoder:
         else:
             self.stop = min(stop, len(rom))
 
-    def decode_instruction(self, index: int) -> Instruction:
-        """
-        Decode the instruction for which the code is at a given address.
-        This may read more than one byte, or return invalid data.
-        """
-        if isinstance(index, Address):
-            addr = index
-            index = addr.rom_file_offset
-        else:
-            addr = Address.from_rom_offset(index)
-        op = CODE_POINTS[self.rom[index]]
-
-        if op.length == 1:
-            parameters = b''
-
-        else:  # length >= 2
-            parameters = bytes(self.rom[index + 1:index + op.length])
-
-            if len(parameters) + 1 != op.length:
-                binary = bytes(self.rom[index:index + op.length])
-                return Instruction(
-                    Op.Invalid, (), addr, len(binary), binary
-                )
-
-        return op.make_instance(addr, parameters)
-
     def __iter__(self):
         return self
 
     def __next__(self) -> Instruction:
         if self.index >= self.stop:
             raise StopIteration()
-        instr = self.decode_instruction(self.index)
+        instr = self.rom.decode_instruction(self.index)
         self.index += instr.length
         return instr
-
-    def seek(self, index: int):
-        if not 0 <= index < self.stop:
-            raise IndexError("Index out of bounds")
-        self.index = index

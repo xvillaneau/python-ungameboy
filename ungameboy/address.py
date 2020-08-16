@@ -29,6 +29,7 @@ be passed around, and converted into other spaces where needed.
 
 from enum import Enum
 from functools import total_ordering
+import re
 from typing import NamedTuple, Optional
 
 __all__ = [
@@ -89,8 +90,8 @@ class MemoryZone(NamedTuple):
 
     def __repr__(self):
         if self.bank < 0:
-            return f"{self.type.value:>4}   "
-        return f"{self.type.value:>4}{self.bank:03x}"
+            return f"{self.type.value}   "
+        return f"{self.type.value}{self.bank:03x}"
 
     def __contains__(self, item):
         if isinstance(item, Address):
@@ -109,6 +110,42 @@ ROM_ = MemoryZone(ROM, -1)
 class Address(NamedTuple):
     zone: MemoryZone
     offset: int
+
+    _addr_re = re.compile(
+        r"""
+        (?:  
+          0x | \$ |        # For mem addresses, hex prefix compulsory
+          (?:
+            ([a-z]{3,4})?  # Mem type optional, defaults to ROM
+            ([0-9a-f]+)    # Mem bank compulsory
+            :
+          )
+        )
+        ([0-9a-f]{,4})      # Address offset limited to $FFFF 
+        """,
+        flags=re.IGNORECASE | re.VERBOSE,
+    )
+
+    @classmethod
+    def parse(cls, address: str) -> "Address":
+        match = cls._addr_re.fullmatch(address)
+        if match is None:
+            raise ValueError(f"Invalid address: {address}")
+
+        m_type, m_bank, offset = match.groups()
+
+        offset = int(offset, base=16)
+        if m_bank is None:
+            return cls.from_memory_address(offset)
+
+        m_bank = int(m_bank, base=16)
+        m_type = ROM if m_type is None else MemoryType(m_type.upper())
+
+        offset -= m_type.offset
+        if m_type in BANKS and m_bank > 0:
+            offset -= BANKS[m_type][0]
+
+        return Address(MemoryZone(m_type, m_bank), offset)
 
     @classmethod
     def from_rom_offset(cls, offset: int) -> "Address":
