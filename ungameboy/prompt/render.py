@@ -1,7 +1,7 @@
 
 from ..data_block import DataBlock
 from ..disassembler import ViewItem
-from ..instructions import Instruction
+from ..instructions import RawInstruction
 
 MARGIN = ('', '    ')
 
@@ -16,7 +16,7 @@ def render_data(item: ViewItem):
             ('', ':'),
         ])
 
-    if isinstance(data.binary, Instruction):
+    if isinstance(data.binary, RawInstruction):
         instr = data.binary
         lines.append([
             MARGIN,

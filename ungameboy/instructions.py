@@ -2,17 +2,23 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from .address import Address
-from .models import (
-    Op, Operation, Ref, IORef,
+from .enums import (
+    Operation,
+    A, B, C, D, E, H, L,
+    HL, BC, DE, SP, AF,
+    Z, NZ, CY, NC,
+)
+from .data_types import (
+    Ref, IORef,
     ParameterMeta, Byte, Word, SignedByte, SPOffset,
-    A, B, C, D, E, H, L, HL, BC, DE, SP, AF, Z, NZ, CY, NC,
 )
 
-__all__ = ['CODE_POINTS', 'CodePoint', 'Instruction']
+__all__ = ['CODE_POINTS', 'CodePoint', 'RawInstruction']
+Op = Operation
 
 
 @dataclass(frozen=True)
-class Instruction:
+class RawInstruction:
     type: Operation
     args: Tuple
     address: Address
@@ -55,7 +61,7 @@ class CodePoint:
         args_str = ', '.join(map(str, self.visual_args))
         return f"{self.type} {args_str}".strip().lower()
 
-    def make_instance(self, address: Address, parameters: bytes) -> Instruction:
+    def make_instance(self, address, parameters: bytes) -> RawInstruction:
         if len(parameters) + 1 != self.length:
             raise ValueError(
                 f"Expected {self.length - 1} arguments, got {len(parameters)}"
@@ -76,7 +82,7 @@ class CodePoint:
             else:
                 args.append(arg)
 
-        return Instruction(
+        return RawInstruction(
             type=self.type,
             args=tuple(args),
             address=address,
@@ -92,7 +98,7 @@ class BitwiseOps(CodePoint):
         self.length = 2
         self.param_type = Byte
 
-    def make_instance(self, address: Address, parameters: bytes) -> Instruction:
+    def make_instance(self, address: Address, parameters: bytes) -> RawInstruction:
         if len(parameters) != 1:
             raise ValueError(f"Expected 1 argument, got {len(parameters)}")
 
@@ -100,7 +106,7 @@ class BitwiseOps(CodePoint):
         op_type, bit, operand = BITWISE_CODE_POINTS[op_code]
         args = (operand,) if bit is None else (bit, operand)
 
-        return Instruction(
+        return RawInstruction(
             type=op_type,
             args=args,
             address=address,

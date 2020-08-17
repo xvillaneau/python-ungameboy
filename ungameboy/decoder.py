@@ -1,6 +1,6 @@
 from .address import Address
-from .models import Op
-from .instructions import CODE_POINTS, Instruction
+from .enums import Operation
+from .instructions import CODE_POINTS, RawInstruction
 
 __all__ = ['ROMBytes']
 
@@ -35,7 +35,7 @@ class ROMBytes:
             raise IndexError("Decoding cannot stop before its start")
         return Decoder(self, start, stop)
 
-    def decode_instruction(self, offset: int) -> Instruction:
+    def decode_instruction(self, offset: int) -> RawInstruction:
         """
         Decode the instruction for which the code is at a given address.
         This may read more than one byte, or return invalid data.
@@ -55,8 +55,8 @@ class ROMBytes:
 
             if len(parameters) + 1 != op.length:
                 binary = bytes(self.rom[offset:offset + op.length])
-                return Instruction(
-                    Op.Invalid, (), addr, len(binary), binary
+                return RawInstruction(
+                    Operation.Invalid, (), addr, len(binary), binary
                 )
 
         return op.make_instance(addr, parameters)
@@ -83,7 +83,7 @@ class Decoder:
     def __iter__(self):
         return self
 
-    def __next__(self) -> Instruction:
+    def __next__(self) -> RawInstruction:
         if self.index >= self.stop:
             raise StopIteration()
         instr = self.rom.decode_instruction(self.index)

@@ -56,5 +56,5 @@ def data_rename(asm: Disassembler, address: Address, name: str):
 
 
 @register('label.create')
-def data_create(asm: Disassembler, address: Address, name: str):
+def label_create(asm: Disassembler, address: Address, name: str):
     asm.labels.create(address, name)

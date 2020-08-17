@@ -5,7 +5,7 @@ from typing import BinaryIO, List, NamedTuple, Optional, Union
 from .address import Address, ROM
 from .data_block import DataBlock, DataManager
 from .decoder import ROMBytes
-from .instructions import Instruction
+from .instructions import RawInstruction
 from .labels import Label, LabelManager
 
 __all__ = ['AsmData', 'AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
@@ -13,7 +13,7 @@ __all__ = ['AsmData', 'AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
 
 @dataclass
 class AsmData:
-    binary: Union[DataBlock, Instruction]
+    binary: Union[DataBlock, RawInstruction]
     labels: List[Label] = field(default_factory=list)
 
     @property
