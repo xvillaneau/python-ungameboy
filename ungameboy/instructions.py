@@ -24,6 +24,7 @@ class RawInstruction:
     address: Address
     length: int
     bytes: bytes
+    value_pos: int = 0
 
     def __contains__(self, item):
         if not isinstance(item, Address):
@@ -49,12 +50,14 @@ class CodePoint:
 
         self.length = 1
         self.param_type = None
-        for arg in args:
+        self.value_pos = 0
+        for pos, arg in enumerate(args, start=1):
             if isinstance(arg, Ref):
                 arg = arg.target
             if isinstance(arg, ParameterMeta):
                 self.param_type = arg
                 self.length = arg.n_bytes + 1
+                self.value_pos = pos
                 break
 
     def __repr__(self):
@@ -88,6 +91,7 @@ class CodePoint:
             address=address,
             length=self.length,
             bytes=bytes([self.code_point]) + parameters,
+            value_pos=self.value_pos,
         )
 
 
@@ -105,13 +109,15 @@ class BitwiseOps(CodePoint):
         op_code = ord(parameters)
         op_type, bit, operand = BITWISE_CODE_POINTS[op_code]
         args = (operand,) if bit is None else (bit, operand)
+        value_pos = int(bit is not None)
 
         return RawInstruction(
             type=op_type,
             args=args,
             address=address,
             length=2,
-            bytes=bytes([self.code_point, op_code])
+            bytes=bytes([self.code_point, op_code]),
+            value_pos=value_pos,
         )
 
 
