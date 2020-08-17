@@ -8,6 +8,30 @@ from .prompt import UGBPrompt
 from ..disassembler import Disassembler
 
 
+UGB_STYLE = {
+    'ugb.address': 'fg:green',
+    'ugb.bin': 'fg:#aaaaaa',
+    'ugb.instr.op': 'fg:ansiyellow',
+    'ugb.instr.reg': 'fg:ansibrightblue',
+    'ugb.instr.cond': 'fg:ansicyan',
+    'ugb.instr.value': 'fg:ansibrightyellow',
+    'ugb.instr.op.nop': 'fg:ansiblue',
+    'ugb.instr.op.ret': 'fg:ansired bold',
+    'ugb.instr.op.reti': 'fg:ansired bold',
+    'ugb.instr.op.call': 'fg:ansibrightgreen bold',
+    'ugb.instr.op.rst': 'fg:ansibrightgreen bold',
+    'ugb.instr.op.jp': 'fg:ansigreen bold',
+    'ugb.instr.op.jr': 'fg:ansigreen bold',
+    'ugb.instr.op.ld': 'fg:ansibrightmagenta',
+    'ugb.instr.op.ldh': 'fg:ansibrightmagenta',
+    'ugb.instr.op.ldi': 'fg:ansibrightmagenta',
+    'ugb.instr.op.ldd': 'fg:ansibrightmagenta',
+    'ugb.instr.op.pop': 'fg:ansibrightcyan bold',
+    'ugb.instr.op.push': 'fg:ansibrightcyan bold',
+    'ugb.instr.op.invalid': 'fg:ansired',
+}
+
+
 class DisassemblyEditor:
 
     def __init__(self, asm: Disassembler):
@@ -17,14 +41,9 @@ class DisassemblyEditor:
         self.prompt = UGBPrompt(self)
         self.layout = UGBLayout(self)
 
-        ugb_style = Style.from_dict({
-            'ugb.address': 'fg:green',
-            'ugb.bin': 'fg:orange',
-        })
-
         self.app = Application(
             layout=self.layout.layout,
-            style=ugb_style,
+            style=Style.from_dict(UGB_STYLE),
             key_bindings=merge_key_bindings([
                 load_layout_bindings(self),
                 load_buffer_bindings(self),

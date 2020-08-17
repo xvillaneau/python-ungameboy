@@ -1,41 +1,13 @@
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass, field
-from typing import BinaryIO, List, NamedTuple, Optional, Union
+from typing import BinaryIO, NamedTuple, Optional
 
 from .address import Address, ROM
-from .data_block import DataBlock, DataManager
+from .assembly_models import AsmElement, DataBlock, Instruction
+from .data_block import DataManager
 from .decoder import ROMBytes
-from .instructions import RawInstruction
-from .labels import Label, LabelManager
+from .labels import LabelManager
 
-__all__ = ['AsmData', 'AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
-
-
-@dataclass
-class AsmData:
-    binary: Union[DataBlock, RawInstruction]
-    labels: List[Label] = field(default_factory=list)
-
-    @property
-    def address(self) -> Address:
-        return self.binary.address
-
-    @property
-    def length(self) -> int:
-        return self.binary.length
-
-    @property
-    def next_address(self) -> Address:
-        return self.binary.next_address
-
-
-class ViewItem(NamedTuple):
-    item_index: int
-    data: AsmData
-
-    @property
-    def next_index(self):
-        return self.item_index + self.data.length
+__all__ = ['AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
 
 
 class Disassembler:
@@ -55,22 +27,42 @@ class Disassembler:
     def load_rom(self, rom_file: BinaryIO):
         self.rom = ROMBytes(rom_file)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> AsmElement:
         if self.rom is None:
             raise ValueError("No ROM loaded")
         if not isinstance(item, Address):
             raise TypeError()
 
-        data = self.data.get_data(item)
-        if data is not None:
-            binary = data
-        elif item.zone.type is ROM:
-            binary = self.rom.decode_instruction(item.rom_file_offset)
-        else:
-            raise ValueError()
         labels = self.labels.labels_at(item)
 
-        return AsmData(binary, labels)
+        data = self.data.get_data(item)
+        if data is not None:
+            return DataBlock(
+                address=data.address,
+                size=data.length,
+                labels=labels,
+                name=data.description
+            )
+
+        elif item.zone.type is ROM:
+            raw_instr = self.rom.decode_instruction(item.rom_file_offset)
+            return Instruction(
+                address=raw_instr.address,
+                size=raw_instr.length,
+                labels=labels,
+                raw_instruction=raw_instr,
+            )
+
+        raise ValueError()
+
+
+class ViewItem(NamedTuple):
+    item_index: int
+    data: AsmElement
+
+    @property
+    def next_index(self):
+        return self.item_index + self.data.size
 
 
 class AssemblyView(metaclass=ABCMeta):
@@ -126,7 +118,7 @@ class AssemblyView(metaclass=ABCMeta):
             raise StopIteration()
         data = self[self.index]
         item = ViewItem(self.index, data)
-        self.index += data.length
+        self.index += data.size
         return item
 
 

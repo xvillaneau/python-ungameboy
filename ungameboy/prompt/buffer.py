@@ -45,7 +45,8 @@ class AsmBuffer:
         return len(self._buffer)
 
     def window(self):
-        return self[self.scroll_pos:self.scroll_pos + self.height]
+        start, end = self.scroll_pos, self.scroll_pos + self.height
+        return [item.data for item in self[start:end]]
 
     @property
     def start_index(self):
