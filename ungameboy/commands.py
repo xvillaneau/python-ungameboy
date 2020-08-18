@@ -1,60 +1,83 @@
-import shlex
+from functools import update_wrapper
+from typing import BinaryIO, TYPE_CHECKING
+
+import click
 
 from .address import Address
-from .disassembler import Disassembler
 
-COMMANDS = {}
+if TYPE_CHECKING:
+    from .disassembler import Disassembler
 
-
-def eval_and_run(asm: Disassembler, command: str):
-    if not command:
-        raise ValueError()
-    tokens = shlex.split(command)
-    command_tree = COMMANDS
-    while isinstance(command_tree, dict):
-        if tokens[0] not in command_tree:
-            raise ValueError()
-        command_tree = command_tree[tokens[0]]
-        tokens.pop(0)
-    command = command_tree
-
-    address = Address.parse(tokens[0])
-    try:
-        arg = int(tokens[1])
-    except ValueError:
-        arg = tokens[1]
-
-    command(asm, address, arg)
+__all__ = ['create_core_cli']
 
 
-def register(name: str):
-    command_tree = name.split('.')
-
-    def decorator(func):
-        cmd_register = COMMANDS
-        for cmd in command_tree[:-1]:
-            cmd_register = cmd_register.setdefault(cmd, {})
-            if not isinstance(cmd_register, dict):
-                raise ValueError(f"Colliding command namespace at {name}")
-        cmd_register[command_tree[-1]] = func
-        return func
-
-    return decorator
+def pass_object(func):
+    @click.pass_context
+    def command(ctx, *args, **kwargs):
+        return ctx.invoke(func, ctx.obj, *args, **kwargs)
+    return update_wrapper(command, func)
 
 
-@register('data.create')
-def data_create(asm: Disassembler, address: Address, length: int = 1):
-    asm.data.create(address, length)
+def create_core_cli(asm: "Disassembler"):
+
+    @click.group()
+    @click.pass_context
+    def ugb_core_cli(ctx: click.Context):
+        ctx.obj = asm
+
+    ugb_core_cli.add_command(load_rom)
+    ugb_core_cli.add_command(data_cli)
+    ugb_core_cli.add_command(label_cli)
+
+    return ugb_core_cli
 
 
-@register('data.rename')
-def data_rename(asm: Disassembler, address: Address, name: str):
+# Base commands
+
+@click.command()
+@click.argument("rom_path", type=click.File('rb'))
+@pass_object
+def load_rom(asm: "Disassembler", rom_path: BinaryIO):
+    asm.load_rom(rom_path)
+
+
+# Data commands
+
+@click.group("data")
+def data_cli():
+    pass
+
+
+@data_cli.command("create")
+@click.argument("address", type=Address.parse)
+@click.argument("size", type=int, default=1)
+@click.argument("name", default='')
+@pass_object
+def data_create(asm: "Disassembler", address: Address, size=1, name=''):
+    asm.data.create(address, size, name)
+
+
+@data_cli.command("rename")
+@click.argument("address", type=Address.parse)
+@click.argument("name", default='')
+@pass_object
+def data_rename(asm: "Disassembler", address: Address, name=''):
     data = asm.data.get_data(address)
     if data is None:
         return
     data.description = name
 
 
-@register('label.create')
-def label_create(asm: Disassembler, address: Address, name: str):
+# Label commands
+
+@click.group("label")
+def label_cli():
+    pass
+
+
+@label_cli.command("create")
+@click.argument("address", type=Address.parse)
+@click.argument("name")
+@pass_object
+def label_create(asm, address: Address, name: str):
     asm.labels.create(address, name)
