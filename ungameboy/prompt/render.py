@@ -1,6 +1,6 @@
 
 from ..assembly_models import AsmElement, DataBlock, Instruction
-from ..data_types import Byte, IORef, Ref, Word
+from ..data_types import Byte, IORef, Ref, Word, SPOffset
 from ..enums import Condition, DoubleRegister, Register
 from ..labels import Label
 
@@ -40,10 +40,14 @@ def render_instruction(data: Instruction):
                 add(Word(arg + 0xff00), 'value')
             else:  # Should only be the C register
                 add(Word(0xff00), 'value')
-                add('+')
+                add(' + ')
                 add('c', 'reg')
         elif isinstance(arg, (Register, DoubleRegister)):
             add(str(arg).lower(), 'reg')
+        elif isinstance(arg, SPOffset):
+            add('sp', 'reg')
+            add(' + ')
+            add(Byte(arg), 'value')
         elif isinstance(arg, int):
             add(arg, 'value')
         elif isinstance(arg, Label):
