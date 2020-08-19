@@ -4,6 +4,7 @@ from typing import BinaryIO, TYPE_CHECKING
 import click
 
 from .address import Address
+from .project_save import save_project, load_project
 
 if TYPE_CHECKING:
     from .disassembler import Disassembler
@@ -18,7 +19,7 @@ def pass_object(func):
     return update_wrapper(command, func)
 
 
-def create_core_cli(asm: "Disassembler"):
+def create_core_cli(asm: "Disassembler") -> click.Group:
 
     @click.group()
     @click.pass_context
@@ -26,6 +27,7 @@ def create_core_cli(asm: "Disassembler"):
         ctx.obj = asm
 
     ugb_core_cli.add_command(load_rom)
+    ugb_core_cli.add_command(project_cli)
     ugb_core_cli.add_command(data_cli)
     ugb_core_cli.add_command(label_cli)
 
@@ -39,6 +41,33 @@ def create_core_cli(asm: "Disassembler"):
 @pass_object
 def load_rom(asm: "Disassembler", rom_path: BinaryIO):
     asm.load_rom(rom_path)
+
+
+# Project commands
+
+@click.group("project")
+def project_cli():
+    pass
+
+
+@project_cli.command("save")
+@click.argument("name", default='')
+@pass_object
+def project_save(asm: "Disassembler", name: str = ''):
+    if name:
+        asm.project_name = name
+    save_project(asm)
+
+
+@project_cli.command("load")
+@click.argument("name", default='')
+@pass_object
+def project_load(asm: "Disassembler", name: str = ''):
+    if asm.is_loaded:
+        raise ValueError("Project already loaded")
+    if name:
+        asm.project_name = name
+    load_project(asm)
 
 
 # Data commands

@@ -41,3 +41,8 @@ class LabelManager:
 
         self._by_name[name] = address
         self._by_address.setdefault(address, []).append(name)
+
+    def list_items(self):
+        for addr in sorted(self._by_address):
+            for name in self._by_address[addr]:
+                yield Label(addr, name)

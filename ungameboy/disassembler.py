@@ -17,14 +17,23 @@ class Disassembler:
     """
     def __init__(self):
         self.rom: Optional[ROMBytes] = None
+        self.rom_path = None
+        self.project_name = ""
+
         self.data = DataManager()
         self.labels = LabelManager()
 
     @property
-    def is_ready(self):
+    def is_loaded(self):
         return self.rom is not None
 
+    def reset(self):
+        proj_name = self.project_name
+        self.__init__()
+        self.project_name = proj_name
+
     def load_rom(self, rom_file: BinaryIO):
+        self.rom_path = rom_file.name
         self.rom = ROMBytes(rom_file)
 
     def __getitem__(self, item) -> AsmElement:
@@ -102,7 +111,7 @@ class AssemblyView(metaclass=ABCMeta):
         self.index = index
 
     def __getitem__(self, item):
-        if not self.asm.is_ready:
+        if not self.asm.is_loaded:
             raise ValueError
         if isinstance(item, slice):
             return self.__class__(self.asm, item.start or 0)

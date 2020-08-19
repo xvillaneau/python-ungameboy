@@ -8,7 +8,7 @@ setuptools.setup(
     python_requires=">=3.7",
     install_requires=[
         "click",
-        "prompt-tookit",
+        "prompt-toolkit",
     ],
     entry_points={
         "console_scripts": [

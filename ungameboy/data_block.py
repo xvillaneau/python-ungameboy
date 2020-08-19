@@ -48,3 +48,7 @@ class DataManager:
             if address in data
         )
         return next(block_matches, None)
+
+    def list_items(self):
+        for addr in sorted(self.inventory):
+            yield self.inventory[addr]
