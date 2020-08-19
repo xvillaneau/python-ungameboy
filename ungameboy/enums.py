@@ -5,7 +5,7 @@ __all__ = [
     'AF', 'BC', 'DE', 'HL', 'SP',
     'Z', 'NZ', 'CY', 'NC',
     'Register', 'DoubleRegister', 'Condition',
-    'Op', 'Operation',
+    'Operation',
 ]
 
 
@@ -112,6 +112,3 @@ class Operation(str, Enum):
 
     def __str__(self):
         return self.value
-
-
-Op = Operation

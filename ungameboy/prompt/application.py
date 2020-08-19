@@ -14,6 +14,7 @@ UGB_STYLE = {
     'ugb.instr.op': 'fg:ansiyellow',
     'ugb.instr.reg': 'fg:ansibrightblue',
     'ugb.instr.cond': 'fg:ansicyan',
+    'ugb.instr.label': 'fg:ansibrightcyan',
     'ugb.instr.value': 'fg:ansibrightyellow',
     'ugb.instr.op.nop': 'fg:ansiblue',
     'ugb.instr.op.ret': 'fg:ansired bold',
@@ -64,7 +65,7 @@ def run():
     if len(sys.argv) == 3 and sys.argv[1] == '-p':
         asm.project_name = sys.argv[2]
         load_project(asm)
-    elif len(sys.argv) == 1:
+    elif len(sys.argv) == 2:
         with open(sys.argv[1], 'rb') as rom_file:
             asm.load_rom(rom_file)
 

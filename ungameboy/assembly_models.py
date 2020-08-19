@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from .address import Address
 from .instructions import RawInstruction
@@ -27,7 +27,7 @@ class AsmElement:
 @dataclass
 class Instruction(AsmElement):
     raw_instruction: RawInstruction
-    value_symbol: Optional[Label] = None
+    value_symbol: Optional[Union[Address, Label]] = None
 
 
 @dataclass

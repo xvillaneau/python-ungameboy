@@ -4,7 +4,9 @@ from typing import BinaryIO, NamedTuple, Optional
 from .address import Address, ROM
 from .assembly_models import AsmElement, DataBlock, Instruction
 from .data_block import DataManager
+from .data_types import Byte, IORef, Ref, Word
 from .decoder import ROMBytes
+from .enums import Operation as Op
 from .labels import LabelManager
 
 __all__ = ['AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
@@ -55,11 +57,31 @@ class Disassembler:
 
         elif item.zone.type is ROM:
             raw_instr = self.rom.decode_instruction(item.rom_file_offset)
+            addr = None
+
+            if raw_instr.value_pos > 0:
+                arg = raw_instr.args[raw_instr.value_pos - 1]
+                if raw_instr.type in [Op.AbsJump, Op.Call]:
+                    addr = Address.from_memory_address(arg)
+                elif raw_instr.type is Op.RelJump:
+                    addr = raw_instr.next_address + arg
+                elif isinstance(arg, IORef) and isinstance(arg.target, Byte):
+                    addr = Address.from_memory_address(arg.target + 0xff00)
+                elif isinstance(arg, Ref) and isinstance(arg.target, Word):
+                    addr = Address.from_memory_address(arg.target)
+
+            value = addr
+            if addr is not None:
+                dest_labels = self.labels.labels_at(addr)
+                if dest_labels:
+                    value = dest_labels[0]
+
             return Instruction(
                 address=raw_instr.address,
                 size=raw_instr.length,
                 labels=labels,
                 raw_instruction=raw_instr,
+                value_symbol=value,
             )
 
         raise ValueError()

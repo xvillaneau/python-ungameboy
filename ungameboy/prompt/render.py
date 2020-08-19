@@ -1,7 +1,7 @@
 
 from ..assembly_models import AsmElement, DataBlock, Instruction
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
-from ..enums import Condition, DoubleRegister, Register
+from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
 
 MARGIN = ('', '    ')
@@ -35,13 +35,12 @@ def render_instruction(data: Instruction):
 
         # Arg can be: (Double)Register, Byte/Word/SignedByte/SPOffset,
         #   Label, Ref/IORef to any of the previous, condition, integer
-        if ref is IORef:
-            if isinstance(arg, Byte):
-                add(Word(arg + 0xff00), 'value')
-            else:  # Should only be the C register
-                add(Word(0xff00), 'value')
-                add(' + ')
-                add('c', 'reg')
+        if ref is IORef and isinstance(arg, Byte):
+            add(Word(arg + 0xff00), 'value')
+        elif ref is IORef and arg is C:
+            add(Word(0xff00), 'value')
+            add(' + ')
+            add('c', 'reg')
         elif isinstance(arg, (Register, DoubleRegister)):
             add(str(arg).lower(), 'reg')
         elif isinstance(arg, SPOffset):
@@ -51,7 +50,7 @@ def render_instruction(data: Instruction):
         elif isinstance(arg, int):
             add(arg, 'value')
         elif isinstance(arg, Label):
-            add(arg, 'label')
+            add(arg.name, 'label')
         elif isinstance(arg, Condition):
             add(str(arg).lower(), 'cond')
         else:
@@ -76,7 +75,7 @@ def render_data(data: AsmElement):
         instr = data.raw_instruction
         lines.append([
             MARGIN,
-            ('class:ugb.address', f'{instr.address}'),
+            ('class:ugb.address', f'{instr.address!s:>12}'),
             ('', '  '),
             ('class:ugb.bin', f'{instr.bytes.hex():<6}'),
             ('', '  '),

@@ -32,6 +32,8 @@ from functools import total_ordering
 import re
 from typing import NamedTuple, Optional
 
+from .data_types import SignedByte
+
 __all__ = [
     'MemoryType', 'MemoryZone', 'Address',
     'ROM', 'VRAM', 'SRAM', 'WRAM', 'OAM', 'IOR', 'HRAM',
@@ -90,8 +92,8 @@ class MemoryZone(NamedTuple):
 
     def __repr__(self):
         if self.bank < 0:
-            return f"{self.type.value}   "
-        return f"{self.type.value}{self.bank:03x}"
+            return str(self.type.value)
+        return f"{self.type.value}{self.bank:x}"
 
     def __contains__(self, item):
         if isinstance(item, Address):
@@ -191,6 +193,8 @@ class Address(NamedTuple):
         return f"{self.zone}:{self.memory_address:04x}"
 
     def __add__(self, other) -> "Address":
+        if isinstance(other, SignedByte):
+            other = other if other < 0x80 else (other - 256)
         if isinstance(other, int):
             return Address(self.zone, self.offset + other)
         return NotImplemented
