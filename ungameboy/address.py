@@ -35,9 +35,8 @@ from typing import NamedTuple, Optional
 from .data_types import SignedByte
 
 __all__ = [
-    'MemoryType', 'MemoryZone', 'Address',
+    'MemoryType', 'Address', 'BANKS',
     'ROM', 'VRAM', 'SRAM', 'WRAM', 'OAM', 'IOR', 'HRAM',
-    'ROM0', 'ROM_',
 ]
 
 
@@ -49,7 +48,7 @@ class MemoryType(Enum):
     WRAM = ("WRAM", 0xC000, 0x2000)
     ECHO = ("ECHO", 0xE000, 0x1E00)
     OAM = ("OAM", 0xFE00, 0xA0)
-    BAD = ("BAD", 0xFEA0, 0x60)
+    RSV = ("RSV", 0xFEA0, 0x60)  # Reserved, cannot be used
     IOR = ("IOR", 0xFF00, 0x80)
     HRAM = ("HRAM", 0xFF80, 0x80)
 
@@ -82,35 +81,14 @@ BANKS = {
     ROM: (0x4000, 512),
     # VRAM: (0, 2),
     # SRAM: (0, 16),
-    # WRAM: (0, 4),
+    WRAM: (0x1000, 4),
 }
 
 
-class MemoryZone(NamedTuple):
-    type: MemoryType
-    bank: int = 0
-
-    def __repr__(self):
-        if self.bank < 0:
-            return str(self.type.value)
-        return f"{self.type.value}{self.bank:x}"
-
-    def __contains__(self, item):
-        if isinstance(item, Address):
-            if item.zone is not self:
-                return False
-            return 0 <= item.offset < self.type.size
-        if isinstance(item, int):
-            return Address.from_memory_address(item) in self
-        return False
-
-
-ROM0 = MemoryZone(ROM, 0)
-ROM_ = MemoryZone(ROM, -1)
-
-
 class Address(NamedTuple):
-    zone: MemoryZone
+    type: MemoryType
+    # Note on banks: -1 means that the bank # is missing.
+    bank: int
     offset: int
 
     _addr_re = re.compile(
@@ -118,14 +96,15 @@ class Address(NamedTuple):
         (?:
           0x | \$ |        # For mem addresses, hex prefix compulsory
           (?:
-            ([A-Z]{3,4})?  # Mem type defaults to ROM, must be uppercase 
-            ([0-9a-f]+)    # Mem bank compulsory, hex lowercase only
+            ([A-Z]{3,4})?  # Mem type defaults to ROM, must be uppercase
+            \.?            # Optional disambiguation separator 
+            ([0-9a-f]+)?    # Mem bank, hex lowercase only
             :
           )
         )
-        ([0-9a-f]{,4})      # Address offset limited to $FFFF
+        ([0-9a-f]{1,4})      # Address offset limited to $FFFF
         """,
-        flags=re.VERBOSE,
+        flags=re.VERBOSE | re.IGNORECASE,
     )
 
     @classmethod
@@ -137,66 +116,71 @@ class Address(NamedTuple):
         m_type, m_bank, offset = match.groups()
 
         offset = int(offset, base=16)
-        if m_bank is None:
+        if m_bank is None and m_type is None:
             return cls.from_memory_address(offset)
 
-        m_bank = int(m_bank, base=16)
+        m_bank = -1 if m_bank is None else int(m_bank, base=16)
         m_type = ROM if m_type is None else MemoryType(m_type.upper())
 
         offset -= m_type.offset
         if m_type in BANKS and m_bank > 0:
             offset -= BANKS[m_type][0]
 
-        return Address(MemoryZone(m_type, m_bank), offset)
+        return Address(m_type, m_bank, offset)
 
     @classmethod
     def from_rom_offset(cls, offset: int) -> "Address":
         bank, offset = divmod(offset, 0x4000)
-        return Address(MemoryZone(ROM, bank), offset)
+        return Address(ROM, bank, offset)
 
     @classmethod
     def from_memory_address(cls, address: int) -> "Address":
-        zone_type = next(
+        mem_type = next(
             (t for t in MemoryType if t.offset <= address < t.end),
             None,
         )
-        if zone_type is None:
+        if mem_type is None:
             raise ValueError(f"Invalid RAM address {address:x}")
 
-        offset = address - zone_type.offset
-        if zone_type in BANKS:
-            bank_start, _ = BANKS[zone_type]
-            bank_num = 0 if offset < bank_start else -1
+        offset = address - mem_type.offset
+        if mem_type in BANKS:
+            bank_start, _ = BANKS[mem_type]
+            bank = 0 if offset < bank_start else -1
         else:
-            bank_num = -1
+            bank = -1
 
-        return Address(MemoryZone(zone_type, bank_num), offset)
+        return Address(mem_type, bank, offset)
 
     @property
     def rom_file_offset(self) -> Optional[int]:
-        if self.zone.type is not ROM:
+        if self.type is not ROM:
             return None
-        return 0x4000 * self.zone.bank + self.offset
+        return 0x4000 * self.bank + self.offset
 
     @property
     def memory_address(self) -> int:
-        offset = self.offset + self.zone.type.offset
-        if self.zone.type in BANKS and self.zone.bank > 0:
-            offset += BANKS[self.zone.type][0]
+        offset = self.offset + self.type.offset
+        if self.type in BANKS and self.bank > 0:
+            offset += BANKS[self.type][0]
         return offset
 
     @property
     def is_valid(self) -> bool:
-        return self in self.zone
+        # TODO: Check banks
+        return 0 <= self.offset < self.type.size
 
     def __repr__(self):
-        return f"{self.zone}:{self.memory_address:04x}"
+        if self.type not in BANKS:
+            bank_str = ''
+        else:
+            bank_str = f'.{self.bank:x}' if self.bank >= 0 else '.?'
+        return f"{self.type.name}{bank_str}:{self.memory_address:04x}"
 
     def __add__(self, other) -> "Address":
         if isinstance(other, SignedByte):
             other = other if other < 0x80 else (other - 256)
         if isinstance(other, int):
-            return Address(self.zone, self.offset + other)
+            return Address(self.type, self.bank, self.offset + other)
         return NotImplemented
 
     def __sub__(self, other) -> "Address":

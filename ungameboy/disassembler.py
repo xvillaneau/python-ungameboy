@@ -56,7 +56,7 @@ class Disassembler:
                 name=data.description
             )
 
-        elif item.zone.type is ROM:
+        elif item.type is ROM:
             raw_instr = self.rom.decode_instruction(item.rom_file_offset)
             addr = None
 
@@ -162,7 +162,7 @@ class ROMView(AssemblyView):
 
     @classmethod
     def address_to_index(cls, address: Address) -> Optional[int]:
-        if address.zone.type is not ROM:
+        if address.type is not ROM:
             return None
         return address.rom_file_offset
 

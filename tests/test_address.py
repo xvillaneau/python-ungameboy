@@ -1,21 +1,22 @@
 
 from hypothesis import given, strategies as st
 
-from ungameboy.address import Address, MemoryType, MemoryZone
-
-
-memory_zones = st.builds(
-    MemoryZone,
-    type=st.sampled_from(MemoryType),
-    bank=st.integers(min_value=0, max_value=0x1FF),
-)
+from ungameboy.address import BANKS, Address, MemoryType
 
 
 @st.composite
 def addresses(draw):
-    zone = draw(memory_zones)
-    offset = draw(st.integers(min_value=0, max_value=zone.type.size - 1))
-    return Address(zone, offset)
+    mem_type = draw(st.sampled_from(MemoryType))
+
+    if mem_type in BANKS:
+        max_offset, max_banks = BANKS[mem_type]
+        mem_bank = draw(st.integers(min_value=0, max_value=max_banks - 1))
+    else:
+        max_offset = mem_type.size
+        mem_bank = -1
+
+    offset = draw(st.integers(min_value=0, max_value=max_offset - 1))
+    return Address(mem_type, mem_bank, offset)
 
 
 @given(st.integers(min_value=0))
