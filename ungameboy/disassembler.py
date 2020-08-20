@@ -35,7 +35,8 @@ class Disassembler:
         self.project_name = proj_name
 
     def load_rom(self, rom_file: BinaryIO):
-        self.rom_path = rom_file.name
+        if hasattr(rom_file, 'name'):
+            self.rom_path = rom_file.name
         self.rom = ROMBytes(rom_file)
 
     def __getitem__(self, item) -> AsmElement:

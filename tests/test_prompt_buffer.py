@@ -4,7 +4,7 @@ from hypothesis import given, strategies as st
 import pytest
 
 from ungameboy.disassembler import Disassembler, ROMView
-from ungameboy.prompt.buffer import AsmBuffer
+from ungameboy.prompt.control import AsmControl
 
 EXAMPLE_CODE = bytes.fromhex(
     "cdcb03"    # 00 call $03cb
@@ -41,38 +41,40 @@ START_POS = [0, 5, 31, 33]
 def test_load(start):
     asm = Disassembler()
     asm.load_rom(BytesIO(EXAMPLE_CODE))
-    buffer = AsmBuffer(ROMView(asm), index=start, height=5)
+    control = AsmControl(ROMView(asm))
+    control.height = 5
+    control.refresh()
 
     # ROM is short enough for everything to be loaded
-    assert buffer.start_index == 0
-    assert buffer.end_index == len(asm.rom)
-    assert len(buffer.window()) == 5
+    assert control.start_index == 0
+    assert control.end_index == len(asm.rom)
 
 
 def test_empty_buffer():
     asm = Disassembler()
-    buffer = AsmBuffer(ROMView(asm), index=0, height=5)
+    control = AsmControl(ROMView(asm))
 
-    assert buffer.start_index == 0
-    assert buffer.end_index == 0
-    assert len(buffer.window()) == 0
+    assert control.start_index == 0
+    assert control.end_index == 0
 
 
 @given(st.binary(min_size=16, max_size=32768), st.lists(st.integers()))
 def test_random_binary(binary, moves):
     asm = Disassembler()
     asm.load_rom(BytesIO(binary))
-    buffer = AsmBuffer(ROMView(asm), height=5)
+    control = AsmControl(ROMView(asm))
+    control.height = 5
+    control.refresh()
 
-    assert buffer.start_index == 0
-    assert buffer.scroll_index == 0
-    assert buffer.scroll_pos == 0
+    assert control.start_index == 0
+    assert control.scroll_index == 0
+    assert control.scroll_pos == 0
 
-    buffer.move_down(1000)
+    control.move_down(1000)
 
     for move in moves:
-        assert len(buffer) <= buffer.bs * 2
+        assert len(control) <= control.bs * 2
         if move < 0:
-            buffer.move_up(-move)
+            control.move_up(-move)
         else:
-            buffer.move_down(move)
+            control.move_down(move)

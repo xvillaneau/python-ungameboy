@@ -2,7 +2,7 @@ from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import merge_key_bindings
 from prompt_toolkit.styles import Style
 
-from .key_bindings import load_buffer_bindings, load_layout_bindings
+from .key_bindings import load_asm_control_bindings, load_layout_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
 from ..disassembler import Disassembler
@@ -47,7 +47,7 @@ class DisassemblyEditor:
             style=Style.from_dict(UGB_STYLE),
             key_bindings=merge_key_bindings([
                 load_layout_bindings(self),
-                load_buffer_bindings(self),
+                load_asm_control_bindings(self),
             ]),
             full_screen=True,
         )

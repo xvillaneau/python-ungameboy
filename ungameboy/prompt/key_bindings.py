@@ -4,7 +4,6 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.keys import Keys
 
-from .buffer import AsmBuffer
 from .control import AsmControl
 
 
@@ -33,38 +32,38 @@ def load_layout_bindings(editor):
     return bindings
 
 
-def load_buffer_bindings(editor):
+def load_asm_control_bindings(editor):
     bindings = KeyBindings()
     editor_active = ~Condition(lambda: editor.prompt_active)
 
-    def handle_active_buffer(func):
+    def handle_active_asm(func):
         @wraps(func)
         def handler(event: KeyPressEvent) -> None:
             ctrl = event.app.layout.current_control
-            if isinstance(ctrl, AsmControl) and ctrl.buffer is not None:
-                func(ctrl.buffer)
+            if isinstance(ctrl, AsmControl):
+                func(ctrl)
         return handler
 
-    def buffer_binding(key):
+    def asm_control_binding(key):
         def decorator(func):
-            func = handle_active_buffer(func)
+            func = handle_active_asm(func)
             return bindings.add(key, filter=editor_active)(func)
         return decorator
 
-    @buffer_binding("up")
-    def handle_up(buffer: AsmBuffer):
-        buffer.move_up(1)
+    @asm_control_binding("up")
+    def handle_up(ctrl: AsmControl):
+        ctrl.move_up(1)
 
-    @buffer_binding("down")
-    def handle_down(buffer: AsmBuffer):
-        buffer.move_down(1)
+    @asm_control_binding("down")
+    def handle_down(ctrl: AsmControl):
+        ctrl.move_down(1)
 
-    @buffer_binding("pageup")
-    def handle_page_up(buffer: AsmBuffer):
-        buffer.move_up(buffer.height)
+    @asm_control_binding("pageup")
+    def handle_page_up(ctrl: AsmControl):
+        ctrl.move_up(ctrl.height)
 
-    @buffer_binding("pagedown")
-    def handle_page_down(buffer: AsmBuffer):
-        buffer.move_down(buffer.height)
+    @asm_control_binding("pagedown")
+    def handle_page_down(ctrl: AsmControl):
+        ctrl.move_down(ctrl.height)
 
     return bindings

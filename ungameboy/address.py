@@ -118,14 +118,14 @@ class Address(NamedTuple):
         (?:
           0x | \$ |        # For mem addresses, hex prefix compulsory
           (?:
-            ([a-z]{3,4})?  # Mem type optional, defaults to ROM
-            ([0-9a-f]+)    # Mem bank compulsory
+            ([A-Z]{3,4})?  # Mem type defaults to ROM, must be uppercase 
+            ([0-9a-f]+)    # Mem bank compulsory, hex lowercase only
             :
           )
         )
         ([0-9a-f]{,4})      # Address offset limited to $FFFF
         """,
-        flags=re.IGNORECASE | re.VERBOSE,
+        flags=re.VERBOSE,
     )
 
     @classmethod
