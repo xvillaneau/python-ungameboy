@@ -73,6 +73,10 @@ class Disassembler:
 
             value = addr
             if addr is not None:
+                # Auto-detect ROM bank if current instruction requires one
+                if addr.type == item.type == ROM and addr.bank < 0 < item.bank:
+                    value = addr = Address(ROM, item.bank, addr.offset)
+
                 dest_labels = self.labels.get_labels(addr)
                 if dest_labels:
                     value = dest_labels[-1]
