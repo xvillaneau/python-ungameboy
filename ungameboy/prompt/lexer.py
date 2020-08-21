@@ -50,7 +50,10 @@ def render_instruction(data: Instruction):
         elif isinstance(arg, int):
             add(arg, 'value')
         elif isinstance(arg, Label):
-            add(arg.name, 'label')
+            if arg.local_name != '' and arg.global_name == data.scope:
+                add(f'.{arg.local_name}', 'label')
+            else:
+                add(arg.name, 'label')
         elif isinstance(arg, Condition):
             add(str(arg).lower(), 'cond')
         else:
@@ -66,10 +69,16 @@ def render_data(data: AsmElement):
     lines = []
 
     for label in data.labels:
-        lines.append([
-            ('class:ugb.label.global', label.name),
-            ('', ':'),
-        ])
+        if label.local_name:
+            lines.append([
+                ('', '  '),
+                ('class:ugb.label.local', f".{label.local_name}"),
+            ])
+        else:
+            lines.append([
+                ('class:ugb.label.global', label.name),
+                ('', ':'),
+            ])
 
     if isinstance(data, Instruction):
         instr = data.raw_instruction

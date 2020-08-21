@@ -45,7 +45,7 @@ class Disassembler:
         if not isinstance(item, Address):
             raise TypeError()
 
-        labels = self.labels.labels_at(item)
+        labels = self.labels.get_labels(item)
 
         data = self.data.get_data(item)
         if data is not None:
@@ -73,9 +73,15 @@ class Disassembler:
 
             value = addr
             if addr is not None:
-                dest_labels = self.labels.labels_at(addr)
+                dest_labels = self.labels.get_labels(addr)
                 if dest_labels:
-                    value = dest_labels[0]
+                    value = dest_labels[-1]
+
+            scope = self.labels.scope_at(item)
+            if scope is not None:
+                _, scope_name = scope
+            else:
+                scope_name = ''
 
             return Instruction(
                 address=raw_instr.address,
@@ -83,6 +89,7 @@ class Disassembler:
                 labels=labels,
                 raw_instruction=raw_instr,
                 value_symbol=value,
+                scope=scope_name,
             )
 
         raise ValueError()

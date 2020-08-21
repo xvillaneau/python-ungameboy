@@ -28,6 +28,7 @@ class AsmElement:
 class Instruction(AsmElement):
     raw_instruction: RawInstruction
     value_symbol: Optional[Union[Address, Label]] = None
+    scope: str = ''
 
 
 @dataclass
