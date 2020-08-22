@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 from .address import Address
 from .instructions import RawInstruction
 from .labels import Label
+from .sections import Section
 
 
 class ElementType(str, Enum):
@@ -18,6 +19,7 @@ class AsmElement:
     size: int
 
     labels: List[Label]
+    section_start: Optional[Section]
 
     @property
     def next_address(self):

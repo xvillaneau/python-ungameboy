@@ -5,17 +5,26 @@ from prompt_toolkit.styles import Style
 from .key_bindings import load_asm_control_bindings, load_layout_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
+from ..address import Address
 from ..disassembler import Disassembler
 
 
 UGB_STYLE = {
-    'ugb.address': 'fg:green',
+    'ugb.address': 'fg:#10b020',
     'ugb.bin': 'fg:#aaaaaa',
-    'ugb.instr.op': 'fg:ansiyellow',
+    'ugb.data': 'fg:#55cccc',
+    # Sections
+    'ugb.section': 'fg:#aa0000 bold',
+    # Labels
+    'ugb.label.global': 'fg:ansibrightcyan bold',
+    'ugb.label.local': 'fg:ansibrightyellow bold',
+    # Instruction argument colors
     'ugb.instr.reg': 'fg:ansibrightblue',
     'ugb.instr.cond': 'fg:ansicyan',
     'ugb.instr.label': 'fg:ansibrightcyan',
     'ugb.instr.value': 'fg:ansibrightyellow',
+    # Instruction operation colors
+    'ugb.instr.op': 'fg:ansiyellow',
     'ugb.instr.op.nop': 'fg:ansiblue',
     'ugb.instr.op.ret': 'fg:ansired bold',
     'ugb.instr.op.reti': 'fg:ansired bold',
@@ -53,6 +62,8 @@ class DisassemblyEditor:
         )
 
     def run(self):
+        main_offset = Address.from_rom_offset(0x0100)
+        self.layout.main_control.seek(main_offset)
         self.app.run()
 
 

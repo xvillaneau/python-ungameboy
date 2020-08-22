@@ -13,6 +13,14 @@ def get_save_state(asm: "Disassembler"):
     if asm.rom is not None:
         yield ('load-rom', Path(asm.rom_path).resolve())
 
+    for section in asm.sections.list_sections():
+        yield (
+            'section',
+            'create',
+            section.address,
+            section.name,
+        )
+
     for data_blk in asm.data.list_items():
         yield (
             'data',

@@ -8,6 +8,7 @@ from .data_types import Byte, IORef, Ref, Word
 from .decoder import ROMBytes
 from .enums import Operation as Op
 from .labels import LabelManager
+from .sections import SectionManager
 
 __all__ = ['AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
 
@@ -24,6 +25,7 @@ class Disassembler:
 
         self.data = DataManager()
         self.labels = LabelManager()
+        self.sections = SectionManager()
 
     @property
     def is_loaded(self):
@@ -46,6 +48,7 @@ class Disassembler:
             raise TypeError()
 
         labels = self.labels.get_labels(item)
+        section = self.sections.get_section(item)
 
         data = self.data.get_data(item)
         if data is not None:
@@ -53,6 +56,7 @@ class Disassembler:
                 address=data.address,
                 size=data.length,
                 labels=labels,
+                section_start=section,
                 name=data.description
             )
 
@@ -91,6 +95,7 @@ class Disassembler:
                 address=raw_instr.address,
                 size=raw_instr.length,
                 labels=labels,
+                section_start=section,
                 raw_instruction=raw_instr,
                 value_symbol=value,
                 scope=scope_name,

@@ -68,11 +68,21 @@ def render_instruction(data: Instruction):
 def render_data(data: AsmElement):
     lines = []
 
+    if data.section_start is not None:
+        section = data.section_start
+        lines.append([
+            ('class:ugb.section', 'SECTION'),
+            ('', ' "'),
+            ('class:ugb.section.name', section.name),
+            ('', '", '),
+            ('class:ugb.section.address', str(section.address)),
+        ])
+
     for label in data.labels:
         if label.local_name:
             lines.append([
-                ('', '  '),
-                ('class:ugb.label.local', f".{label.local_name}"),
+                ('', '  .'),
+                ('class:ugb.label.local', label.local_name),
             ])
         else:
             lines.append([
@@ -94,16 +104,17 @@ def render_data(data: AsmElement):
     elif isinstance(data, DataBlock):
         lines.append([
             MARGIN,
-            ('class:ugb.address', f'{data.address}'),
-            ('', '  '),
-            ('class:ugb.data.desc', data.name),
+            ('class:ugb.address', f'{data.address!s:>12}'),
+            ('', ' \u2192 '),
+            ('class:ugb.address', f'{data.next_address - 1}'),
         ])
         lines.append([
             MARGIN,
-            ('', '  -> '),
-            ('class:ugb.address', f'{data.next_address - 1}'),
-            ('', ' '),
-            ('class:ugb.data.size', f'(${data.size:02x} bytes)')
+            ('', '    '),
+            ('class:ugb.data.name', data.name),
+            ('', ' ('),
+            ('class:ugb.data.size', f'${data.size} bytes'),
+            ('', ')'),
         ])
 
     return lines

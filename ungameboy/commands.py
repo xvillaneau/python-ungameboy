@@ -30,6 +30,7 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     ugb_core_cli.add_command(project_cli)
     ugb_core_cli.add_command(data_cli)
     ugb_core_cli.add_command(label_cli)
+    ugb_core_cli.add_command(section_cli)
 
     return ugb_core_cli
 
@@ -110,3 +111,18 @@ def label_cli():
 @pass_object
 def label_create(asm, address: Address, name: str):
     asm.labels.create(address, name)
+
+
+# Section commands
+
+@click.group("section")
+def section_cli():
+    pass
+
+
+@section_cli.command("create")
+@click.argument("address", type=Address.parse)
+@click.argument("name")
+@pass_object
+def section_create(asm, address: Address, name: str):
+    asm.sections.create(address, name)
