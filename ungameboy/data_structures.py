@@ -66,6 +66,14 @@ class SortedMapping(MutableMapping[K, V]):
             raise KeyError(item)
         return self._item(pos - 1)
 
+    def get_ge(self, item: K) -> Tuple[K, V]:
+        pos = bisect_right(self._keys, item)
+        if pos > 0 and self._keys[pos - 1] == item:
+            pos -= 1
+        elif pos >= len(self):
+            raise KeyError(item)
+        return self._item(pos)
+
     def get_gt(self, item: K) -> Tuple[K, V]:
         pos = bisect_right(self._keys, item)
         if pos >= len(self):

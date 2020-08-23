@@ -1,6 +1,6 @@
 from .address import Address
 from .enums import Operation
-from .instructions import CODE_POINTS, RawInstruction
+from .instructions import CODE_POINTS, OP_SIZES, RawInstruction
 
 __all__ = ['ROMBytes']
 
@@ -34,6 +34,9 @@ class ROMBytes:
         if stop is not None and stop < start:
             raise IndexError("Decoding cannot stop before its start")
         return Decoder(self, start, stop)
+
+    def size_of(self, offset: int) -> int:
+        return OP_SIZES[self.rom[offset]]
 
     def decode_instruction(self, offset: int) -> RawInstruction:
         """

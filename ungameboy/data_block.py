@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 
 from .address import Address
+from .data_structures import SortedMapping
 
 
 @dataclass
@@ -28,26 +29,35 @@ class Empty(DataBlock):
 class DataManager:
     def __init__(self):
         self.inventory: Dict[Address, DataBlock] = {}
+        self._blocks_map: SortedMapping[Address, int] = SortedMapping()
 
     def create(self, address: Address, length=1, description=''):
         block = DataBlock(address, length, description)
         self.insert(block)
 
     def insert(self, data: DataBlock):
-        if self.get_data(data.address) is not None:
+        next_blk = self.next_block(data.address)
+        if next_blk is not None and next_blk.address < data.next_address:
             raise ValueError("Data overlap detected")
-        if any(addr in data for addr in self.inventory):
-            raise ValueError("Data overlap detected")
+
         self.inventory[data.address] = data
+        self._blocks_map[data.address] = data.length
+
+    def next_block(self, address) -> Optional[DataBlock]:
+        try:
+            addr, _ = self._blocks_map.get_ge(address)
+        except LookupError:
+            return None
+        return self.inventory[addr]
 
     def get_data(self, address):
-        if address in self.inventory:
-            return self.inventory[address]
-        block_matches = (
-            data for data in self.inventory.values()
-            if address in data
-        )
-        return next(block_matches, None)
+        try:
+            addr, size = self._blocks_map.get_le(address)
+        except LookupError:
+            return None
+        if address >= addr + size:
+            return None
+        return self.inventory[addr]
 
     def list_items(self):
         for addr in sorted(self.inventory):

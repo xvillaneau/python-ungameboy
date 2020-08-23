@@ -1,8 +1,10 @@
+from bisect import bisect
 from prompt_toolkit.layout.controls import UIContent, UIControl
 from typing import List
 
 from .lexer import render_data
-from ..disassembler import AssemblyView, ViewItem
+from ..address import Address
+from ..disassembler import AssemblyView, Disassembler, ViewItem
 
 
 NO_ROM = UIContent(
@@ -249,3 +251,69 @@ class AsmControl(UIControl):
         if index is None:
             raise ValueError("Not a valid address for this scope")
         self.move_to(index)
+
+
+class AsmControlV2(UIControl):
+    def __init__(self, asm: Disassembler):
+        self.asm = asm
+        self.lines_count: int = 0
+        self.lines_map: List[Address] = []
+
+    def refresh(self):
+        lines = []
+
+        offset = 0
+        rom_size = len(self.asm.rom)
+        next_data = self.asm.data.next_block(Address.from_rom_offset(0))
+        next_data_offset = (
+            rom_size
+            if next_data is None
+            else next_data.address.rom_file_offset
+        )
+        _size_of = self.asm.rom.size_of
+
+        while offset < rom_size:
+            address = Address.from_rom_offset(offset)
+
+            if offset >= next_data_offset:
+                offset = next_data_offset
+
+                lines.extend([address, address])
+                offset += next_data.length
+                next_data = self.asm.data.next_block(
+                    Address.from_rom_offset(offset)
+                )
+                next_data_offset = (
+                    rom_size
+                    if next_data is None
+                    else next_data.address.rom_file_offset
+                )
+
+            else:
+                lines.append(address)
+                offset += _size_of(offset)
+
+        for section in self.asm.sections.list_sections():
+            pos = bisect(lines, section.address)
+            lines.insert(pos, section.address)
+
+        for label in self.asm.labels.list_items():
+            pos = bisect(lines, label.address)
+            lines.insert(pos, label.address)
+
+        self.lines_map = lines
+        self.lines_count = len(lines)
+
+    def get_line(self, line: int):
+        addr = self.lines_map[line]
+        ref_line = line
+        while ref_line > 0 and self.lines_map[ref_line - 1] == addr:
+            ref_line -= 1
+
+        lines = render_data(self.asm[addr])
+        return lines[line - ref_line]
+
+    def create_content(self, width: int, height: int) -> UIContent:
+        self.refresh()
+
+        return UIContent(self.get_line, self.lines_count, show_cursor=False)
