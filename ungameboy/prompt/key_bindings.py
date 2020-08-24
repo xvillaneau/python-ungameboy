@@ -52,18 +52,28 @@ def load_asm_control_bindings(editor):
 
     @asm_control_binding("up")
     def handle_up(ctrl: AsmControl):
-        ctrl.move_up(1)
+        ctrl.current_view.move_up(1)
 
     @asm_control_binding("down")
     def handle_down(ctrl: AsmControl):
-        ctrl.move_down(1)
+        ctrl.current_view.move_down(1)
 
-    @asm_control_binding("pageup")
-    def handle_page_up(ctrl: AsmControl):
-        ctrl.move_up(ctrl.height)
+    @bindings.add("pageup", filter=editor_active)
+    def handle_page_up(event: KeyPressEvent):
+        window = event.app.layout.current_window
+        if not (window and window.render_info):
+            return
+        ctrl = window.content
+        if isinstance(ctrl, AsmControl):
+            ctrl.current_view.move_up(window.render_info.window_height)
 
-    @asm_control_binding("pagedown")
-    def handle_page_down(ctrl: AsmControl):
-        ctrl.move_down(ctrl.height)
+    @bindings.add("pagedown", filter=editor_active)
+    def handle_page_down(event: KeyPressEvent):
+        window = event.app.layout.current_window
+        if not (window and window.render_info):
+            return
+        ctrl = window.content
+        if isinstance(ctrl, AsmControl):
+            ctrl.current_view.move_down(window.render_info.window_height)
 
     return bindings

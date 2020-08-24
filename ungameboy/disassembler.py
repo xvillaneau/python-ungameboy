@@ -1,5 +1,4 @@
-from abc import ABCMeta, abstractmethod
-from typing import BinaryIO, NamedTuple, Optional
+from typing import BinaryIO, Optional
 
 from .address import Address, ROM
 from .assembly_models import AsmElement, DataBlock, Instruction
@@ -10,7 +9,7 @@ from .enums import Operation as Op
 from .labels import LabelManager
 from .sections import SectionManager
 
-__all__ = ['AssemblyView', 'Disassembler', 'ROMView', 'ViewItem']
+__all__ = ['Disassembler']
 
 
 class Disassembler:
@@ -102,86 +101,3 @@ class Disassembler:
             )
 
         raise ValueError()
-
-
-class ViewItem(NamedTuple):
-    item_index: int
-    data: AsmElement
-
-    @property
-    def next_index(self):
-        return self.item_index + self.data.size
-
-
-class AssemblyView(metaclass=ABCMeta):
-    """
-    Abstract base class for other "Assembly View" classes.
-
-    An "Assembly View" is a linear representation of a section of the
-    global address space. It is linear in the sense that it can be
-    queried with an index and handles converting that index into a
-    global address that the disassembler can understand. This allows
-    client classes (the buffer, mainly) to not need to worry about
-    doing arithmetics with addresses.
-    """
-    def __init__(self, asm: Disassembler, start: int = 0):
-        self.asm = asm
-        self.index = start
-
-    @classmethod
-    @abstractmethod
-    def index_to_address(cls, index: int) -> Address:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def address_to_index(cls, address: Address) -> Optional[int]:
-        pass
-
-    @property
-    @abstractmethod
-    def end(self) -> int:
-        pass
-
-    def __len__(self):
-        return self.end
-
-    def seek(self, index: int):
-        self.index = index
-
-    def __getitem__(self, item):
-        if not self.asm.is_loaded:
-            raise ValueError
-        if isinstance(item, slice):
-            return self.__class__(self.asm, item.start or 0)
-        elif not isinstance(item, int):
-            raise TypeError()
-        return self.asm[self.index_to_address(item)]
-
-    def __iter__(self):
-        return self
-
-    def __next__(self) -> ViewItem:
-        if self.index >= len(self):
-            raise StopIteration()
-        data = self[self.index]
-        item = ViewItem(self.index, data)
-        self.index += data.size
-        return item
-
-
-class ROMView(AssemblyView):
-    """View that only includes the ROM"""
-    @classmethod
-    def index_to_address(cls, index: int) -> Address:
-        return Address.from_rom_offset(index)
-
-    @classmethod
-    def address_to_index(cls, address: Address) -> Optional[int]:
-        if address.type is not ROM:
-            return None
-        return address.rom_file_offset
-
-    @property
-    def end(self):
-        return len(self.asm.rom)

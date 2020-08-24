@@ -1,10 +1,15 @@
-from bisect import bisect
+from bisect import bisect_right
+from typing import TYPE_CHECKING, Dict, List, Tuple
+
+from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import UIContent, UIControl
-from typing import List
 
 from .lexer import render_data
-from ..address import Address
-from ..disassembler import AssemblyView, Disassembler, ViewItem
+from ..address import ROM, Address, MemoryType
+
+if TYPE_CHECKING:
+    from prompt_toolkit.layout import Window
+    from ..disassembler import Disassembler
 
 
 NO_ROM = UIContent(
@@ -15,305 +20,133 @@ NO_ROM = UIContent(
 
 
 class AsmControl(UIControl):
-    padding = 64
-    bs = 256
+    def __init__(self, asm: "Disassembler"):
+        self.asm = asm
 
-    def __init__(self, view: AssemblyView):
-        self.view = view
-        self.scroll_index = 0
-        self.scroll_pos = 0
-        self.height = 1
+        self.views: Dict[Tuple[MemoryType, int], AsmRegionView] = {}
+        self.current_zone = (ROM, 0)
+        self.load_zone(self.current_zone)
 
-        self._buffer: List[ViewItem] = []
-        self.refresh()
+    def create_content(self, width: int, height: int) -> UIContent:
+        return UIContent(
+            self.current_view.get_line,
+            self.current_view.lines_count,
+            cursor_position=Point(0, self.current_view.cursor_line),
+            show_cursor=False,
+        )
 
     def is_focusable(self) -> bool:
         return True
 
-    def create_content(self, width: int, height: int) -> "UIContent":
-        if not self.view.asm.is_loaded:
-            return NO_ROM
+    @property
+    def current_view(self) -> "AsmRegionView":
+        return self.views[self.current_zone]
 
-        if self.height != height:
-            self.height = height
+    def load_zone(self, zone: Tuple[MemoryType, int]):
+        self.current_zone = zone
+        if zone in self.views:
             self.refresh()
-
-        lines = []
-        pos = self.scroll_pos
-        for item in self[pos:pos + self.height]:
-            lines.extend(render_data(item.data))
-
-        return UIContent(
-            lines.__getitem__,
-            line_count=len(lines),
-            show_cursor=False,
-        )
-
-    def __getitem__(self, item):
-        return self._buffer[item]
-
-    def __len__(self):
-        return len(self._buffer)
-
-    @property
-    def start_index(self):
-        if not self._buffer:
-            return self.scroll_index
-        return self[0].item_index
-
-    @property
-    def end_index(self):
-        if not self._buffer:
-            return self.scroll_index
-        return self[-1].next_index
+        else:
+            self.views[zone] = AsmRegionView(self.asm, *zone)
 
     def refresh(self):
-        """Clear the buffer and re-render from the current index"""
-        self._buffer.clear()
-        self.scroll_pos = 0
-        if not self.view.asm.is_loaded:
-            return
+        self.current_view.build_names_map()
 
-        for data in self.view[self.scroll_index:]:
-            self._buffer.append(data)
-            if len(self) >= self.height:
-                break
-        else:
-            # Reached end of ROM: force window up
-            self.move_up(self.height - len(self))
+    def get_vertical_scroll(self, _: "Window") -> int:
+        return self.current_view.cursor_line
 
-        self._extend_down(self[self.height - 1].next_index + self.padding)
-        self._extend_up(self.scroll_index - self.padding)
-
-    def index_position(self, index: int):
-        """Find the position that corresponds to a given index"""
-        if not self.start_index <= index < self.end_index:
-            raise IndexError()
-
-        # The elements in the buffer should always be sorted by index
-        # in a strictly increasing order. This means that we can apply
-        # the bisection method to find the index efficiently.
-        a, b = 0, len(self) - 1
-        while True:
-            pivot = a + (b - a) // 2
-            data = self[pivot]
-            if data.item_index <= index < data.next_index:
-                return pivot
-            if data.item_index < index:
-                a = pivot + 1
-            else:
-                b = pivot - 1
-
-    def _extend_down(self, new_end_index: int):
-        """
-        Extend the buffer with new lines such that the given index is
-        covered. Extensions are done in blocks of 256 bytes.
-        """
-        if self.end_index == len(self.view):
-            return
-        if new_end_index <= self.end_index:
-            return
-        if new_end_index > len(self.view):
-            new_end_index = len(self.view)
-        # Round up to nearest block
-        new_end_index = ((new_end_index - 1) // self.bs + 1) * self.bs
-
-        new_block = []
-        for data in self.view[self.end_index:]:
-            new_block.append(data)
-            if data.next_index >= new_end_index:
-                break
-
-        self._buffer.extend(new_block)
-
-    def _extend_up(self, new_start_index: int):
-        """
-        Add new data to the start of the buffer such that the given
-        index is covered.
-        """
-        if new_start_index >= self.start_index:
-            return
-        if new_start_index < 0:
-            new_start_index = 0
-        # Round down to nearest block
-        new_start_index = (new_start_index // self.bs) * self.bs
-
-        # Adding data at the start of the buffer is a little tricky,
-        # because it is possible for the start of the existing buffer
-        # to not match the end of the new data (e.g. if previous block
-        # boundary landed in the middle of a multi-byte instruction).
-        # So this code keeps taking elements until the indices match.
-        trim = 0
-        target_index = self[trim].item_index
-
-        new_block = []
-        for data in self.view[new_start_index:]:
-            new_block.append(data)
-
-            if data.next_index < target_index:
-                # Not enough new elements yet
-                continue
-
-            while data.next_index > target_index:
-                # Mismatch between old and new data: mark the head
-                # element for removal.
-                trim += 1
-                target_index = self[trim].item_index
-
-            if data.next_index == target_index:
-                break
-
-        self._buffer = new_block + self._buffer[trim:]
-
-        if self.scroll_pos < trim:
-            # If the cursor was in the overlap, look up its new position
-            self.scroll_pos = self.index_position(self.scroll_index)
-        else:
-            self.scroll_pos += len(new_block) - trim
-
-    def _trim_up(self):
-        """Remove unneeded buffer space at the start"""
-        window_start = self.scroll_index - self.padding
-
-        if window_start - self.start_index >= self.bs:
-            # New start index, rounded down to the block
-            target_start = (window_start // self.bs) * self.bs
-            start_pos = self.index_position(target_start)
-
-            self.scroll_pos -= start_pos
-            self._buffer = self._buffer[start_pos:]
-
-    def _trim_down(self):
-        """Remove unneeded buffer space at the end"""
-        end_pos = min(len(self), self.scroll_pos + self.height)
-        end_index = self[end_pos - 1].next_index + self.padding
-
-        if self.end_index - end_index >= self.bs:
-            # New end index, rounded up to the block
-            target_end = ((end_index - 1) // self.bs + 1) * self.bs
-            self._buffer = self._buffer[:self.index_position(target_end)]
-
-    def move_down(self, count: int):
-        """Scroll down the display window by a given # of elements"""
-        while count > 0:
-            # Limit the move requested to how many lines are available
-            # in the buffer, window size taken into account. Large moves
-            # may need to be done in several steps, hence the loop.
-            new_pos = min(
-                len(self) - self.height,
-                self.scroll_pos + count
-            )
-            count -= new_pos - self.scroll_pos
-
-            self.scroll_pos = new_pos
-            self.scroll_index = self[new_pos].item_index
-
-            end_index = self[new_pos + self.height - 1].next_index
-            self._extend_down(end_index + self.padding)
-            self._trim_up()
-
-            if end_index >= len(self.view):
-                return
-
-    def move_up(self, count: int):
-        """Scroll up the display window by a given # of elements"""
-        while count > 0:
-            # Limit the move requested to how many lines are available
-            # in the buffer, window size taken into account. Large moves
-            # may need to be done in several steps, hence the loop.
-            new_pos = max(0, self.scroll_pos - count)
-            count -= self.scroll_pos - new_pos
-
-            self.scroll_pos = new_pos
-            self.scroll_index = self[new_pos].item_index
-
-            self._extend_up(self.scroll_index - self.padding)
-            self._trim_down()
-
-            if self.scroll_index == 0:
-                count = 0
-
-    def move_to(self, index: int):
-        distance = index - self.scroll_index
-        # The use of padding as limit for the relative moves is
-        # completely arbitrary, and incorrect. That's OK.
-        if 0 <= distance <= self.padding:  # New pos is lower
-            self.move_down(distance)
-        elif 0 < -distance <= self.padding:  # New pos is higher
-            self.move_up(-distance)
-        else:
-            index = max(0, min(index, len(self.view)))
-            self.scroll_index = index
-            self.refresh()
-
-    def seek(self, address):
-        index = self.view.address_to_index(address)
-        if index is None:
-            raise ValueError("Not a valid address for this scope")
-        self.move_to(index)
+    def seek(self, address: Address):
+        if address.bank < 0:
+            raise ValueError("Cannot seek address with missing ROM bank")
+        zone = (address.type, address.bank)
+        if self.current_zone != zone:
+            self.load_zone(zone)
+        self.current_view.cursor = address
 
 
-class AsmControlV2(UIControl):
-    def __init__(self, asm: Disassembler):
+class AsmRegionView:
+    def __init__(self, asm: "Disassembler", mem_type: MemoryType, mem_bank: int = 0):
         self.asm = asm
+        self.mem_type = mem_type
+        self.mem_bank = mem_bank
+
+        self.cursor = Address(mem_type, mem_bank, 0)
+
+        self._lines: List[int] = []
+        self._addr: List[int] = []
         self.lines_count: int = 0
-        self.lines_map: List[Address] = []
 
-    def refresh(self):
-        lines = []
+        self.build_names_map()
 
-        offset = 0
-        rom_size = len(self.asm.rom)
-        next_data = self.asm.data.next_block(Address.from_rom_offset(0))
-        next_data_offset = (
-            rom_size
-            if next_data is None
-            else next_data.address.rom_file_offset
+    @property
+    def cursor_line(self) -> int:
+        pos = bisect_right(self._addr, self.cursor)
+        if pos == 0:
+            return 0
+        else:
+            return self._lines[pos - 1]
+
+    def build_names_map(self):
+        self._lines.clear()
+        self._addr.clear()
+
+        address = Address(self.mem_type, self.mem_bank, 0)
+        end_addr = address.zone_end + 1
+
+        n_lines = 0
+        next_data = self.asm.data.next_block(address)
+        next_data_addr = (
+            end_addr if next_data is None else next_data.address
         )
+        _is_rom = self.mem_type is ROM
         _size_of = self.asm.rom.size_of
 
-        while offset < rom_size:
-            address = Address.from_rom_offset(offset)
+        while address < end_addr:
+            self._lines.append(n_lines)
+            self._addr.append(address)
 
-            if offset >= next_data_offset:
-                offset = next_data_offset
+            if self.asm.sections.get_section(address) is not None:
+                n_lines += 1
+            n_lines += len(self.asm.labels.get_labels(address))
 
-                lines.extend([address, address])
-                offset += next_data.length
-                next_data = self.asm.data.next_block(
-                    Address.from_rom_offset(offset)
+            if address >= next_data_addr:
+                n_lines += 2
+                address = next_data.next_address
+
+                next_data = self.asm.data.next_block(address)
+                next_data_addr = (
+                    end_addr if next_data is None else next_data.address
                 )
-                next_data_offset = (
-                    rom_size
-                    if next_data is None
-                    else next_data.address.rom_file_offset
-                )
+
+            elif _is_rom:
+                n_lines += 1
+                address += _size_of(address.rom_file_offset)
 
             else:
-                lines.append(address)
-                offset += _size_of(offset)
+                n_lines += 1
+                address += 1
 
-        for section in self.asm.sections.list_sections():
-            pos = bisect(lines, section.address)
-            lines.insert(pos, section.address)
-
-        for label in self.asm.labels.list_items():
-            pos = bisect(lines, label.address)
-            lines.insert(pos, label.address)
-
-        self.lines_map = lines
-        self.lines_count = len(lines)
+        self.lines_count = n_lines
 
     def get_line(self, line: int):
-        addr = self.lines_map[line]
-        ref_line = line
-        while ref_line > 0 and self.lines_map[ref_line - 1] == addr:
-            ref_line -= 1
+        pos = bisect_right(self._lines, line)
+        if pos == 0:
+            return []
+
+        addr = self._addr[pos - 1]
+        ref_line = self._lines[pos - 1]
 
         lines = render_data(self.asm[addr])
         return lines[line - ref_line]
 
-    def create_content(self, width: int, height: int) -> UIContent:
-        self.refresh()
+    def move_up(self, lines: int):
+        if lines <= 0:
+            return
+        pos = bisect_right(self._addr, self.cursor)
+        self.cursor = self._addr[max(0, pos - lines - 1)]
 
-        return UIContent(self.get_line, self.lines_count, show_cursor=False)
+    def move_down(self, lines: int):
+        if lines <= 0:
+            return
+        pos = bisect_right(self._addr, self.cursor)
+        self.cursor = self._addr[min(len(self._addr), pos + lines) - 1]

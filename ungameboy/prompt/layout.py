@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from prompt_toolkit.layout import HSplit, Layout, Window
 
 from .control import AsmControl
-from ..disassembler import ROMView
 
 if TYPE_CHECKING:
     from .application import DisassemblyEditor
@@ -11,11 +10,13 @@ if TYPE_CHECKING:
 
 class UGBLayout:
     def __init__(self, editor: "DisassemblyEditor"):
-        view = ROMView(editor.disassembler)
-        self.main_control = AsmControl(view)
-        self.last_control = self.main_control
+        self.main_control = AsmControl(editor.disassembler)
 
-        main_window = Window(content=self.main_control)
+        main_window = Window(
+            content=self.main_control,
+            allow_scroll_beyond_bottom=True,
+            get_vertical_scroll=self.main_control.get_vertical_scroll,
+        )
         # noinspection PyTypeChecker
         body = HSplit([
             main_window,

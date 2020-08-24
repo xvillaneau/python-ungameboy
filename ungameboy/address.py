@@ -97,7 +97,7 @@ class Address(NamedTuple):
           0x | \$ |        # For mem addresses, hex prefix compulsory
           (?:
             ([A-Z]{3,4})?  # Mem type defaults to ROM, must be uppercase
-            \.?            # Optional disambiguation separator 
+            \.?            # Optional disambiguation separator
             ([0-9a-f]+)?    # Mem bank, hex lowercase only
             :
           )
@@ -125,6 +125,8 @@ class Address(NamedTuple):
         offset -= m_type.offset
         if m_type in BANKS and m_bank > 0:
             offset -= BANKS[m_type][0]
+        elif m_type not in BANKS:
+            m_bank = 0
 
         return Address(m_type, m_bank, offset)
 
@@ -145,9 +147,12 @@ class Address(NamedTuple):
         offset = address - mem_type.offset
         if mem_type in BANKS:
             bank_start, _ = BANKS[mem_type]
-            bank = 0 if offset < bank_start else -1
+            bank = 0
+            if offset >= bank_start:
+                bank = -1
+                offset -= bank_start
         else:
-            bank = -1
+            bank = 0
 
         return Address(mem_type, bank, offset)
 
@@ -163,6 +168,14 @@ class Address(NamedTuple):
         if self.type in BANKS and self.bank > 0:
             offset += BANKS[self.type][0]
         return offset
+
+    @property
+    def zone_end(self) -> "Address":
+        if self.type in BANKS:
+            zone_size = BANKS[self.type][0]
+        else:
+            zone_size = self.type.size
+        return Address(self.type, self.bank, zone_size - 1)
 
     @property
     def is_valid(self) -> bool:
