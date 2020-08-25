@@ -1,5 +1,5 @@
 from bisect import bisect_right
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
@@ -8,10 +8,12 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .lexer import render_data
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
+from ..disassembler import Disassembler, Instruction
+from ..enums import Operation as Op
+from ..labels import Label
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
-    from ..disassembler import Disassembler
 
 
 NO_ROM = UIContent(
@@ -19,14 +21,15 @@ NO_ROM = UIContent(
     line_count=1,
     show_cursor=False,
 )
+JUMPS = {Op.AbsJump, Op.RelJump, Op.Call}
 
 
 class AsmControl(UIControl):
     def __init__(self, asm: "Disassembler"):
         self.asm = asm
 
-        self.views: Dict[Tuple[MemoryType, int], AsmRegionView] = {}
-        self.current_zone = (ROM, 0)
+        self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
+        self.current_view = AsmRegionView(self, ROM, 0)
 
         self.cursor = Address(ROM, 0, 0)
         self.cursor_mode = False
@@ -48,17 +51,9 @@ class AsmControl(UIControl):
     def is_focusable(self) -> bool:
         return True
 
-    @property
-    def current_view(self) -> "AsmRegionView":
-        return self.views[self.current_zone]
-
     def load_zone(self, zone: Tuple[MemoryType, int]):
-        self._reset_scroll = True
         self.current_zone = zone
-        if zone in self.views:
-            self.refresh()
-        else:
-            self.views[zone] = AsmRegionView(self, *zone)
+        self.current_view = AsmRegionView(self, *zone)
 
     def refresh(self):
         self.current_view.build_names_map()
@@ -89,6 +84,7 @@ class AsmControl(UIControl):
         zone = (address.type, address.bank)
         if self.current_zone != zone:
             self.load_zone(zone)
+        self._reset_scroll = True
         self.cursor = address
 
     def seek(self, address: Address):
@@ -106,6 +102,21 @@ class AsmControl(UIControl):
         if not self._stack.can_redo:
             return
         self._seek(self._stack.redo())
+
+    def follow_jump(self):
+        item = self.asm[self.cursor]
+        if not isinstance(item, Instruction):
+            return
+        if item.raw_instruction.type not in JUMPS:
+            return
+
+        dest = item.value_symbol
+        if isinstance(dest, Label):
+            dest = dest.address
+        elif not isinstance(dest, Address):
+            return
+
+        self.seek(dest)
 
     def move_up(self, lines: int):
         if lines <= 0:

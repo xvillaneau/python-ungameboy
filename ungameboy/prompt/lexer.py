@@ -1,8 +1,8 @@
 from typing import Optional
 
 from ..address import Address
-from ..assembly_models import AsmElement, DataBlock, Instruction
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
+from ..disassembler import AsmElement, DataBlock, Instruction
 from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
 

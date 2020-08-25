@@ -1,15 +1,16 @@
-from typing import BinaryIO, Optional
+from dataclasses import dataclass
+from typing import BinaryIO, Optional, List, Union
 
 from .address import Address, ROM
-from .assembly_models import AsmElement, DataBlock, Instruction
 from .data_block import DataManager
 from .data_types import Byte, IORef, Ref, Word
 from .decoder import ROMBytes
 from .enums import Operation as Op
-from .labels import LabelManager
-from .sections import SectionManager
+from .instructions import RawInstruction
+from .labels import LabelManager, Label
+from .sections import SectionManager, Section
 
-__all__ = ['Disassembler']
+__all__ = ['AsmElement', 'DataBlock', 'Disassembler', 'Instruction']
 
 
 class Disassembler:
@@ -40,7 +41,7 @@ class Disassembler:
             self.rom_path = rom_file.name
         self.rom = ROMBytes(rom_file)
 
-    def __getitem__(self, item) -> AsmElement:
+    def __getitem__(self, item) -> "AsmElement":
         if self.rom is None:
             raise ValueError("No ROM loaded")
         if not isinstance(item, Address):
@@ -101,3 +102,38 @@ class Disassembler:
             )
 
         raise ValueError()
+
+
+@dataclass
+class AsmElement:
+    address: Address
+    size: int
+
+    labels: List[Label]
+    section_start: Optional[Section]
+
+    @property
+    def next_address(self):
+        return self.address + self.size
+
+
+@dataclass
+class Instruction(AsmElement):
+    raw_instruction: RawInstruction
+    value_symbol: Optional[Union[Address, Label]] = None
+    scope: str = ''
+
+
+@dataclass
+class DataBlock(AsmElement):
+    name: str
+
+
+@dataclass
+class EmptyROM(AsmElement):
+    pass
+
+
+@dataclass
+class Register(AsmElement):
+    pass

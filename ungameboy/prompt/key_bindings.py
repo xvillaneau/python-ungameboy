@@ -62,6 +62,10 @@ def load_asm_control_bindings(editor):
     def redo_seek(ctrl: AsmControl):
         ctrl.redo_seek()
 
+    @asm_control_binding("enter")
+    def follow_jump(ctrl: AsmControl):
+        ctrl.follow_jump()
+
     @asm_control_binding("up")
     def handle_up(ctrl: AsmControl):
         ctrl.move_up(1)
