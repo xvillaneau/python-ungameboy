@@ -165,7 +165,7 @@ class Address(NamedTuple):
     @property
     def memory_address(self) -> int:
         offset = self.offset + self.type.offset
-        if self.type in BANKS and self.bank > 0:
+        if self.type in BANKS and self.bank != 0:
             offset += BANKS[self.type][0]
         return offset
 
@@ -186,7 +186,7 @@ class Address(NamedTuple):
         if self.type not in BANKS:
             bank_str = ''
         else:
-            bank_str = f'.{self.bank:x}' if self.bank >= 0 else '.?'
+            bank_str = f'.{self.bank:x}' if self.bank >= 0 else '.X'
         return f"{self.type.name}{bank_str}:{self.memory_address:04x}"
 
     def __add__(self, other) -> "Address":

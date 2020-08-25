@@ -87,7 +87,7 @@ class Disassembler:
 
             scope = self.labels.scope_at(item)
             if scope is not None:
-                _, scope_name = scope
+                scope_name = scope[1][-1]
             else:
                 scope_name = ''
 

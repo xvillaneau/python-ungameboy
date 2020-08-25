@@ -112,6 +112,19 @@ def label_cli():
 def label_create(asm, address: Address, name: str):
     asm.labels.create(address, name)
 
+@label_cli.command("rename")
+@click.argument("old_name")
+@click.argument("new_name")
+@pass_object
+def label_rename(asm, old_name: str, new_name: str):
+    asm.labels.rename(old_name, new_name)
+
+@label_cli.command("delete")
+@click.argument("name")
+@pass_object
+def label_delete(asm, name: str):
+    asm.labels.delete(name)
+
 
 # Section commands
 
