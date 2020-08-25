@@ -54,6 +54,14 @@ def load_asm_control_bindings(editor):
     def toggle_cursor(ctrl: AsmControl):
         ctrl.toggle_cursor_mode()
 
+    @asm_control_binding("u")
+    def undo_seek(ctrl: AsmControl):
+        ctrl.undo_seek()
+
+    @asm_control_binding("U")
+    def redo_seek(ctrl: AsmControl):
+        ctrl.redo_seek()
+
     @asm_control_binding("up")
     def handle_up(ctrl: AsmControl):
         ctrl.move_up(1)

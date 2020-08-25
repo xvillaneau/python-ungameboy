@@ -7,6 +7,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 
 from .lexer import render_data
 from ..address import ROM, Address, MemoryType
+from ..data_structures import StateStack
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
@@ -29,6 +30,10 @@ class AsmControl(UIControl):
 
         self.cursor = Address(ROM, 0, 0)
         self.cursor_mode = False
+        self._reset_scroll = False
+
+        self._stack: StateStack[Address] = StateStack()
+        self._stack.push(self.cursor)
 
         self.load_zone(self.current_zone)
 
@@ -48,6 +53,7 @@ class AsmControl(UIControl):
         return self.views[self.current_zone]
 
     def load_zone(self, zone: Tuple[MemoryType, int]):
+        self._reset_scroll = True
         self.current_zone = zone
         if zone in self.views:
             self.refresh()
@@ -62,9 +68,10 @@ class AsmControl(UIControl):
         return self.current_view.find_line(self.cursor)
 
     def get_vertical_scroll(self, window: "Window") -> int:
-        if self.cursor_mode:
+        if self.cursor_mode and not self._reset_scroll:
             return window.vertical_scroll
         else:
+            self._reset_scroll = False
             return self.cursor_position
 
     def toggle_cursor_mode(self):
@@ -78,13 +85,27 @@ class AsmControl(UIControl):
 
         self.cursor_mode = not self.cursor_mode
 
-    def seek(self, address: Address):
-        if address.bank < 0:
-            raise ValueError("Cannot seek address with missing ROM bank")
+    def _seek(self, address: Address):
         zone = (address.type, address.bank)
         if self.current_zone != zone:
             self.load_zone(zone)
         self.cursor = address
+
+    def seek(self, address: Address):
+        if address.bank < 0:
+            raise ValueError("Cannot seek address with missing ROM bank")
+        self._stack.push(address)
+        self._seek(address)
+
+    def undo_seek(self):
+        if not self._stack.can_undo:
+            return
+        self._seek(self._stack.undo())
+
+    def redo_seek(self):
+        if not self._stack.can_redo:
+            return
+        self._seek(self._stack.redo())
 
     def move_up(self, lines: int):
         if lines <= 0:

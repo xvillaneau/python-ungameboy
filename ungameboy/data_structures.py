@@ -1,9 +1,10 @@
 from bisect import bisect_left, bisect_right
 from operator import itemgetter
-from typing import Iterator, List, MutableMapping, Tuple, TypeVar
+from typing import Iterator, List, Sequence, MutableMapping, Tuple, TypeVar
 
 K = TypeVar('K')
 V = TypeVar('V')
+T = TypeVar('T')
 
 
 class SortedMapping(MutableMapping[K, V]):
@@ -79,3 +80,45 @@ class SortedMapping(MutableMapping[K, V]):
         if pos >= len(self):
             raise KeyError(item)
         return self._item(pos)
+
+
+class StateStack(Sequence[T]):
+    def __init__(self):
+        self._stack: List[T] = []
+        self._head = 0
+
+    def push(self, item: T):
+        if len(self._stack) > self._head:
+            self._stack = self._stack[:self._head]
+        self._stack.append(item)
+        self._head += 1
+
+    @property
+    def head(self):
+        return self._stack[self._head - 1]
+
+    @property
+    def can_undo(self) -> bool:
+        return self._head > 1
+
+    def undo(self) -> T:
+        if not self.can_undo:
+            raise IndexError("At bottom of stack, cannot undo")
+        self._head -= 1
+        return self.head
+
+    @property
+    def can_redo(self) -> bool:
+        return len(self._stack) > self._head
+
+    def redo(self) -> T:
+        if not self.can_redo:
+            raise IndexError("At top of stack, cannot redo")
+        self._head += 1
+        return self.head
+
+    def __getitem__(self, i: int) -> T:
+        return self._stack[i]
+
+    def __len__(self) -> int:
+        return self._head
