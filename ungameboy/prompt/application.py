@@ -11,6 +11,7 @@ from ..disassembler import Disassembler
 
 UGB_STYLE = {
     'ugb.address': 'fg:#10b020',
+    'ugb.cursor': 'bg:#10b020 fg:black',
     'ugb.bin': 'fg:#aaaaaa',
     'ugb.data': 'fg:#55cccc',
     # Sections

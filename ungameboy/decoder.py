@@ -1,6 +1,6 @@
 from .address import Address
 from .enums import Operation
-from .instructions import CODE_POINTS, OP_SIZES, RawInstruction
+from .instructions import CODE_POINTS, RawInstruction
 
 __all__ = ['ROMBytes']
 
@@ -36,7 +36,7 @@ class ROMBytes:
         return Decoder(self, start, stop)
 
     def size_of(self, offset: int) -> int:
-        return OP_SIZES[self.rom[offset]]
+        return CODE_POINTS[self.rom[offset]].length
 
     def decode_instruction(self, offset: int) -> RawInstruction:
         """

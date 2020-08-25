@@ -1,10 +1,12 @@
+from typing import Optional
 
+from ..address import Address
 from ..assembly_models import AsmElement, DataBlock, Instruction
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
 from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
 
-MARGIN = ('', '    ')
+MARGIN = 4
 
 
 def render_instruction(data: Instruction):
@@ -65,7 +67,7 @@ def render_instruction(data: Instruction):
     return items
 
 
-def render_data(data: AsmElement):
+def render_data(data: AsmElement, cursor: Optional[Address] = None):
     lines = []
 
     if data.section_start is not None:
@@ -90,11 +92,17 @@ def render_data(data: AsmElement):
                 ('', ':'),
             ])
 
+    cursor_cls = ",ugb.cursor" if data.address == cursor else ''
+    addr_str = str(data.address)
+    addr_items = [
+        ('', ' ' * (MARGIN + 12 - len(addr_str))),
+        ('class:ugb.address' + cursor_cls, addr_str)
+    ]
+
     if isinstance(data, Instruction):
         instr = data.raw_instruction
         lines.append([
-            MARGIN,
-            ('class:ugb.address', f'{instr.address!s:>12}'),
+            *addr_items,
             ('', '  '),
             ('class:ugb.bin', f'{instr.bytes.hex():<6}'),
             ('', '  '),
@@ -102,18 +110,17 @@ def render_data(data: AsmElement):
         ])
 
     elif isinstance(data, DataBlock):
+        block_end = data.next_address.memory_address - 1
         lines.append([
-            MARGIN,
-            ('class:ugb.address', f'{data.address!s:>12}'),
+            *addr_items,
             ('', ' \u2192 '),
-            ('class:ugb.address', f'{data.next_address - 1}'),
+            ('class:ugb.address', f'{block_end:04x}'),
         ])
         lines.append([
-            MARGIN,
-            ('', '    '),
+            ('', ' ' * (MARGIN + 4)),
             ('class:ugb.data.name', data.name),
             ('', ' ('),
-            ('class:ugb.data.size', f'${data.size} bytes'),
+            ('class:ugb.data.size', f'{data.size} bytes'),
             ('', ')'),
         ])
 

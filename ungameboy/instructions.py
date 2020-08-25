@@ -13,7 +13,7 @@ from .data_types import (
     ParameterMeta, Byte, Word, SignedByte, SPOffset,
 )
 
-__all__ = ['CODE_POINTS', 'OP_SIZES', 'CodePoint', 'RawInstruction']
+__all__ = ['CODE_POINTS', 'CodePoint', 'RawInstruction']
 Op = Operation
 
 
@@ -472,4 +472,3 @@ def _make_code_points():
 
 
 CODE_POINTS: List[CodePoint] = _make_code_points()
-OP_SIZES: List[int] = [cp.length for cp in CODE_POINTS]

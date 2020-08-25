@@ -50,13 +50,17 @@ def load_asm_control_bindings(editor):
             return bindings.add(key, filter=editor_active)(func)
         return decorator
 
+    @asm_control_binding("c")
+    def toggle_cursor(ctrl: AsmControl):
+        ctrl.toggle_cursor_mode()
+
     @asm_control_binding("up")
     def handle_up(ctrl: AsmControl):
-        ctrl.current_view.move_up(1)
+        ctrl.move_up(1)
 
     @asm_control_binding("down")
     def handle_down(ctrl: AsmControl):
-        ctrl.current_view.move_down(1)
+        ctrl.move_down(1)
 
     @bindings.add("pageup", filter=editor_active)
     def handle_page_up(event: KeyPressEvent):
@@ -65,7 +69,7 @@ def load_asm_control_bindings(editor):
             return
         ctrl = window.content
         if isinstance(ctrl, AsmControl):
-            ctrl.current_view.move_up(window.render_info.window_height)
+            ctrl.move_up(window.render_info.window_height)
 
     @bindings.add("pagedown", filter=editor_active)
     def handle_page_down(event: KeyPressEvent):
@@ -74,6 +78,6 @@ def load_asm_control_bindings(editor):
             return
         ctrl = window.content
         if isinstance(ctrl, AsmControl):
-            ctrl.current_view.move_down(window.render_info.window_height)
+            ctrl.move_down(window.render_info.window_height)
 
     return bindings
