@@ -19,7 +19,7 @@ def render_instruction(data: Instruction):
 
     def add(string, cls=''):
         if cls:
-            cls = f'class:ugb.instr.{cls}'
+            cls = f'class:ugb.instr.{cls}.{op_type}'
         items.append((cls, str(string)))
 
     for pos, arg in enumerate(instr.args):
@@ -58,6 +58,8 @@ def render_instruction(data: Instruction):
                 add(arg.name, 'label')
         elif isinstance(arg, Condition):
             add(str(arg).lower(), 'cond')
+        elif isinstance(arg, Address):
+            add(arg, 'addr')
         else:
             add(arg)
 

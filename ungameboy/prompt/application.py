@@ -1,3 +1,5 @@
+from itertools import product
+
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import merge_key_bindings
 from prompt_toolkit.styles import Style
@@ -21,9 +23,10 @@ UGB_STYLE = {
     'ugb.label.local': 'fg:ansibrightyellow bold',
     # Instruction argument colors
     'ugb.instr.reg': 'fg:ansibrightblue',
+    'ugb.instr.addr': 'fg:#ff99af',
     'ugb.instr.cond': 'fg:ansicyan',
     'ugb.instr.label': 'fg:ansibrightcyan',
-    'ugb.instr.value': 'fg:ansibrightyellow',
+    'ugb.instr.value': 'fg:#ebcb4d',
     # Instruction operation colors
     'ugb.instr.op': 'fg:ansiyellow',
     'ugb.instr.op.nop': 'fg:ansiblue',
@@ -41,6 +44,9 @@ UGB_STYLE = {
     'ugb.instr.op.push': 'fg:ansibrightcyan bold',
     'ugb.instr.op.invalid': 'fg:ansired',
 }
+
+for _op, _type in product(['call', 'jp', 'jr'], ['addr', 'label']):
+    UGB_STYLE[f'ugb.instr.{_type}.{_op}'] = UGB_STYLE[f'ugb.instr.op.{_op}']
 
 
 class DisassemblyEditor:
