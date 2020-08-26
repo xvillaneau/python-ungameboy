@@ -2,6 +2,8 @@ from bisect import bisect_left, bisect_right
 from operator import itemgetter
 from typing import Iterator, List, Sequence, MutableMapping, Tuple, TypeVar
 
+__all__ = ['SortedMapping', 'SortedStrMapping', 'StateStack']
+
 K = TypeVar('K')
 V = TypeVar('V')
 T = TypeVar('T')
@@ -80,6 +82,25 @@ class SortedMapping(MutableMapping[K, V]):
         if pos >= len(self):
             raise KeyError(item)
         return self._item(pos)
+
+
+class SortedStrMapping(SortedMapping[str, V]):
+    """Special case for string keys, where searching is implemented"""
+
+    def search(self, string: str) -> Iterator[str]:
+        pos = bisect_left(self._keys, string)
+        lim = len(self)
+
+        if not pos < lim:
+            return
+        key = self._keys[pos]
+
+        while key.startswith(string):
+            yield key
+            pos += 1
+            if not pos < lim:
+                break
+            key = self._keys[pos]
 
 
 class StateStack(Sequence[T]):

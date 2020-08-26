@@ -1,7 +1,7 @@
 from typing import Iterator, List, NamedTuple, Optional, Tuple
 
 from .address import Address
-from .data_structures import SortedMapping
+from .data_structures import SortedMapping, SortedStrMapping
 
 
 class Label(NamedTuple):
@@ -23,7 +23,12 @@ class LabelManager:
         self._locals: SortedMapping[Address, List[str]] = SortedMapping()
 
         self._all: SortedMapping[Address, List[Label]] = SortedMapping()
-        self._by_name: SortedMapping[str, Address] = SortedMapping()
+        self._by_name: SortedStrMapping[Address] = SortedStrMapping()
+
+    def __contains__(self, item):
+        if isinstance(item, str):
+            return item in self._by_name
+        return False
 
     def _rebuild_all(self):
         self._all.clear()
@@ -44,6 +49,14 @@ class LabelManager:
             for name in names:
                 self._all.setdefault(addr, []).append(Label(addr, scope, name))
                 self._by_name[f'{scope}.{name}'] = addr
+
+    def lookup(self, name: str) -> Label:
+        addr = self._by_name[name]
+        glob, _, loc = name.partition(".")
+        return Label(addr, glob, loc)
+
+    def search(self, string: str):
+        yield from self._by_name.search(string)
 
     def get_labels(self, address: Address) -> List[Label]:
         return self._all.get(address, [])

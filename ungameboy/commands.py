@@ -1,4 +1,3 @@
-from functools import update_wrapper
 from typing import BinaryIO, TYPE_CHECKING
 
 import click
@@ -9,133 +8,136 @@ from .project_save import save_project, load_project
 if TYPE_CHECKING:
     from .disassembler import Disassembler
 
-__all__ = ['create_core_cli']
+__all__ = ['AddressOrLabel', 'LabelName', 'create_core_cli']
 
 
-def pass_object(func):
-    @click.pass_context
-    def command(ctx, *args, **kwargs):
-        return ctx.invoke(func, ctx.obj, *args, **kwargs)
-    return update_wrapper(command, func)
+class LabelName(click.ParamType):
+    """Parameter type that expects an existing label name."""
+    name = "label_name"
+
+    def __init__(self, asm: "Disassembler"):
+        self.asm = asm
+
+    def convert(self, value, param, ctx):
+        if value not in self.asm.labels:
+            self.fail(f"Label {value} not found", param, ctx)
+        return value
+
+
+class AddressOrLabel(click.ParamType):
+    """
+    Parameter type for an address. This address can be either the name
+    of an existing label, or a valid address-like input. In case of the
+    later, the detected bank cannot be unknown.
+    """
+    name = "address_or_label"
+
+    def __init__(self, asm: "Disassembler"):
+        self.asm = asm
+
+    def convert(self, value, param, ctx) -> Address:
+        if isinstance(value, str):
+            if value in self.asm.labels:
+                return self.asm.labels.lookup(value).address
+            try:
+                value = Address.parse(value)
+            except ValueError:
+                self.fail(f"Invalid address or label: {value}", param, ctx)
+
+        assert isinstance(value, Address)
+        if value.bank < 0:
+            self.fail("Bank required for this range", param, ctx)
+        return value
 
 
 def create_core_cli(asm: "Disassembler") -> click.Group:
 
     @click.group()
-    @click.pass_context
-    def ugb_core_cli(ctx: click.Context):
-        ctx.obj = asm
+    def ugb_core_cli():
+        pass
 
-    ugb_core_cli.add_command(load_rom)
-    ugb_core_cli.add_command(project_cli)
-    ugb_core_cli.add_command(data_cli)
-    ugb_core_cli.add_command(label_cli)
-    ugb_core_cli.add_command(section_cli)
+    address_arg = AddressOrLabel(asm)
+    label_arg = LabelName(asm)
+
+    # Base commands
+    @ugb_core_cli.command()
+    @click.argument("rom_path", type=click.File('rb'))
+    def load_rom(rom_path: BinaryIO):
+        asm.load_rom(rom_path)
+
+    # Project commands
+    @ugb_core_cli.group("project")
+    def project_cli():
+        pass
+
+    @project_cli.command("save")
+    @click.argument("name", default='')
+    def project_save(name: str = ''):
+        if name:
+            asm.project_name = name
+        save_project(asm)
+
+    @project_cli.command("load")
+    @click.argument("name", default='')
+    def project_load(name: str = ''):
+        if asm.is_loaded:
+            raise ValueError("Project already loaded")
+        if name:
+            asm.project_name = name
+        load_project(asm)
+
+    # Data commands
+    @ugb_core_cli.group("data")
+    def data_cli():
+        pass
+
+    @data_cli.command("create")
+    @click.argument("address", type=address_arg)
+    @click.argument("size", type=int, default=1)
+    @click.argument("name", default='')
+    def data_create(address: Address, size=1, name=''):
+        asm.data.create(address, size, name)
+
+    @data_cli.command("rename")
+    @click.argument("address", type=address_arg)
+    @click.argument("name", default='')
+    def data_rename(address: Address, name=''):
+        data = asm.data.get_data(address)
+        if data is None:
+            return
+        data.description = name
+
+    # Label commands
+    @ugb_core_cli.group("label")
+    def label_cli():
+        pass
+
+    @label_cli.command("create")
+    @click.argument("address", type=address_arg)
+    @click.argument("name")
+    def label_create(address: Address, name: str):
+        asm.labels.create(address, name)
+
+    @label_cli.command("rename")
+    @click.argument("old_name", type=label_arg)
+    @click.argument("new_name")
+    def label_rename(old_name: str, new_name: str):
+        asm.labels.rename(old_name, new_name)
+
+    @label_cli.command("delete")
+    @click.argument("name", type=label_arg)
+    def label_delete(name: str):
+        asm.labels.delete(name)
+
+    # Section commands
+    @ugb_core_cli.group("section")
+    def section_cli():
+        pass
+
+    @section_cli.command("create")
+    @click.argument("address", type=address_arg)
+    @click.argument("name")
+    def section_create(address: Address, name: str):
+        asm.sections.create(address, name)
 
     return ugb_core_cli
-
-
-# Base commands
-
-@click.command()
-@click.argument("rom_path", type=click.File('rb'))
-@pass_object
-def load_rom(asm: "Disassembler", rom_path: BinaryIO):
-    asm.load_rom(rom_path)
-
-
-# Project commands
-
-@click.group("project")
-def project_cli():
-    pass
-
-
-@project_cli.command("save")
-@click.argument("name", default='')
-@pass_object
-def project_save(asm: "Disassembler", name: str = ''):
-    if name:
-        asm.project_name = name
-    save_project(asm)
-
-
-@project_cli.command("load")
-@click.argument("name", default='')
-@pass_object
-def project_load(asm: "Disassembler", name: str = ''):
-    if asm.is_loaded:
-        raise ValueError("Project already loaded")
-    if name:
-        asm.project_name = name
-    load_project(asm)
-
-
-# Data commands
-
-@click.group("data")
-def data_cli():
-    pass
-
-
-@data_cli.command("create")
-@click.argument("address", type=Address.parse)
-@click.argument("size", type=int, default=1)
-@click.argument("name", default='')
-@pass_object
-def data_create(asm: "Disassembler", address: Address, size=1, name=''):
-    asm.data.create(address, size, name)
-
-
-@data_cli.command("rename")
-@click.argument("address", type=Address.parse)
-@click.argument("name", default='')
-@pass_object
-def data_rename(asm: "Disassembler", address: Address, name=''):
-    data = asm.data.get_data(address)
-    if data is None:
-        return
-    data.description = name
-
-
-# Label commands
-
-@click.group("label")
-def label_cli():
-    pass
-
-
-@label_cli.command("create")
-@click.argument("address", type=Address.parse)
-@click.argument("name")
-@pass_object
-def label_create(asm, address: Address, name: str):
-    asm.labels.create(address, name)
-
-@label_cli.command("rename")
-@click.argument("old_name")
-@click.argument("new_name")
-@pass_object
-def label_rename(asm, old_name: str, new_name: str):
-    asm.labels.rename(old_name, new_name)
-
-@label_cli.command("delete")
-@click.argument("name")
-@pass_object
-def label_delete(asm, name: str):
-    asm.labels.delete(name)
-
-
-# Section commands
-
-@click.group("section")
-def section_cli():
-    pass
-
-
-@section_cli.command("create")
-@click.argument("address", type=Address.parse)
-@click.argument("name")
-@pass_object
-def section_create(asm, address: Address, name: str):
-    asm.sections.create(address, name)
