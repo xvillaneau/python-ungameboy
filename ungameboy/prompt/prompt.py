@@ -25,7 +25,7 @@ def create_ui_cli(ugb_app: "DisassemblyEditor"):
     ugb_core_cli = create_core_cli(ugb_app.disassembler)
 
     @ugb_core_cli.command()
-    @click.argument("address", type=Address.parse)
+    @click.argument("address", type=AddressOrLabel(ugb_app.disassembler))
     def seek(address: Address):
         ugb_app.layout.main_control.seek(address)
         return False
