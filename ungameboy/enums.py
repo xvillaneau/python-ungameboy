@@ -75,7 +75,7 @@ class Operation(str, Enum):
     Load = "LD"
     LoadFast = "LDH"
     LoadInc = "LDI"
-    LoadDec = "LDH"
+    LoadDec = "LDD"
     Push = "PUSH"
     Pop = "POP"
 
