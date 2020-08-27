@@ -26,6 +26,7 @@ UGB_STYLE = {
     'ugb.instr.addr': 'fg:#ff99af',
     'ugb.instr.cond': 'fg:ansicyan',
     'ugb.instr.label': 'fg:ansibrightcyan',
+    'ugb.instr.special': 'fg:#e88700',
     'ugb.instr.value': 'fg:#ebcb4d',
     # Instruction operation colors
     'ugb.instr.op': 'fg:ansiyellow',

@@ -2,7 +2,7 @@ from typing import Optional
 
 from ..address import Address
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
-from ..disassembler import AsmElement, DataBlock, Instruction
+from ..disassembler import AsmElement, DataBlock, Instruction, SpecialLabel
 from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
 
@@ -60,6 +60,8 @@ def render_instruction(data: Instruction):
             add(str(arg).lower(), 'cond')
         elif isinstance(arg, Address):
             add(arg, 'addr')
+        elif isinstance(arg, SpecialLabel):
+            add(arg.name, 'special')
         else:
             add(arg)
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import BinaryIO, Optional, List, Union
+from typing import BinaryIO, Optional, List, NamedTuple, Union
 
 from .address import Address, ROM
 from .data_block import DataManager
@@ -10,7 +10,7 @@ from .instructions import RawInstruction
 from .labels import LabelManager, Label
 from .sections import SectionManager, Section
 
-__all__ = ['AsmElement', 'DataBlock', 'Disassembler', 'Instruction']
+__all__ = ['AsmElement', 'DataBlock', 'Disassembler', 'Instruction', 'SpecialLabel']
 
 
 class Disassembler:
@@ -85,6 +85,11 @@ class Disassembler:
                 if dest_labels:
                     value = dest_labels[-1]
 
+                if raw_instr.type is Op.Load and raw_instr.value_pos == 1:
+                    special = detect_special_label(addr)
+                    if special is not None:
+                        value = special
+
             scope = self.labels.scope_at(item)
             if scope is not None:
                 scope_name = scope[1][-1]
@@ -104,6 +109,25 @@ class Disassembler:
         raise ValueError()
 
 
+class SpecialLabel(NamedTuple):
+    name: str
+
+
+def detect_special_label(address: Address):
+    if address.type is not ROM:
+        return None
+    offset = address.memory_address
+    if offset < 0x2000:
+        return SpecialLabel("SRAM_ENABLE")
+    if offset < 0x3000:
+        return SpecialLabel("ROM_BANK_L")
+    if offset < 0x4000:
+        return SpecialLabel("ROM_BANK_9")
+    if offset < 0x6000:
+        return SpecialLabel("SRAM_BANK")
+    return None
+
+
 @dataclass
 class AsmElement:
     address: Address
@@ -120,7 +144,7 @@ class AsmElement:
 @dataclass
 class Instruction(AsmElement):
     raw_instruction: RawInstruction
-    value_symbol: Optional[Union[Address, Label]] = None
+    value_symbol: Optional[Union[Address, Label, SpecialLabel]] = None
     scope: str = ''
 
 
