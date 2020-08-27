@@ -78,10 +78,10 @@ ROM, VRAM, SRAM, WRAM, _, OAM, _, IOR, HRAM = MemoryType
 # memory starts, and the second is the max # of banks.
 # TODO: Make this logic aware of the cartridge type
 BANKS = {
-    ROM: (0x4000, 512),
-    # VRAM: (0, 2),
+    ROM: 0x4000,
+    VRAM: 0,
     # SRAM: (0, 16),
-    WRAM: (0x1000, 4),
+    WRAM: 0x1000,
 }
 
 
@@ -123,9 +123,22 @@ class Address(NamedTuple):
         m_type = ROM if m_type is None else MemoryType(m_type.upper())
 
         offset -= m_type.offset
-        if m_type in BANKS and m_bank > 0:
-            offset -= BANKS[m_type][0]
-        elif m_type not in BANKS:
+        if not 0 <= offset < m_type.size:
+            raise ValueError(f"Offset not in range for {m_type.name}")
+
+        bank_start = BANKS.get(m_type)
+        if bank_start:  # Not null and > 0
+            if m_bank != 0 and offset < bank_start:
+                raise ValueError(
+                    f"Offset not in the banked {m_type.name}, did you "
+                    f"mean {m_type.name}.0:{offset+m_type.offset:04x}?"
+                )
+            elif m_bank == 0 and offset >= bank_start:
+                raise ValueError("Offset too large for bank 0")
+            elif m_bank > 0:
+                offset -= bank_start
+
+        elif bank_start is None:
             m_bank = 0
 
         return Address(m_type, m_bank, offset)
@@ -146,7 +159,7 @@ class Address(NamedTuple):
 
         offset = address - mem_type.offset
         if mem_type in BANKS:
-            bank_start, _ = BANKS[mem_type]
+            bank_start = BANKS[mem_type]
             bank = 0
             if offset >= bank_start:
                 bank = -1
@@ -166,13 +179,13 @@ class Address(NamedTuple):
     def memory_address(self) -> int:
         offset = self.offset + self.type.offset
         if self.type in BANKS and self.bank != 0:
-            offset += BANKS[self.type][0]
+            offset += BANKS[self.type]
         return offset
 
     @property
     def zone_end(self) -> "Address":
         if self.type in BANKS:
-            zone_size = BANKS[self.type][0]
+            zone_size = BANKS[self.type]
         else:
             zone_size = self.type.size
         return Address(self.type, self.bank, zone_size - 1)

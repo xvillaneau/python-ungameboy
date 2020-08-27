@@ -41,8 +41,8 @@ class AddressOrLabel(click.ParamType):
                 return self.asm.labels.lookup(value).address
             try:
                 value = Address.parse(value)
-            except ValueError:
-                self.fail(f"Invalid address or label: {value}", param, ctx)
+            except ValueError as err:
+                self.fail(str(err), param, ctx)
 
         assert isinstance(value, Address)
         if value.bank < 0:
