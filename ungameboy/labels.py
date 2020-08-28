@@ -134,6 +134,17 @@ class LabelManager:
         else:
             self._add_global(address, name)
 
+    def auto_create(self, address: Address, is_local=False):
+        if address.bank < 0:
+            raise ValueError("Cannot place label at unknown bank")
+        name = (
+            f"{'.' * is_local}"
+            f"auto_{address.type.name}"
+            f"_{address.bank:x}"
+            f"_{address.memory_address:04x}"
+        )
+        self.create(address, name)
+
     def rename(self, old_name: str, new_name: str):
         if old_name not in self._by_name:
             raise KeyError(f"Label {old_name} not found")

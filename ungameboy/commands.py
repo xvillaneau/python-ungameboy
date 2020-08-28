@@ -144,6 +144,12 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     def label_create(address: Address, name: str):
         asm.labels.create(address, name)
 
+    @label_cli.command("auto")
+    @click.argument("address", type=address_arg)
+    @click.option("--local", "-l", is_flag=True)
+    def label_create(address: Address, local=False):
+        asm.labels.auto_create(address, local)
+
     @label_cli.command("rename")
     @click.argument("old_name", type=label_arg)
     @click.argument("new_name")
