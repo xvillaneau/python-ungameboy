@@ -56,7 +56,10 @@ class LabelManager:
         return Label(addr, glob, loc)
 
     def search(self, string: str):
-        yield from self._by_name.search(string)
+        search_local = '.' in string
+        for name in self._by_name.search(string):
+            if '.' not in name or search_local:
+                yield name
 
     def get_labels(self, address: Address) -> List[Label]:
         return self._all.get(address, [])
