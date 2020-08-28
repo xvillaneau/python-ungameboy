@@ -32,8 +32,13 @@ def render_instruction(data: Instruction):
         else:
             ref = None
 
-        if pos + 1 == instr.value_pos and data.value_symbol is not None:
-            arg = data.value_symbol
+        ctx = data.context
+        if (
+                not ctx.force_scalar and
+                pos + 1 == instr.value_pos and
+                ctx.value_symbol is not None
+        ):
+            arg = ctx.value_symbol
 
         # Arg can be: (Double)Register, Byte/Word/SignedByte/SPOffset,
         #   Label, Ref/IORef to any of the previous, condition, integer

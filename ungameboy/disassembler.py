@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import BinaryIO, Optional, List, NamedTuple, Union
 
 from .address import Address, ROM
+from .context import ContextManager
 from .data_block import DataManager
 from .data_types import Byte, IORef, Ref, Word
 from .decoder import ROMBytes
@@ -24,6 +25,7 @@ class Disassembler:
         self.project_name = ""
 
         self.data = DataManager()
+        self.context = ContextManager()
         self.labels = LabelManager()
         self.sections = SectionManager()
 
@@ -50,72 +52,81 @@ class Disassembler:
         labels = self.labels.get_labels(item)
         section = self.sections.get_section(item)
 
+        scope = self.labels.scope_at(item)
+        scope_name = scope[1][-1] if scope is not None else ''
+
         data = self.data.get_data(item)
         if data is not None:
             return DataBlock(
                 address=data.address,
                 size=data.length,
                 labels=labels,
+                scope=scope_name,
                 section_start=section,
                 name=data.description
             )
 
         elif item.type is ROM:
             raw_instr = self.rom.decode_instruction(item.rom_file_offset)
-            addr = None
-
-            if raw_instr.value_pos > 0:
-                arg = raw_instr.args[raw_instr.value_pos - 1]
-                if raw_instr.type in [Op.AbsJump, Op.Call]:
-                    addr = Address.from_memory_address(arg)
-                elif raw_instr.type is Op.RelJump:
-                    addr = raw_instr.next_address + arg
-                elif isinstance(arg, IORef) and isinstance(arg.target, Byte):
-                    addr = Address.from_memory_address(arg.target + 0xff00)
-                elif isinstance(arg, Ref) and isinstance(arg.target, Word):
-                    addr = Address.from_memory_address(arg.target)
-
-            value = addr
-            if addr is not None:
-                # Auto-detect ROM bank if current instruction requires one
-                if addr.type == item.type == ROM and addr.bank < 0 < item.bank:
-                    value = addr = Address(ROM, item.bank, addr.offset)
-
-                dest_labels = self.labels.get_labels(addr)
-                if dest_labels:
-                    value = dest_labels[-1]
-
-                if raw_instr.type is Op.Load and raw_instr.value_pos == 1:
-                    special = detect_special_label(addr)
-                    if special is not None:
-                        value = special
-
-            scope = self.labels.scope_at(item)
-            if scope is not None:
-                scope_name = scope[1][-1]
-            else:
-                scope_name = ''
+            context = self.get_context(raw_instr)
 
             return Instruction(
                 address=raw_instr.address,
                 size=raw_instr.length,
                 labels=labels,
+                scope=scope_name,
                 section_start=section,
                 raw_instruction=raw_instr,
-                value_symbol=value,
-                scope=scope_name,
+                context=context,
             )
 
         raise ValueError()
+
+    def get_context(self, instr: RawInstruction) -> "InstructionContext":
+
+        if instr.value_pos <= 0:
+            return NO_CONTEXT
+
+        arg = instr.args[instr.value_pos - 1]
+        if isinstance(arg, Word):
+            value = Address.from_memory_address(arg)
+        elif instr.type is Op.RelJump:
+            value = instr.next_address + arg
+        elif isinstance(arg, IORef) and isinstance(arg.target, Byte):
+            value = Address.from_memory_address(arg.target + 0xff00)
+        elif isinstance(arg, Ref) and isinstance(arg.target, Word):
+            value = Address.from_memory_address(arg.target)
+        else:
+            return NO_CONTEXT
+
+        # Auto-detect ROM bank if current instruction requires one
+        if value.bank < 0:
+            if value.type is ROM and instr.address.bank > 0:
+                bank = instr.address.bank
+            else:
+                bank = self.context.bank_override.get(instr.address, -1)
+            if bank >= 0:
+                value = Address(value.type, bank, value.offset)
+
+        if instr.type is Op.Load and instr.value_pos == 1:
+            value = detect_special_label(value)
+        else:
+            dest_labels = self.labels.get_labels(value) or [value]
+            value = dest_labels[-1]
+
+        return InstructionContext(
+            value_symbol=value,
+            force_scalar=instr.address in self.context.force_scalar,
+        )
 
 
 class SpecialLabel(NamedTuple):
     name: str
 
 
-def detect_special_label(address: Address):
+def detect_special_label(address: Address) -> Union[SpecialLabel, Address]:
     if address.type is not ROM:
-        return None
+        return address
     offset = address.memory_address
     if offset < 0x2000:
         return SpecialLabel("SRAM_ENABLE")
@@ -125,7 +136,16 @@ def detect_special_label(address: Address):
         return SpecialLabel("ROM_BANK_9")
     if offset < 0x6000:
         return SpecialLabel("SRAM_BANK")
-    return None
+    return address
+
+
+@dataclass(frozen=True)
+class InstructionContext:
+    value_symbol: Union[None, Address, Label, SpecialLabel] = None
+    force_scalar: bool = False
+
+
+NO_CONTEXT = InstructionContext()
 
 
 @dataclass
@@ -134,6 +154,7 @@ class AsmElement:
     size: int
 
     labels: List[Label]
+    scope: str
     section_start: Optional[Section]
 
     @property
@@ -144,8 +165,7 @@ class AsmElement:
 @dataclass
 class Instruction(AsmElement):
     raw_instruction: RawInstruction
-    value_symbol: Optional[Union[Address, Label, SpecialLabel]] = None
-    scope: str = ''
+    context: InstructionContext
 
 
 @dataclass

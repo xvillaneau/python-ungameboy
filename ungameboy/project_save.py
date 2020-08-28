@@ -38,6 +38,12 @@ def get_save_state(asm: "Disassembler"):
             label.name,
         )
 
+    for context in asm.context.list_context():
+        if context.force_scalar:
+            yield ('context', 'force-scalar', context.address)
+        if context.bank >= 0:
+            yield ('context', 'force-bank', context.address, context.bank)
+
 
 def save_project(asm: "Disassembler"):
     if not asm.project_name:

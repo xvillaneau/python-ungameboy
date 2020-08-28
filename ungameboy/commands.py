@@ -86,6 +86,32 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
             asm.project_name = name
         load_project(asm)
 
+    # Context commands
+    @ugb_core_cli.group("context")
+    def context_cli():
+        pass
+
+    @context_cli.command("force-scalar")
+    @click.argument("address", type=address_arg)
+    def context_force_scalar(address: Address):
+        asm.context.set_context(address, force_scalar=True)
+
+    @context_cli.command("no-force-scalar")
+    @click.argument("address", type=address_arg)
+    def context_no_force_scalar(address: Address):
+        asm.context.set_context(address, force_scalar=False)
+
+    @context_cli.command("force-bank")
+    @click.argument("address", type=address_arg)
+    @click.argument("bank", type=int)
+    def context_set_bank(address: Address, bank: int):
+        asm.context.set_context(address, bank=bank)
+
+    @context_cli.command("no-force-bank")
+    @click.argument("address", type=address_arg)
+    def context_bo_bank(address: Address):
+        asm.context.set_context(address, bank=-1)
+
     # Data commands
     @ugb_core_cli.group("data")
     def data_cli():

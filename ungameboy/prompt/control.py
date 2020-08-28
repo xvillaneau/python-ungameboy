@@ -9,7 +9,6 @@ from .lexer import render_data
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
 from ..disassembler import Disassembler, Instruction
-from ..enums import Operation as Op
 from ..labels import Label
 
 if TYPE_CHECKING:
@@ -21,7 +20,6 @@ NO_ROM = UIContent(
     line_count=1,
     show_cursor=False,
 )
-JUMPS = {Op.AbsJump, Op.RelJump, Op.Call}
 
 
 class AsmControl(UIControl):
@@ -90,6 +88,8 @@ class AsmControl(UIControl):
     def seek(self, address: Address):
         if address.bank < 0:
             raise ValueError("Cannot seek address with missing ROM bank")
+        if address.type is not ROM:
+            raise NotImplementedError()
         self._stack.push(address)
         self._seek(address)
 
@@ -107,10 +107,8 @@ class AsmControl(UIControl):
         item = self.asm[self.cursor]
         if not isinstance(item, Instruction):
             return
-        if item.raw_instruction.type not in JUMPS:
-            return
 
-        dest = item.value_symbol
+        dest = item.context.value_symbol
         if isinstance(dest, Label):
             dest = dest.address
         elif not isinstance(dest, Address):
