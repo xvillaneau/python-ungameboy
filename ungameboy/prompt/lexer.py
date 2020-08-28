@@ -1,10 +1,13 @@
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from ..address import Address
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
 from ..disassembler import AsmElement, DataBlock, Instruction, SpecialLabel
 from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
+
+if TYPE_CHECKING:
+    from .control import AsmControl
 
 MARGIN = 4
 
@@ -76,7 +79,7 @@ def render_instruction(data: Instruction):
     return items
 
 
-def render_data(data: AsmElement, cursor: Optional[Address] = None):
+def render_data(data: AsmElement, control: "AsmControl"):
     lines = []
 
     if data.section_start is not None:
@@ -101,7 +104,13 @@ def render_data(data: AsmElement, cursor: Optional[Address] = None):
                 ('', ':'),
             ])
 
-    cursor_cls = ",ugb.cursor" if data.address == cursor else ''
+    cursor_cls = ''
+    if control.cursor_mode:
+        if data.address == control.cursor:
+            cursor_cls = ',ugb.cursor'
+        elif data.address == control.cursor_destination:
+            cursor_cls = ',ugb.cursor.dest'
+
     addr_str = str(data.address)
     addr_items = [
         ('', ' ' * (MARGIN + 12 - len(addr_str))),

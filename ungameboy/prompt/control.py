@@ -1,5 +1,5 @@
 from bisect import bisect_right
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
@@ -24,6 +24,9 @@ NO_ROM = UIContent(
 
 class AsmControl(UIControl):
     def __init__(self, asm: "Disassembler"):
+        self._cursor: Address
+        self.cursor_destination: Optional[Address]
+
         self.asm = asm
 
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
@@ -57,8 +60,34 @@ class AsmControl(UIControl):
         self.current_view.build_names_map()
 
     @property
+    def cursor(self) -> Address:
+        return self._cursor
+
+    @cursor.setter
+    def cursor(self, value):
+        self._cursor = value
+        self._update_cursor_destination()
+
+    @property
     def cursor_position(self) -> int:
         return self.current_view.find_line(self.cursor)
+
+    def _update_cursor_destination(self):
+        self.cursor_destination = None
+
+        item = self.asm[self.cursor]
+        if not isinstance(item, Instruction):
+            return
+
+        value = item.context.value_symbol
+        if isinstance(value, Label):
+            value = value.address
+        if not isinstance(value, Address) or value.bank < 0:
+            return
+
+        ctx = self.asm.context.get_context(self.cursor)
+        if not ctx.force_scalar:
+            self.cursor_destination = value
 
     def get_vertical_scroll(self, window: "Window") -> int:
         if self.cursor_mode and not self._reset_scroll:
@@ -192,8 +221,7 @@ class AsmRegionView:
         addr = self._addr[pos - 1]
         ref_line = self._lines[pos - 1]
 
-        cursor = self.ctrl.cursor if self.ctrl.cursor_mode else None
-        lines = render_data(self.ctrl.asm[addr], cursor)
+        lines = render_data(self.ctrl.asm[addr], self.ctrl)
         return lines[line - ref_line]
 
     def get_relative_address(self, address: Address, offset: int) -> Address:
