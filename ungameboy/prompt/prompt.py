@@ -46,7 +46,10 @@ class LabelCompleter(Completer):
 
         if not name_head:
             addr = self.editor.layout.main_control.cursor
+            dest = self.editor.layout.main_control.cursor_destination
             yield Completion(str(addr))
+            if dest is not None:
+                yield Completion(str(dest))
             return
 
         for name in self.asm.labels.search(name_head):
