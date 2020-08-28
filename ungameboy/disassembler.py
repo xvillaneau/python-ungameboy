@@ -110,7 +110,7 @@ class Disassembler:
 
         if instr.type is Op.Load and instr.value_pos == 1:
             value = detect_special_label(value)
-        else:
+        if not isinstance(value, SpecialLabel):
             dest_labels = self.labels.get_labels(value) or [value]
             value = dest_labels[-1]
 
