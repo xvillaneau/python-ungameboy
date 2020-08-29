@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import BinaryIO, Optional, List, NamedTuple, Union
 
 from .address import Address, ROM
-from .binary_data import DataBlock, DataManager
+from .binary_data import DataBlock, DataManager, RowItem
 from .context import ContextManager
 from .data_types import Byte, IORef, Ref, Word
 from .decoder import ROMBytes
@@ -57,16 +57,27 @@ class Disassembler:
         if data is not None:
             offset = addr.offset - data.address.offset
             row_n = offset // data.row_size
-            row = data.get_row_bin(row_n)
+            row_bin = data.get_row_bin(row_n)
+            row_addr = data.address + row_n * data.row_size
+
+            row_values = [
+                (
+                    self.addr_context(row_addr, item)
+                    if isinstance(item, Address)
+                    else item
+                )
+                for item in data[row_n]
+            ]
 
             return DataRow(
-                address=data.address + row_n * data.row_size,
-                size=len(row),
+                address=row_addr,
+                size=len(row_bin),
                 labels=labels,
                 scope=scope_name,
                 section_start=section,
-                bytes=row,
+                bytes=row_bin,
                 data_block=data,
+                values=row_values,
                 row=row_n,
             )
 
@@ -94,35 +105,41 @@ class Disassembler:
 
         arg = instr.args[instr.value_pos - 1]
         if isinstance(arg, Word):
-            value = Address.from_memory_address(arg)
+            target = Address.from_memory_address(arg)
         elif instr.type is Op.RelJump:
-            value = instr.next_address + arg
+            target = instr.next_address + arg
         elif isinstance(arg, IORef) and isinstance(arg.target, Byte):
-            value = Address.from_memory_address(arg.target + 0xff00)
+            target = Address.from_memory_address(arg.target + 0xff00)
         elif isinstance(arg, Ref) and isinstance(arg.target, Word):
-            value = Address.from_memory_address(arg.target)
+            target = Address.from_memory_address(arg.target)
         else:
             return NO_CONTEXT
 
-        # Auto-detect ROM bank if current instruction requires one
-        if value.bank < 0:
-            if value.type is ROM and instr.address.bank > 0:
-                bank = instr.address.bank
-            else:
-                bank = self.context.bank_override.get(instr.address, -1)
-            if bank >= 0:
-                value = Address(value.type, bank, value.offset)
+        value = self.addr_context(instr.address, target)
 
         if instr.type is Op.Load and instr.value_pos == 1:
-            value = detect_special_label(value)
-        if not isinstance(value, SpecialLabel):
-            dest_labels = self.labels.get_labels(value) or [value]
-            value = dest_labels[-1]
+            special = detect_special_label(target)
+            if isinstance(special, SpecialLabel):
+                value = special
 
         return InstructionContext(
             value_symbol=value,
             force_scalar=instr.address in self.context.force_scalar,
         )
+
+    def addr_context(self, current: Address, target: Address):
+        # Auto-detect ROM bank if current instruction requires one
+        if target.bank < 0:
+            if target.type is ROM and current.bank > 0:
+                bank = current.bank
+            else:
+                bank = self.context.bank_override.get(current, -1)
+            if bank >= 0:
+                target = Address(target.type, bank, target.offset)
+
+        # Detect labels
+        target_labels = self.labels.get_labels(target) or [target]
+        return target_labels[-1]
 
 
 class SpecialLabel(NamedTuple):
@@ -181,6 +198,7 @@ class Instruction(RomElement):
 @dataclass
 class DataRow(RomElement):
     data_block: DataBlock
+    values: List[Union[RowItem, Label]]
     row: int
 
 

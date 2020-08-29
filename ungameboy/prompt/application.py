@@ -26,13 +26,13 @@ UGB_STYLE = {
     # Labels
     'ugb.label.global': 'fg:ansibrightcyan bold',
     'ugb.label.local': 'fg:ansibrightyellow bold',
-    # Instruction argument colors
-    'ugb.instr.reg': 'fg:ansibrightblue',
-    'ugb.instr.addr': 'fg:#ff99af',
-    'ugb.instr.cond': 'fg:ansicyan',
-    'ugb.instr.label': 'fg:ansibrightcyan',
-    'ugb.instr.special': 'fg:#e88700',
-    'ugb.instr.value': 'fg:#ebcb4d',
+    # Value colors
+    'ugb.value': 'fg:#ebcb4d',
+    'ugb.value.reg': 'fg:ansibrightblue',
+    'ugb.value.addr': 'fg:#ff99af',
+    'ugb.value.cond': 'fg:ansicyan',
+    'ugb.value.label': 'fg:ansibrightcyan',
+    'ugb.value.special': 'fg:#e88700',
     # Instruction operation colors
     'ugb.instr.op': 'fg:ansiyellow',
     'ugb.instr.op.nop': 'fg:ansiblue',

@@ -28,7 +28,7 @@ def render_instruction(data: Instruction):
 
     def add(string, cls=''):
         if cls:
-            cls = f'class:ugb.instr.{cls}.{op_type}'
+            cls = f'class:ugb.value.{cls}.{op_type}'
         items.append((cls, str(string)))
 
     for pos, arg in enumerate(instr.args):
@@ -52,9 +52,9 @@ def render_instruction(data: Instruction):
         # Arg can be: (Double)Register, Byte/Word/SignedByte/SPOffset,
         #   Label, Ref/IORef to any of the previous, condition, integer
         if ref is IORef and isinstance(arg, Byte):
-            add(Word(arg + 0xff00), 'value')
+            add(Word(arg + 0xff00), 'scalar')
         elif ref is IORef and arg is C:
-            add(Word(0xff00), 'value')
+            add(Word(0xff00), 'scalar')
             add(' + ')
             add('c', 'reg')
         elif isinstance(arg, (Register, DoubleRegister)):
@@ -62,9 +62,9 @@ def render_instruction(data: Instruction):
         elif isinstance(arg, SPOffset):
             add('sp', 'reg')
             add(' + ')
-            add(Byte(arg), 'value')
+            add(Byte(arg), 'scalar')
         elif isinstance(arg, int):
-            add(arg, 'value')
+            add(arg, 'scalar')
         elif isinstance(arg, Label):
             if arg.local_name != '' and arg.global_name == data.scope:
                 add(f'.{arg.local_name}', 'label')
@@ -86,10 +86,19 @@ def render_instruction(data: Instruction):
 
 
 def render_row(data: DataRow):
-    block = data.data_block
     line = []
-    for item in block[data.row]:
-        line.extend([('', str(item)), ('', ', ')])
+    for item in data.values:
+        if isinstance(item, Label):
+            if item.local_name and item.global_name == data.scope:
+                item = '.' + item.local_name
+            else:
+                item = item.name
+            cls = '.label'
+        elif isinstance(item, Address):
+            cls = '.addr'
+        else:
+            cls = ''
+        line.extend([('class:ugb.value' + cls, str(item)), ('', ', ')])
     line.pop()
 
     return line
