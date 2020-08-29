@@ -24,7 +24,6 @@ NO_ROM = UIContent(
 
 class AsmControl(UIControl):
     def __init__(self, asm: "Disassembler"):
-        self._cursor: Address
         self.cursor_destination: Optional[Address]
 
         self.asm = asm
@@ -32,12 +31,12 @@ class AsmControl(UIControl):
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
         self.current_view = AsmRegionView(self, ROM, 0)
 
-        self.cursor = Address(ROM, 0, 0)
         self.cursor_mode = False
         self._reset_scroll = False
 
         self._stack: StateStack[Address] = StateStack()
-        self._stack.push(self.cursor)
+        self._stack.push(Address(ROM, 0, 0))
+        self._update_cursor_destination()
 
         self.load_zone(self.current_zone)
 
@@ -61,11 +60,11 @@ class AsmControl(UIControl):
 
     @property
     def cursor(self) -> Address:
-        return self._cursor
+        return self._stack.head
 
     @cursor.setter
-    def cursor(self, value):
-        self._cursor = value
+    def cursor(self, value: Address):
+        self._stack.head = value
         self._update_cursor_destination()
 
     @property

@@ -115,8 +115,12 @@ class StateStack(Sequence[T]):
         self._head += 1
 
     @property
-    def head(self):
+    def head(self) -> T:
         return self._stack[self._head - 1]
+
+    @head.setter
+    def head(self, value: T):
+        self._stack[self._head - 1] = value
 
     @property
     def can_undo(self) -> bool:
