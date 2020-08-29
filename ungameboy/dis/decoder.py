@@ -15,25 +15,11 @@ class ROMBytes:
         # Just store the entire ROM in memory
         self.rom = rom_file.read()
 
-    @classmethod
-    def from_path(cls, rom_path):
-        with open(rom_path, 'rb') as rom_file:
-            return cls(rom_file)
-
     def __len__(self):
         return len(self.rom)
 
     def __getitem__(self, item):
         return self.rom[item]
-
-    def decode(self, start=None, stop=None) -> "Decoder":
-        if start is None:
-            start = 0
-        elif not 0 <= start < len(self.rom):
-            raise IndexError("Decoding must start at a valid position")
-        if stop is not None and stop < start:
-            raise IndexError("Decoding cannot stop before its start")
-        return Decoder(self, start, stop)
 
     def size_of(self, offset: int) -> int:
         return CODE_POINTS[self.rom[offset]].length
@@ -63,32 +49,3 @@ class ROMBytes:
                 )
 
         return op.make_instance(addr, parameters)
-
-
-class Decoder:
-    """
-    A Decoder instance is a stateful iterator that yields instructions
-
-    The decoder's role is to convert a stream of bytes into a sequence
-    of CPU instructions. If it runs into bytes that it cannot decode,
-    then it will return an "invalid" instruction and move on.
-    """
-
-    def __init__(self, rom: ROMBytes, start: int = 0, stop: int = None):
-        self.rom = rom
-        self.index = start
-
-        if stop is None:
-            self.stop = len(rom)
-        else:
-            self.stop = min(stop, len(rom))
-
-    def __iter__(self):
-        return self
-
-    def __next__(self) -> RawInstruction:
-        if self.index >= self.stop:
-            raise StopIteration()
-        instr = self.rom.decode_instruction(self.index)
-        self.index += instr.length
-        return instr
