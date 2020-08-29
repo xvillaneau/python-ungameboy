@@ -52,7 +52,7 @@ UGB_STYLE = {
 }
 
 for _op, _type in product(['call', 'jp', 'jr'], ['addr', 'label']):
-    UGB_STYLE[f'ugb.instr.{_type}.{_op}'] = UGB_STYLE[f'ugb.instr.op.{_op}']
+    UGB_STYLE[f'ugb.value.{_type}.{_op}'] = UGB_STYLE[f'ugb.instr.op.{_op}']
 
 
 class DisassemblyEditor:
