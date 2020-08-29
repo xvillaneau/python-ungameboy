@@ -11,8 +11,6 @@ from .instructions import RawInstruction
 from .labels import LabelManager, Label
 from .sections import SectionManager, Section
 
-__all__ = ['AsmElement', 'Data', 'Disassembler', 'Instruction', 'SpecialLabel']
-
 
 class Disassembler:
     """
@@ -43,31 +41,37 @@ class Disassembler:
             self.rom_path = rom_file.name
         self.rom = ROMBytes(rom_file)
 
-    def __getitem__(self, item) -> "AsmElement":
+    def __getitem__(self, addr) -> "AsmElement":
         if self.rom is None:
             raise ValueError("No ROM loaded")
-        if not isinstance(item, Address):
+        if not isinstance(addr, Address):
             raise TypeError()
 
-        labels = self.labels.get_labels(item)
-        section = self.sections.get_section(item)
+        labels = self.labels.get_labels(addr)
+        section = self.sections.get_section(addr)
 
-        scope = self.labels.scope_at(item)
+        scope = self.labels.scope_at(addr)
         scope_name = scope[1][-1] if scope is not None else ''
 
-        data = self.data.get_data(item)
+        data = self.data.get_data(addr)
         if data is not None:
-            return Data(
-                address=data.address,
-                size=data.size,
+            offset = addr.offset - data.address.offset
+            row_n = offset // data.row_size
+            row = data.get_row_bin(row_n)
+
+            return DataRow(
+                address=data.address + row_n * data.row_size,
+                size=len(row),
                 labels=labels,
                 scope=scope_name,
                 section_start=section,
+                bytes=row,
                 data_block=data,
+                row=row_n,
             )
 
-        elif item.type is ROM:
-            raw_instr = self.rom.decode_instruction(item.rom_file_offset)
+        elif addr.type is ROM:
+            raw_instr = self.rom.decode_instruction(addr.rom_file_offset)
             context = self.get_context(raw_instr)
 
             return Instruction(
@@ -76,6 +80,7 @@ class Disassembler:
                 labels=labels,
                 scope=scope_name,
                 section_start=section,
+                bytes=raw_instr.bytes,
                 raw_instruction=raw_instr,
                 context=context,
             )
@@ -163,14 +168,20 @@ class AsmElement:
 
 
 @dataclass
-class Instruction(AsmElement):
+class RomElement(AsmElement):
+    bytes: bytes
+
+
+@dataclass
+class Instruction(RomElement):
     raw_instruction: RawInstruction
     context: InstructionContext
 
 
 @dataclass
-class Data(AsmElement):
+class DataRow(RomElement):
     data_block: DataBlock
+    row: int
 
 
 @dataclass

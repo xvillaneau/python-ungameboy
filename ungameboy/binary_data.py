@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Optional, List, Tuple, Type, Union
 
 from .address import Address
@@ -8,47 +7,53 @@ from .data_types import Byte, ParameterMeta, Word
 if TYPE_CHECKING:
     from .disassembler import Disassembler
 
-TableCol = Union[ParameterMeta, Type[Address]]
+RowItem = Union[Byte, Word, Address]
+RowItemType = Type[RowItem]
 
-ROW_TYPES_NAMES: List[Tuple[str, TableCol]] = [
+ROW_TYPES_NAMES: List[Tuple[str, RowItemType]] = [
     ('db', Byte), ('dw', Word), ('addr', Address)
 ]
 
 
-@dataclass
 class DataBlock:
-    address: Address
-    size: int
-    bytes: bytes
+    def __init__(self, address: Address, data: bytes, row_size=8):
+        self.address = address
+        self.bytes = data
+        self.row_size = row_size
 
-    @property
-    def data_lines(self):
-        return 0
-
-
-@dataclass
-class DataTable(DataBlock):
-    rows: int
-    row_struct: List[TableCol]
-
-    def __post_init__(self):
-        self.size = self.rows * self.row_size
+    def __getitem__(self, item) -> List[RowItem]:
+        if not isinstance(item, int):
+            raise TypeError()
+        data = self.get_row_bin(item)
+        return [Byte(b) for b in data]
 
     def __iter__(self):
         for row in range(self.rows):
             yield self[row]
 
-    def __getitem__(self, item):
-        if not isinstance(item, int):
-            raise TypeError()
-        if not 0 <= item < self.rows:
+    def get_row_bin(self, row: int) -> bytes:
+        if not 0 <= row < self.rows:
             raise IndexError("Row index out of range")
+        size = self.row_size
+        return self.bytes[size * row:size * (row + 1)]
 
-        start = item * self.row_size
-        stop = start + self.row_size
-        row_bytes = self.bytes[start:stop]
+    @property
+    def size(self):
+        return len(self.bytes)
 
-        row = []
+    @property
+    def rows(self) -> int:
+        return (self.size + self.row_size - 1) // self.row_size
+
+
+class DataTable(DataBlock):
+    def __init__(self, address: Address, data: bytes, row_struct: List[RowItemType]):
+        self.row_struct = row_struct
+        super().__init__(address, data, self.get_row_size(row_struct))
+
+    def __getitem__(self, item) -> List[RowItem]:
+        row, row_bytes = [], self.get_row_bin(item)
+
         for t in self.row_struct:
             n_bytes = 2 if t is Address else t.n_bytes
             value = int.from_bytes(row_bytes[:n_bytes], 'little')
@@ -60,15 +65,11 @@ class DataTable(DataBlock):
 
         return row
 
-    @property
-    def data_lines(self):
-        return self.rows
-
-    @property
-    def row_size(self):
+    @classmethod
+    def get_row_size(cls, row_struct: List[RowItemType]) -> int:
         return sum(
             item.n_bytes if isinstance(item, ParameterMeta) else 2
-            for item in self.row_struct
+            for item in row_struct
         )
 
 
@@ -81,13 +82,14 @@ class DataManager:
 
     def create(self, address: Address, length=1):
         content = self._get_bytes(address, length)
-        self._insert(DataBlock(address, length, content))
+        self._insert(DataBlock(address, content))
 
     def create_table(
-            self, address: Address, rows: int, structure: List[TableCol]
+            self, address: Address, rows: int, structure: List[RowItemType]
     ):
-        block = DataTable(address, 0, b'', rows, structure)
-        block.bytes = self._get_bytes(address, block.size)
+        row_size = DataTable.get_row_size(structure)
+        data = self._get_bytes(address, row_size * rows)
+        block = DataTable(address, data, structure)
         self._insert(block)
 
     def _get_bytes(self, start: Address, size: int):

@@ -1,9 +1,14 @@
 from typing import TYPE_CHECKING
 
 from ..address import Address
-from ..binary_data import DataTable
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
-from ..disassembler import AsmElement, Data, Instruction, SpecialLabel
+from ..disassembler import (
+    AsmElement,
+    DataRow,
+    Instruction,
+    RomElement,
+    SpecialLabel,
+)
 from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
 
@@ -80,16 +85,14 @@ def render_instruction(data: Instruction):
     return items
 
 
-def render_data(data: Data):
+def render_row(data: DataRow):
     block = data.data_block
-    if isinstance(block, DataTable):
-        for row in block:
-            line = [('', ' ' * (MARGIN + 4))]
-            for item in row:
-                line.extend([('', str(item)), ('', ', ')])
-            line.pop()
-            yield line
-    return
+    line = []
+    for item in block[data.row]:
+        line.extend([('', str(item)), ('', ', ')])
+    line.pop()
+
+    return line
 
 
 def render_element(data: AsmElement, control: "AsmControl"):
@@ -123,33 +126,40 @@ def render_element(data: AsmElement, control: "AsmControl"):
             cursor_cls = ',ugb.cursor'
         elif data.address == control.cursor_destination:
             cursor_cls = ',ugb.cursor.dest'
+    addr_cls = '.data' if isinstance(data, DataRow) else ''
 
     addr_str = str(data.address)
     addr_items = [
         ('', ' ' * (MARGIN + 12 - len(addr_str))),
-        ('class:ugb.address' + cursor_cls, addr_str)
+        ('class:ugb.address' + addr_cls + cursor_cls, addr_str)
     ]
 
+    if isinstance(data, RomElement):
+        _size = (
+            max(data.data_block.row_size * 2, 6)
+            if isinstance(data, DataRow)
+            else 6
+        )
+        addr_items.append(('', '  '))
+        addr_items.append(('class:ugb.bin', f'{data.bytes.hex():<{_size}}'))
+        addr_items.append(('', '  '))
+
     if isinstance(data, Instruction):
-        instr = data.raw_instruction
         lines.append([
             *addr_items,
-            ('', '  '),
-            ('class:ugb.bin', f'{instr.bytes.hex():<6}'),
-            ('', '  '),
             *render_instruction(data),
         ])
 
-    elif isinstance(data, Data):
-        block_end = data.next_address.memory_address - 1
-        lines.append([
-            *addr_items,
-            ('', ' \u2192 '),
-            ('class:ugb.address', f'{block_end:04x}'),
-            ('', ' ('),
-            ('class:ugb.data.size', f'{data.size} bytes'),
-            ('', ')'),
-        ])
-        lines.extend(render_data(data))
+    elif isinstance(data, DataRow):
+        if data.row == 0:
+            desc = (
+                data.data_block.__class__.__name__ +
+                f' ({data.data_block.size} bytes)'
+            )
+            lines.append([
+                addr_items[0],
+                ('class:ugb.data.header', '; ' + desc)
+            ])
+        lines.append([*addr_items, *render_row(data)])
 
     return lines

@@ -194,8 +194,16 @@ class AsmRegionView:
                 n_lines += 1
             n_lines += len(asm.labels.get_labels(address))
 
-            if address >= next_data_addr:
-                n_lines += 1 + next_data.data_lines
+            if address >= next_data_addr and next_data is not None:
+                n_lines += 2
+                address = next_data.address
+
+                for row in range(1, next_data.rows):
+                    address = address + next_data.row_size
+                    self._lines.append(n_lines)
+                    self._addr.append(address)
+                    n_lines += 1
+
                 address = next_data.address + next_data.size
 
                 next_data = asm.data.next_block(address)
