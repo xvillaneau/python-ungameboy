@@ -14,10 +14,13 @@ from ..disassembler import Disassembler
 UGB_STYLE = {
     'ugb.address': 'fg:#10b020',
     'ugb.address.data': 'fg:#10a080',
-    'ugb.cursor': 'bg:#10b020 fg:black',
-    'ugb.cursor.dest': 'bg:#10a080',
     'ugb.bin': 'fg:#aaaaaa',
     'ugb.data': 'fg:#55cccc',
+    # Highlight
+    'ugb.hl': 'fg:black',
+    'ugb.hl ugb.address': 'bg:#10b020',
+    'ugb.hl ugb.address.data': 'bg:#10a080',
+    'ugb.hl ugb.bin': 'bg:#aaaaaa',
     # Sections
     'ugb.section': 'fg:#aa0000 bold',
     # Labels

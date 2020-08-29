@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .control import AsmControl
 
 MARGIN = 4
-
+HIGHLIGHT = ',ugb.hl'
 
 def render_instruction(data: Instruction):
     instr = data.raw_instruction
@@ -95,6 +95,29 @@ def render_row(data: DataRow):
     return line
 
 
+def render_binary(data: RomElement, control: "AsmControl"):
+    bin_cls = 'class:ugb.bin'
+    bin_hex = data.bytes.hex()
+
+    bin_size = (
+        max(data.data_block.row_size * 2, 6)
+        if isinstance(data, DataRow)
+        else 6
+    )
+
+    cursor = control.cursor
+    if control.cursor_mode and data.address <= cursor < data.next_address:
+        pos = (control.cursor.offset - data.address.offset) * 2
+        if pos != 0:
+            yield (bin_cls, bin_hex[:pos])
+        yield (bin_cls + HIGHLIGHT, bin_hex[pos:pos + 2])
+        if pos < len(bin_hex) - 2:
+            yield (bin_cls, bin_hex[pos + 2:])
+    else:
+        yield (bin_cls, bin_hex)
+    yield ('', ' ' * (bin_size - len(bin_hex) + 2))
+
+
 def render_element(data: AsmElement, control: "AsmControl"):
     lines = []
 
@@ -120,46 +143,36 @@ def render_element(data: AsmElement, control: "AsmControl"):
                 ('', ':'),
             ])
 
-    cursor_cls = ''
-    if control.cursor_mode:
-        if data.address == control.cursor:
-            cursor_cls = ',ugb.cursor'
-        elif data.address == control.cursor_destination:
-            cursor_cls = ',ugb.cursor.dest'
-    addr_cls = '.data' if isinstance(data, DataRow) else ''
-
-    addr_str = str(data.address)
-    addr_items = [
-        ('', ' ' * (MARGIN + 12 - len(addr_str))),
-        ('class:ugb.address' + addr_cls + cursor_cls, addr_str)
-    ]
-
     if isinstance(data, RomElement):
-        _size = (
-            max(data.data_block.row_size * 2, 6)
-            if isinstance(data, DataRow)
-            else 6
-        )
-        addr_items.append(('', '  '))
-        addr_items.append(('class:ugb.bin', f'{data.bytes.hex():<{_size}}'))
-        addr_items.append(('', '  '))
+        addr_cls = 'class:ugb.address'
+        addr_cls += '.data' if isinstance(data, DataRow) else ''
+        if control.cursor_mode and data.address == control.cursor_destination:
+            addr_cls += HIGHLIGHT
 
-    if isinstance(data, Instruction):
-        lines.append([
-            *addr_items,
-            *render_instruction(data),
-        ])
+        addr_str = str(data.address)
+        addr_items = [
+            ('', ' ' * (MARGIN + 12 - len(addr_str))),
+            (addr_cls, addr_str),
+            ('', '  '),
+            *render_binary(data, control),
+        ]
 
-    elif isinstance(data, DataRow):
-        if data.row == 0:
-            desc = (
-                data.data_block.__class__.__name__ +
-                f' ({data.data_block.size} bytes)'
-            )
+        if isinstance(data, Instruction):
             lines.append([
-                addr_items[0],
-                ('class:ugb.data.header', '; ' + desc)
+                *addr_items,
+                *render_instruction(data),
             ])
-        lines.append([*addr_items, *render_row(data)])
+
+        elif isinstance(data, DataRow):
+            if data.row == 0:
+                desc = (
+                    data.data_block.__class__.__name__ +
+                    f' ({data.data_block.size} bytes)'
+                )
+                lines.append([
+                    addr_items[0],
+                    ('class:ugb.data.header', '; ' + desc)
+                ])
+            lines.append([*addr_items, *render_row(data)])
 
     return lines
