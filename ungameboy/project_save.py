@@ -1,12 +1,9 @@
 import os
 from pathlib import Path
 import shlex
-from typing import TYPE_CHECKING
 
-from .binary_data import ROW_TYPES_NAMES, DataTable
-
-if TYPE_CHECKING:
-    from .disassembler import Disassembler
+from .dis.binary_data import ROW_TYPES_NAMES, DataTable
+from .dis.disassembler import Disassembler
 
 PROJECTS_DIR = Path.home() / '.ungameboy' / 'projects'
 

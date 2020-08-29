@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from .address import Address
-from .enums import (
+from ..address import Address
+from ..enums import (
     Operation,
     A, B, C, D, E, H, L,
     HL, BC, DE, SP, AF,
     Z, NZ, CY, NC,
 )
-from .data_types import (
+from ..data_types import (
     Ref, IORef,
     ParameterMeta, Byte, Word, SignedByte, SPOffset,
 )

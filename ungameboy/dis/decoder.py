@@ -1,6 +1,6 @@
-from .address import Address
-from .enums import Operation
 from .instructions import CODE_POINTS, RawInstruction
+from ..address import Address
+from ..enums import Operation
 
 __all__ = ['ROMBytes']
 

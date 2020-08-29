@@ -2,20 +2,21 @@ from typing import TYPE_CHECKING
 
 from ..address import Address
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
-from ..disassembler import (
+from ..dis import (
     DataRow,
     Instruction,
+    Label,
     RomElement,
     SpecialLabel,
 )
 from ..enums import Condition, DoubleRegister, Register, C
-from ..labels import Label
 
 if TYPE_CHECKING:
     from .control import AsmControl
 
 MARGIN = 4
 HIGHLIGHT = ',ugb.hl'
+
 
 def render_instruction(data: Instruction):
     instr = data.raw_instruction
@@ -40,13 +41,8 @@ def render_instruction(data: Instruction):
         else:
             ref = None
 
-        ctx = data.context
-        if (
-                not ctx.force_scalar and
-                pos + 1 == instr.value_pos and
-                ctx.value_symbol is not None
-        ):
-            arg = ctx.value_symbol
+        if (pos + 1 == instr.value_pos):
+            arg = data.value
 
         # Arg can be: (Double)Register, Byte/Word/SignedByte/SPOffset,
         #   Label, Ref/IORef to any of the previous, condition, integer

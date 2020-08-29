@@ -1,13 +1,11 @@
-from typing import BinaryIO, TYPE_CHECKING
+from typing import BinaryIO
 
 import click
 
 from .address import Address
-from .binary_data import ROW_TYPES_NAMES
+from .dis.binary_data import ROW_TYPES_NAMES
+from .dis.disassembler import Disassembler
 from .project_save import save_project, load_project
-
-if TYPE_CHECKING:
-    from .disassembler import Disassembler
 
 __all__ = ['AddressOrLabel', 'LabelName', 'create_core_cli']
 

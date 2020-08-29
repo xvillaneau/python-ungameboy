@@ -1,7 +1,9 @@
 from typing import Iterator, List, NamedTuple, Optional, Tuple
 
-from .address import Address
-from .data_structures import AddressMapping, SortedStrMapping
+from ..address import Address
+from ..data_structures import AddressMapping, SortedStrMapping
+
+__all__ = ['Label', 'LabelManager']
 
 
 class Label(NamedTuple):

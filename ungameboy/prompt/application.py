@@ -8,7 +8,7 @@ from .key_bindings import load_asm_control_bindings, load_layout_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
 from ..address import Address
-from ..disassembler import Disassembler
+from ..dis import Disassembler
 
 
 UGB_STYLE = {

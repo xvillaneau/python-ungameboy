@@ -1,7 +1,9 @@
 from typing import NamedTuple, Optional
 
-from .address import Address
-from .data_structures import AddressMapping
+from ..address import Address
+from ..data_structures import AddressMapping
+
+__all__ = ['Section', 'SectionManager']
 
 
 class Section(NamedTuple):

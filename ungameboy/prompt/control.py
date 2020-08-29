@@ -8,24 +8,16 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .lexer import render_element
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
-from ..disassembler import DataRow, Disassembler, Instruction
-from ..labels import Label
+from ..dis import DataRow, Disassembler, Instruction, Label
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
 
 
-NO_ROM = UIContent(
-    lambda _: [('', "No ROM loaded")],
-    line_count=1,
-    show_cursor=False,
-)
-
-
 class AsmControl(UIControl):
     _ZONES: Dict[Tuple[MemoryType, int], "AsmRegionView"] = {}
 
-    def __init__(self, asm: "Disassembler"):
+    def __init__(self, asm: Disassembler):
         self.cursor_destination: Optional[Address]
 
         self.asm = asm
@@ -61,7 +53,7 @@ class AsmControl(UIControl):
         return True
 
     @classmethod
-    def _get_zone(cls, asm: "Disassembler", zone: Tuple[MemoryType, int]):
+    def _get_zone(cls, asm: Disassembler, zone: Tuple[MemoryType, int]):
         if zone not in cls._ZONES:
             cls._ZONES[zone] = AsmRegionView(asm, *zone)
         return cls._ZONES[zone]
@@ -91,7 +83,7 @@ class AsmControl(UIControl):
 
         item = self.asm[self.cursor]
         if isinstance(item, DataRow):
-            # TODO: Deal with more than address per row
+            # TODO: Deal with more than one address per row
             for value in item.values:
                 if isinstance(value, Label):
                     value = value.address
@@ -102,14 +94,13 @@ class AsmControl(UIControl):
         if not isinstance(item, Instruction):
             return
 
-        value = item.context.value_symbol
+        value = item.value
         if isinstance(value, Label):
             value = value.address
         if not isinstance(value, Address) or value.bank < 0:
             return
 
-        ctx = self.asm.context.get_context(self.cursor)
-        if not ctx.force_scalar:
+        if self.cursor not in self.asm.context.force_scalar:
             self.cursor_destination = value
 
     def get_vertical_scroll(self, window: "Window") -> int:
