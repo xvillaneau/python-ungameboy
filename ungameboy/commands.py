@@ -129,14 +129,14 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @data_cli.command("create-simple")
     @click.argument("address", type=address_arg)
     @click.argument("size", type=int)
-    def data_create(address: Address, size):
+    def data_create_simple(address: Address, size):
         asm.data.create(address, size)
 
     @data_cli.command("create-table")
     @click.argument("address", type=address_arg)
     @click.argument("rows", type=int)
     @click.argument("structure", type=str)
-    def data_table(address: Address, rows: int, structure: str):
+    def data_create_table(address: Address, rows: int, structure: str):
         struct = [DATA_TYPES[item] for item in structure.split(',')]
         asm.data.create_table(address, rows, struct)
 
@@ -154,7 +154,7 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @label_cli.command("auto")
     @click.argument("address", type=address_arg)
     @click.option("--local", "-l", is_flag=True)
-    def label_create(address: Address, local=False):
+    def label_auto(address: Address, local=False):
         asm.labels.auto_create(address, local)
 
     @label_cli.command("rename")
