@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
 
 from ..address import Address
+from ..binary_data import DataTable
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
-from ..disassembler import AsmElement, DataBlock, Instruction, SpecialLabel
+from ..disassembler import AsmElement, Data, Instruction, SpecialLabel
 from ..enums import Condition, DoubleRegister, Register, C
 from ..labels import Label
 
@@ -79,7 +80,19 @@ def render_instruction(data: Instruction):
     return items
 
 
-def render_data(data: AsmElement, control: "AsmControl"):
+def render_data(data: Data):
+    block = data.data_block
+    if isinstance(block, DataTable):
+        for row in block:
+            line = [('', ' ' * (MARGIN + 4))]
+            for item in row:
+                line.extend([('', str(item)), ('', ', ')])
+            line.pop()
+            yield line
+    return
+
+
+def render_element(data: AsmElement, control: "AsmControl"):
     lines = []
 
     if data.section_start is not None:
@@ -127,19 +140,16 @@ def render_data(data: AsmElement, control: "AsmControl"):
             *render_instruction(data),
         ])
 
-    elif isinstance(data, DataBlock):
+    elif isinstance(data, Data):
         block_end = data.next_address.memory_address - 1
         lines.append([
             *addr_items,
             ('', ' \u2192 '),
             ('class:ugb.address', f'{block_end:04x}'),
-        ])
-        lines.append([
-            ('', ' ' * (MARGIN + 4)),
-            ('class:ugb.data.name', data.name),
             ('', ' ('),
             ('class:ugb.data.size', f'{data.size} bytes'),
             ('', ')'),
         ])
+        lines.extend(render_data(data))
 
     return lines

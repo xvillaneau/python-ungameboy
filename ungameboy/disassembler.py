@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import BinaryIO, Optional, List, NamedTuple, Union
 
 from .address import Address, ROM
+from .binary_data import DataBlock, DataManager
 from .context import ContextManager
-from .data_block import DataManager
 from .data_types import Byte, IORef, Ref, Word
 from .decoder import ROMBytes
 from .enums import Operation as Op
@@ -11,7 +11,7 @@ from .instructions import RawInstruction
 from .labels import LabelManager, Label
 from .sections import SectionManager, Section
 
-__all__ = ['AsmElement', 'DataBlock', 'Disassembler', 'Instruction', 'SpecialLabel']
+__all__ = ['AsmElement', 'Data', 'Disassembler', 'Instruction', 'SpecialLabel']
 
 
 class Disassembler:
@@ -24,7 +24,7 @@ class Disassembler:
         self.rom_path = None
         self.project_name = ""
 
-        self.data = DataManager()
+        self.data = DataManager(self)
         self.context = ContextManager()
         self.labels = LabelManager()
         self.sections = SectionManager()
@@ -57,13 +57,13 @@ class Disassembler:
 
         data = self.data.get_data(item)
         if data is not None:
-            return DataBlock(
+            return Data(
                 address=data.address,
-                size=data.length,
+                size=data.size,
                 labels=labels,
                 scope=scope_name,
                 section_start=section,
-                name=data.description
+                data_block=data,
             )
 
         elif item.type is ROM:
@@ -169,8 +169,8 @@ class Instruction(AsmElement):
 
 
 @dataclass
-class DataBlock(AsmElement):
-    name: str
+class Data(AsmElement):
+    data_block: DataBlock
 
 
 @dataclass

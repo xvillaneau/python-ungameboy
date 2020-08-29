@@ -5,7 +5,7 @@ from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
-from .lexer import render_data
+from .lexer import render_element
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
 from ..disassembler import Disassembler, Instruction
@@ -195,8 +195,8 @@ class AsmRegionView:
             n_lines += len(asm.labels.get_labels(address))
 
             if address >= next_data_addr:
-                n_lines += 2
-                address = next_data.next_address
+                n_lines += 1 + next_data.data_lines
+                address = next_data.address + next_data.size
 
                 next_data = asm.data.next_block(address)
                 next_data_addr = (
@@ -221,7 +221,7 @@ class AsmRegionView:
         addr = self._addr[pos - 1]
         ref_line = self._lines[pos - 1]
 
-        lines = render_data(self.ctrl.asm[addr], self.ctrl)
+        lines = render_element(self.ctrl.asm[addr], self.ctrl)
         return lines[line - ref_line]
 
     def get_relative_address(self, address: Address, offset: int) -> Address:
