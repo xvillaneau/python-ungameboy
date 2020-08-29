@@ -8,7 +8,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .lexer import render_element
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
-from ..disassembler import Disassembler, Instruction
+from ..disassembler import DataRow, Disassembler, Instruction
 from ..labels import Label
 
 if TYPE_CHECKING:
@@ -76,6 +76,15 @@ class AsmControl(UIControl):
         self.cursor_destination = None
 
         item = self.asm[self.cursor]
+        if isinstance(item, DataRow):
+            # TODO: Deal with more than address per row
+            for value in item.values:
+                if isinstance(value, Label):
+                    value = value.address
+                if isinstance(value, Address):
+                    self.cursor_destination = value
+                    break
+            return
         if not isinstance(item, Instruction):
             return
 
@@ -133,17 +142,8 @@ class AsmControl(UIControl):
         self._seek(self._stack.redo())
 
     def follow_jump(self):
-        item = self.asm[self.cursor]
-        if not isinstance(item, Instruction):
-            return
-
-        dest = item.context.value_symbol
-        if isinstance(dest, Label):
-            dest = dest.address
-        elif not isinstance(dest, Address):
-            return
-
-        self.seek(dest)
+        if self.cursor_destination is not None:
+            self.seek(self.cursor_destination)
 
     def move_up(self, lines: int):
         if lines <= 0:
