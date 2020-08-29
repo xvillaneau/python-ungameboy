@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 from ..address import Address
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
 from ..disassembler import (
-    AsmElement,
     DataRow,
     Instruction,
     RomElement,
@@ -127,11 +126,12 @@ def render_binary(data: RomElement, control: "AsmControl"):
     yield ('', ' ' * (bin_size - len(bin_hex) + 2))
 
 
-def render_element(data: AsmElement, control: "AsmControl"):
+def render_element(address: Address, control: "AsmControl"):
     lines = []
 
-    if data.section_start is not None:
-        section = data.section_start
+    elem = control.asm[address]
+    if elem.section_start is not None:
+        section = elem.section_start
         lines.append([
             ('class:ugb.section', 'SECTION'),
             ('', ' "'),
@@ -140,7 +140,7 @@ def render_element(data: AsmElement, control: "AsmControl"):
             ('class:ugb.section.address', str(section.address)),
         ])
 
-    for label in data.labels:
+    for label in elem.labels:
         if label.local_name:
             lines.append([
                 ('', '  .'),
@@ -152,36 +152,36 @@ def render_element(data: AsmElement, control: "AsmControl"):
                 ('', ':'),
             ])
 
-    if isinstance(data, RomElement):
+    if isinstance(elem, RomElement):
         addr_cls = 'class:ugb.address'
-        addr_cls += '.data' if isinstance(data, DataRow) else ''
-        if control.cursor_mode and data.address == control.cursor_destination:
+        addr_cls += '.data' if isinstance(elem, DataRow) else ''
+        if control.cursor_mode and elem.address == control.cursor_destination:
             addr_cls += HIGHLIGHT
 
-        addr_str = str(data.address)
+        addr_str = str(elem.address)
         addr_items = [
             ('', ' ' * (MARGIN + 12 - len(addr_str))),
             (addr_cls, addr_str),
             ('', '  '),
-            *render_binary(data, control),
+            *render_binary(elem, control),
         ]
 
-        if isinstance(data, Instruction):
+        if isinstance(elem, Instruction):
             lines.append([
                 *addr_items,
-                *render_instruction(data),
+                *render_instruction(elem),
             ])
 
-        elif isinstance(data, DataRow):
-            if data.row == 0:
+        elif isinstance(elem, DataRow):
+            if elem.row == 0:
                 desc = (
-                    data.data_block.__class__.__name__ +
-                    f' ({data.data_block.size} bytes)'
+                    elem.data_block.__class__.__name__ +
+                    f' ({elem.data_block.size} bytes)'
                 )
                 lines.append([
                     addr_items[0],
                     ('class:ugb.data.header', '; ' + desc)
                 ])
-            lines.append([*addr_items, *render_row(data)])
+            lines.append([*addr_items, *render_row(elem)])
 
     return lines

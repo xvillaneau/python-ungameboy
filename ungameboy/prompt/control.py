@@ -1,5 +1,5 @@
 from bisect import bisect_right
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
@@ -23,13 +23,15 @@ NO_ROM = UIContent(
 
 
 class AsmControl(UIControl):
+    _ZONES: Dict[Tuple[MemoryType, int], "AsmRegionView"] = {}
+
     def __init__(self, asm: "Disassembler"):
         self.cursor_destination: Optional[Address]
 
         self.asm = asm
 
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
-        self.current_view = AsmRegionView(self, ROM, 0)
+        self.current_view = AsmRegionView(self.asm, ROM, 0)
 
         self.cursor_mode = False
         self._reset_scroll = False
@@ -42,18 +44,31 @@ class AsmControl(UIControl):
 
     def create_content(self, width: int, height: int) -> UIContent:
         return UIContent(
-            self.current_view.get_line,
+            self.get_line,
             self.current_view.lines_count,
             cursor_position=Point(0, self.cursor_position),
             show_cursor=False,
         )
 
+    def get_line(self, line: int):
+        try:
+            addr, offset = self.current_view.get_line_info(line)
+        except IndexError:
+            return []
+        return render_element(addr, self)[offset]
+
     def is_focusable(self) -> bool:
         return True
 
+    @classmethod
+    def _get_zone(cls, asm: "Disassembler", zone: Tuple[MemoryType, int]):
+        if zone not in cls._ZONES:
+            cls._ZONES[zone] = AsmRegionView(asm, *zone)
+        return cls._ZONES[zone]
+
     def load_zone(self, zone: Tuple[MemoryType, int]):
         self.current_zone = zone
-        self.current_view = AsmRegionView(self, *zone)
+        self.current_view = self._get_zone(self.asm, zone)
 
     def refresh(self):
         self.current_view.build_names_map()
@@ -158,8 +173,8 @@ class AsmControl(UIControl):
 
 
 class AsmRegionView:
-    def __init__(self, control: AsmControl, m_type: MemoryType, m_bank: int):
-        self.ctrl = control
+    def __init__(self, asm: Disassembler, m_type: MemoryType, m_bank: int):
+        self.asm = asm
         self.mem_type = m_type
         self.mem_bank = m_bank
 
@@ -177,7 +192,7 @@ class AsmRegionView:
         end_addr = address.zone_end + 1
 
         n_lines = 0
-        asm = self.ctrl.asm
+        asm = self.asm
         next_data = asm.data.next_block(address)
         next_data_addr = (
             end_addr if next_data is None else next_data.address
@@ -220,16 +235,18 @@ class AsmRegionView:
 
         self.lines_count = n_lines
 
-    def get_line(self, line: int):
+    def get_line_info(self, line: int) -> Tuple[Address, int]:
+        """
+        Given a line number in the resulting document, get the address
+        to query and which line of the result to use.
+        """
         pos = bisect_right(self._lines, line)
         if pos == 0:
-            return []
+            raise IndexError(line)
 
         addr = self._addr[pos - 1]
         ref_line = self._lines[pos - 1]
-
-        lines = render_element(self.ctrl.asm[addr], self.ctrl)
-        return lines[line - ref_line]
+        return addr, line - ref_line
 
     def get_relative_address(self, address: Address, offset: int) -> Address:
         pos = bisect_right(self._addr, address)
