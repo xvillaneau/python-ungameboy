@@ -1,7 +1,7 @@
 from typing import Iterator, List, NamedTuple, Optional, Tuple
 
 from .address import Address
-from .data_structures import SortedMapping, SortedStrMapping
+from .data_structures import AddressMapping, SortedStrMapping
 
 
 class Label(NamedTuple):
@@ -19,10 +19,10 @@ class Label(NamedTuple):
 
 class LabelManager:
     def __init__(self):
-        self._globals: SortedMapping[Address, List[str]] = SortedMapping()
-        self._locals: SortedMapping[Address, List[str]] = SortedMapping()
+        self._globals: AddressMapping[List[str]] = AddressMapping()
+        self._locals: AddressMapping[List[str]] = AddressMapping()
 
-        self._all: SortedMapping[Address, List[Label]] = SortedMapping()
+        self._all: AddressMapping[List[Label]] = AddressMapping()
         self._by_name: SortedStrMapping[Address] = SortedStrMapping()
 
     def __contains__(self, item):

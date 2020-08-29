@@ -1,7 +1,7 @@
 from typing import NamedTuple, Optional
 
 from .address import Address
-from .data_structures import SortedMapping
+from .data_structures import AddressMapping
 
 
 class Section(NamedTuple):
@@ -11,7 +11,7 @@ class Section(NamedTuple):
 
 class SectionManager:
     def __init__(self):
-        self._sections: SortedMapping[Address, str] = SortedMapping()
+        self._sections: AddressMapping[str] = AddressMapping()
 
     def create(self, address: Address, name: str):
         if '"' in name:

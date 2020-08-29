@@ -2,7 +2,9 @@ from bisect import bisect_left, bisect_right
 from operator import itemgetter
 from typing import Iterator, List, Sequence, MutableMapping, Tuple, TypeVar
 
-__all__ = ['SortedMapping', 'SortedStrMapping', 'StateStack']
+from .address import Address
+
+__all__ = ['AddressMapping', 'SortedMapping', 'SortedStrMapping', 'StateStack']
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -82,6 +84,14 @@ class SortedMapping(MutableMapping[K, V]):
         if pos >= len(self):
             raise KeyError(item)
         return self._item(pos)
+
+
+class AddressMapping(SortedMapping[Address, V]):
+    """
+    Special manager for address-based lookups. For now this is mostly
+    just a shortcut, but I may add optimizations here later.
+    """
+    pass
 
 
 class SortedStrMapping(SortedMapping[str, V]):

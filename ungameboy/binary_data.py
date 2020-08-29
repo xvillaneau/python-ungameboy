@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Dict, Optional, List, Tuple, Type, Union
 
 from .address import Address
-from .data_structures import SortedMapping
+from .data_structures import AddressMapping
 from .data_types import Byte, ParameterMeta, Word
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ class DataManager:
         self.asm = asm
 
         self.inventory: Dict[Address, DataBlock] = {}
-        self._blocks_map: SortedMapping[Address, int] = SortedMapping()
+        self._blocks_map: AddressMapping[int] = AddressMapping()
 
     def create(self, address: Address, length=1):
         content = self._get_bytes(address, length)
