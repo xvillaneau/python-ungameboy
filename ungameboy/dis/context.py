@@ -61,7 +61,7 @@ class ContextManager:
         elif isinstance(arg, Ref) and isinstance(arg.target, Word):
             target = Address.from_memory_address(arg.target)
         else:
-            return 0
+            return arg
 
         if instr.type is Op.Load and instr.value_pos == 1:
             special = SpecialLabel.detect(target)
