@@ -44,6 +44,9 @@ class ContextManager:
             elif addr in self.bank_override:
                 self.bank_override.pop(addr)
 
+    def has_context(self, address: Address) -> bool:
+        return address in self.force_scalar or address in self.bank_override
+
     def instruction_context(self, instr: "RawInstruction") -> "Value":
         if instr.value_pos <= 0:
             return 0

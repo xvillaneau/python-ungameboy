@@ -122,6 +122,13 @@ def render_binary(data: RomElement, control: "AsmControl"):
     yield ('', ' ' * (bin_size - len(bin_hex) + 2))
 
 
+def render_flags(data: RomElement, asm):
+    flags = "C" if data.xrefs.calls else " "
+    flags += "c" if data.xrefs.called_by else " "
+    flags += "+" if asm.context.has_context(data.address) else " "
+    return flags
+
+
 def render_element(address: Address, control: "AsmControl"):
     lines = []
 
@@ -160,10 +167,12 @@ def render_element(address: Address, control: "AsmControl"):
             (addr_cls, addr_str),
             ('', '  '),
             *render_binary(elem, control),
+            ('class:ugb.flags', render_flags(elem, control.asm)),
+            ('', ' '),
         ]
 
-        if elem.xrefs is not None:
-            n_calls = len(elem.xrefs.called_by)
+        n_calls = len(elem.xrefs.called_by)
+        if n_calls:
             lines.append([
                 addr_items[0],
                 (

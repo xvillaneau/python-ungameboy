@@ -197,7 +197,7 @@ class AsmRegionView:
 
             if asm.sections.get_section(address) is not None:
                 n_lines += 1
-            if asm.xrefs.get_xrefs(address) is not None:
+            if asm.xrefs.get_xrefs(address).called_by:
                 n_lines += 1
             n_lines += len(asm.labels.get_labels(address))
 

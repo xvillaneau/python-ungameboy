@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class XRefs(NamedTuple):
     address: Address
     called_by: Set[Address]
+    calls: Optional[Address]
 
 
 class XRefManager:
@@ -44,11 +45,10 @@ class XRefManager:
         self._calls_to[addr_from] = addr_to
         self._calls_from.setdefault(addr_to, set()).add(addr_from)
 
-    def get_xrefs(self, address: Address) -> Optional[XRefs]:
-        calls = self._calls_from.get(address, set())
-        if not calls:
-            return None
-        return XRefs(address, calls)
+    def get_xrefs(self, address: Address) -> XRefs:
+        called_by = self._calls_from.get(address, set())
+        calls = self._calls_to.get(address)
+        return XRefs(address, called_by, calls)
 
     def save_items(self):
         for _from, _to in self._calls_to.items():

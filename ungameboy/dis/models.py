@@ -24,7 +24,7 @@ class AsmElement:
     labels: List[Label]
     scope: str
     section: Optional['Section']
-    xrefs: Optional['XRefs']
+    xrefs: 'XRefs'
 
     @property
     def next_address(self):
