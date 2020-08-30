@@ -188,15 +188,21 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @address_arg()
     def xref_auto_detect(address: Address):
         asm.xrefs.auto_declare(address)
-    
+
     @xref_cli.group('declare')
     def xref_declare():
         pass
-    
+
     @xref_declare.command('call')
     @address_arg('addr_from')
     @address_arg('addr_to')
     def xref_declare_call(addr_from, addr_to):
         asm.xrefs.declare_call(addr_from, addr_to)
+
+    @xref_declare.command('jump')
+    @address_arg('addr_from')
+    @address_arg('addr_to')
+    def xref_declare_jump(addr_from, addr_to):
+        asm.xrefs.declare_jump(addr_from, addr_to)
 
     return ugb_core_cli
