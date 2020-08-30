@@ -61,7 +61,8 @@ def render_instruction(data: Instruction):
         elif isinstance(arg, int):
             add(arg, 'scalar')
         elif isinstance(arg, Label):
-            if arg.local_name != '' and arg.global_name == data.scope:
+            scope_name = data.scope.name if data.scope else ''
+            if arg.local_name != '' and arg.global_name == scope_name:
                 add(f'.{arg.local_name}', 'label')
             else:
                 add(arg.name, 'label')
@@ -84,7 +85,8 @@ def render_row(data: DataRow):
     line = []
     for item in data.values:
         if isinstance(item, Label):
-            if item.local_name and item.global_name == data.scope:
+            scope_name = data.scope.name if data.scope else ''
+            if item.local_name and item.global_name == scope_name:
                 item = '.' + item.local_name
             else:
                 item = item.name
@@ -124,9 +126,7 @@ def render_binary(data: RomElement, control: "AsmControl"):
 
 def render_flags(data: RomElement, asm):
     flags = "C" if data.xrefs.calls else " "
-    flags += "c" if data.xrefs.called_by else " "
     flags += "J" if data.xrefs.jumps_to else " "
-    flags += "j" if data.xrefs.jumps_from else " "
     flags += "+" if asm.context.has_context(data.address) else " "
     return flags
 
@@ -135,6 +135,7 @@ def render_element(address: Address, control: "AsmControl"):
     lines = []
 
     elem = control.asm[address]
+
     if elem.section is not None:
         section = elem.section
         lines.append([
@@ -173,14 +174,22 @@ def render_element(address: Address, control: "AsmControl"):
             ('', ' '),
         ]
 
-        n_calls = len(elem.xrefs.called_by)
-        if n_calls:
+        addr_context = control.asm.context.address_context
+        for call_orig in elem.xrefs.called_by:
+            call_orig = addr_context(elem.address, call_orig)
+            if isinstance(call_orig, Label):
+                call_orig = call_orig.name
             lines.append([
                 addr_items[0],
-                (
-                    'class:ugb.xrefs',
-                    f"; Called from {n_calls} place{'s' * (n_calls != 1)}",
-                )
+                ('class:ugb.xrefs', f"; Called from {call_orig}")
+            ])
+        for jump_orig in elem.xrefs.jumps_from:
+            jump_orig = addr_context(elem.address, jump_orig)
+            if isinstance(jump_orig, Label):
+                jump_orig = jump_orig.name
+            lines.append([
+                addr_items[0],
+                ('class:ugb.xrefs', f"; Jump from {jump_orig}")
             ])
 
         if isinstance(elem, Instruction):

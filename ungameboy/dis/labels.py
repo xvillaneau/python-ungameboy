@@ -85,15 +85,15 @@ class LabelManager:
 
         return _locals
 
-    def scope_at(self, address: Address) -> Optional[Tuple[Address, List[str]]]:
+    def scope_at(self, address: Address) -> List[Label]:
         try:
             addr, names = self._globals.get_le(address)
         except LookupError:
-            return None
+            return []
         # TODO: Also consider sections as scope boundaries
         if (addr.type, addr.bank) != (address.type, address.bank):
-            return None
-        return addr, names
+            return []
+        return [Label(addr, name) for name in names]
 
     def _add_local(self, address: Address, name: str):
         _glob, _, _loc = name.partition('.')
@@ -101,15 +101,14 @@ class LabelManager:
             raise ValueError(f"Invalid label name: {name}")
 
         scope = self.scope_at(address)
-        if scope is None:
+        if not scope:
             raise ValueError("Local labels must be in scope of a global label")
 
-        scope_start, scope_names = scope
-        if _glob != '' and _glob not in scope_names:
+        if _glob != '' and all(lb.name != _glob for lb in scope):
             raise ValueError(f"Global label {_glob} not in scope at {address}")
 
-        scope_name = scope_names[-1]
-        current_locals = self.locals_at(scope_start)
+        scope_name = scope[-1].global_name
+        current_locals = self.locals_at(scope[-1].address)
         if any(n == _loc for _, n in current_locals):
             raise ValueError(f"Label {scope_name}.{_loc} already exists")
 
@@ -172,10 +171,7 @@ class LabelManager:
 
             # Using assert because those conditions shouldn't happen
             scope = self.scope_at(address)
-            assert scope is not None
-            _, scope_names = scope
-            assert scope_names
-            assert old_glob in scope_names
+            assert any(lb.name == old_glob for lb in scope)
 
             locals_there = self._locals[address]
             pos = locals_there.index(old_loc)
@@ -218,12 +214,12 @@ class LabelManager:
                 if address.offset == 0:
                     raise ValueError("No new global label found for locals")
                 scope = self.scope_at(address - 1)
-                if scope is None:
+                if not scope:
                     raise ValueError("No new global label found for locals")
 
                 # Then, we need to check that there are no labels with
                 # the same name in the scopes that will be merged.
-                new_locals = {name for _, name in self.locals_at(scope[0])}
+                new_locals = {name for _, name in self.locals_at(scope[0].address)}
                 merged_locals = {name for _, name in locals_here}
                 conflicts = new_locals & merged_locals
                 if conflicts:

@@ -53,7 +53,7 @@ class Disassembler:
             "labels": self.labels.get_labels(addr),
             "section": self.sections.get_section(addr),
             "xrefs": self.xrefs.get_xrefs(addr),
-            "scope": scope[1][-1] if scope is not None else ''
+            "scope": scope[-1] if scope else None,
         }
 
         data = self.data.get_data(addr)

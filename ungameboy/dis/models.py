@@ -22,7 +22,7 @@ class AsmElement:
     size: int
 
     labels: List[Label]
-    scope: str
+    scope: Optional[Label]
     section: Optional['Section']
     xrefs: 'XRefs'
 

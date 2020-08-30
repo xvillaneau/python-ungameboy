@@ -16,6 +16,8 @@ UGB_STYLE = {
     'ugb.address.data': 'fg:#10a080',
     'ugb.bin': 'fg:#aaaaaa',
     'ugb.data': 'fg:#55cccc',
+    'ugb.flags': 'fg:#aaaa55',
+    'ugb.xrefs': 'fg:#cc5555',
     # Highlight
     'ugb.hl': 'fg:black',
     'ugb.hl ugb.address': 'bg:#10b020',
