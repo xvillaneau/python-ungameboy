@@ -133,10 +133,24 @@ def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
 
         bindings.add(*keys, filter=filter)(handler)
 
+    shortcuts_active = editor_active & cursor_active
+
     bind_shortcut('g', 'seek', filter=editor_active)
+
     bind_shortcut(
-        ('x', 'x'),
-        ('xref', 'auto', cursor),
-        run=True,
-        filter=editor_active & cursor_active,
+        ('x', 'x'), ('xref', 'auto', cursor), run=True,
+        filter=shortcuts_active,
+    )
+    bind_shortcut(
+        ('x', 'r'), ('xref', 'declare', 'read', cursor),
+        filter=shortcuts_active,
+    )
+    bind_shortcut(
+        ('x', 'w'), ('xref', 'declare', 'write', cursor),
+        filter=shortcuts_active,
+    )
+
+    bind_shortcut(
+        ('C', 's'), ('context', 'force-scalar', cursor), run=True,
+        filter=shortcuts_active,
     )

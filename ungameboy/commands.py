@@ -191,7 +191,7 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
 
     @xref_cli.command('clear')
     @address_arg()
-    def xref_auto_detect(address: Address):
+    def xref_clear(address: Address):
         asm.xrefs.clear(address)
 
     @xref_cli.group('declare')
@@ -202,12 +202,24 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @address_arg('addr_from')
     @address_arg('addr_to')
     def xref_declare_call(addr_from, addr_to):
-        asm.xrefs.declare_call(addr_from, addr_to)
+        asm.xrefs.declare('call', addr_from, addr_to)
 
     @xref_declare.command('jump')
     @address_arg('addr_from')
     @address_arg('addr_to')
     def xref_declare_jump(addr_from, addr_to):
-        asm.xrefs.declare_jump(addr_from, addr_to)
+        asm.xrefs.declare('jump', addr_from, addr_to)
+
+    @xref_declare.command('read')
+    @address_arg('addr_from')
+    @address_arg('addr_to')
+    def xref_declare_read(addr_from, addr_to):
+        asm.xrefs.declare('read', addr_from, addr_to)
+
+    @xref_declare.command('write')
+    @address_arg('addr_from')
+    @address_arg('addr_to')
+    def xref_declare_write(addr_from, addr_to):
+        asm.xrefs.declare('write', addr_from, addr_to)
 
     return ugb_core_cli

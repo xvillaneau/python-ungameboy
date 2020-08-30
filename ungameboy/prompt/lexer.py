@@ -43,7 +43,7 @@ def render_reference(
     return out, cls
 
 
-def render_instruction(data: Instruction):
+def render_instruction(data: Instruction, control: "AsmControl"):
     instr = data.raw_instruction
 
     op_type = instr.type.value.lower()
@@ -96,6 +96,21 @@ def render_instruction(data: Instruction):
 
         if ref:
             add(']')
+
+    reads = data.xrefs.reads
+    writes = data.xrefs.writes_to
+    if reads or writes:
+        line_len = sum(len(s) for _, s in items)
+        items.append(('', ' ' * max(22 - line_len, 2)))
+        items.append(('class:ugb.xrefs', ';'))
+        if reads is not None:
+            reads = control.asm.context.address_context(data.address, reads)
+            reads = 'Reads: ' + render_reference(data, reads)[0]
+            items.extend([('', ' '), ('class:ugb.xrefs', reads)])
+        if writes is not None:
+            writes = control.asm.context.address_context(data.address, writes)
+            writes = 'Writes: ' + render_reference(data, writes)[0]
+            items.extend([('', ' '), ('class:ugb.xrefs', writes)])
 
     return items
 
@@ -206,7 +221,7 @@ def render_element(address: Address, control: "AsmControl"):
         if isinstance(elem, Instruction):
             lines.append([
                 *addr_items,
-                *render_instruction(elem),
+                *render_instruction(elem, control),
             ])
 
         elif isinstance(elem, DataRow):
