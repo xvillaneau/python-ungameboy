@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Dict, NamedTuple, Optional, Set
 
 from .special_labels import SpecialLabel
+from .labels import LabelOffset
 from ..address import Address, ROM
 from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
@@ -70,8 +71,10 @@ class ContextManager:
 
         return self.address_context(instr.address, target)
 
-    def address_context(self, pos: Address, address: Address) -> "Value":
-        if pos in self.force_scalar:
+    def address_context(
+            self, pos: Address, address: Address, allow_relative=False
+    ) -> "Value":
+        if pos in self.force_scalar and not allow_relative:
             return Word(address.memory_address)
 
         # Auto-detect ROM bank if current instruction requires one
@@ -84,8 +87,14 @@ class ContextManager:
                 address = Address(address.type, bank, address.offset)
 
         # Detect labels
-        target_labels = self.asm.labels.get_labels(address) or [address]
-        return target_labels[-1]
+        target_labels = self.asm.labels.get_labels(address)
+        if allow_relative and not target_labels:
+            scope = self.asm.labels.scope_at(address)
+            if scope:
+                label = scope[-1]
+                offset = address.offset - label.address.offset
+                return LabelOffset(label, offset)
+        return target_labels[-1] if target_labels else address
 
     def list_context(self):
         addresses = set(self.bank_override) | self.force_scalar

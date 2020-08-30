@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional, Union
 
-from .labels import Label
+from .labels import Label, LabelOffset
 from .special_labels import SpecialLabel
 from ..address import Address
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 __all__ = ['AsmElement', 'RomElement', 'DataRow', 'Instruction', 'Value']
 
-Value = Union[int, Address, Label, SpecialLabel]
+Value = Union[int, Address, Label, LabelOffset, SpecialLabel]
 
 
 @dataclass

@@ -1,11 +1,13 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple, Union
 
 from ..address import Address
 from ..data_types import Byte, IORef, Ref, Word, SPOffset
 from ..dis import (
+    AsmElement,
     DataRow,
     Instruction,
     Label,
+    LabelOffset,
     RomElement,
     SpecialLabel,
 )
@@ -16,6 +18,29 @@ if TYPE_CHECKING:
 
 MARGIN = 4
 HIGHLIGHT = ',ugb.hl'
+
+
+def render_reference(
+        elem: AsmElement, reference: Union[Address, Label, LabelOffset]
+) -> Tuple[str, str]:
+    if isinstance(reference, Label):
+        scope_name = elem.scope.name if elem.scope else ''
+        if reference.local_name and reference.global_name == scope_name:
+            out = '.' + reference.local_name
+        else:
+            out = reference.name
+        cls = 'label'
+    elif isinstance(reference, LabelOffset):
+        out = (
+            f"{reference.label.name} "
+            f"{'-' if reference.offset < 0 else '+'}"
+            f"${reference.offset:x}"
+        )
+        cls = 'label'
+    else:  # Address
+        out = str(reference)
+        cls = 'addr'
+    return out, cls
 
 
 def render_instruction(data: Instruction):
@@ -60,16 +85,10 @@ def render_instruction(data: Instruction):
             add(Byte(arg), 'scalar')
         elif isinstance(arg, int):
             add(arg, 'scalar')
-        elif isinstance(arg, Label):
-            scope_name = data.scope.name if data.scope else ''
-            if arg.local_name != '' and arg.global_name == scope_name:
-                add(f'.{arg.local_name}', 'label')
-            else:
-                add(arg.name, 'label')
+        elif isinstance(arg, (Address, Label)):
+            add(*render_reference(data, arg))
         elif isinstance(arg, Condition):
             add(str(arg).lower(), 'cond')
-        elif isinstance(arg, Address):
-            add(arg, 'addr')
         elif isinstance(arg, SpecialLabel):
             add(arg.name, 'special')
         else:
@@ -84,15 +103,9 @@ def render_instruction(data: Instruction):
 def render_row(data: DataRow):
     line = []
     for item in data.values:
-        if isinstance(item, Label):
-            scope_name = data.scope.name if data.scope else ''
-            if item.local_name and item.global_name == scope_name:
-                item = '.' + item.local_name
-            else:
-                item = item.name
-            cls = '.label'
-        elif isinstance(item, Address):
-            cls = '.addr'
+        if isinstance(item, (Address, Label)):
+            item, cls = render_reference(data, item)
+            cls = '.' + cls
         else:
             cls = ''
         line.extend([('class:ugb.value' + cls, str(item)), ('', ', ')])
@@ -176,17 +189,15 @@ def render_element(address: Address, control: "AsmControl"):
 
         addr_context = control.asm.context.address_context
         for call_orig in elem.xrefs.called_by:
-            call_orig = addr_context(elem.address, call_orig)
-            if isinstance(call_orig, Label):
-                call_orig = call_orig.name
+            call_orig = addr_context(elem.address, call_orig, True)
+            call_orig, _ = render_reference(elem, call_orig)
             lines.append([
                 addr_items[0],
-                ('class:ugb.xrefs', f"; Called from {call_orig}")
+                ('class:ugb.xrefs', f"; Call from {call_orig}")
             ])
         for jump_orig in elem.xrefs.jumps_from:
-            jump_orig = addr_context(elem.address, jump_orig)
-            if isinstance(jump_orig, Label):
-                jump_orig = jump_orig.name
+            jump_orig = addr_context(elem.address, jump_orig, True)
+            jump_orig, _ = render_reference(elem, jump_orig)
             lines.append([
                 addr_items[0],
                 ('class:ugb.xrefs', f"; Jump from {jump_orig}")

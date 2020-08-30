@@ -1,9 +1,9 @@
-from typing import Iterator, List, NamedTuple, Optional, Tuple
+from typing import Iterator, List, NamedTuple, Tuple
 
 from ..address import Address
 from ..data_structures import AddressMapping, SortedStrMapping
 
-__all__ = ['Label', 'LabelManager']
+__all__ = ['Label', 'LabelManager', 'LabelOffset']
 
 
 class Label(NamedTuple):
@@ -17,6 +17,15 @@ class Label(NamedTuple):
         if self.local_name:
             name += f".{self.local_name}"
         return name
+
+
+class LabelOffset(NamedTuple):
+    label: Label
+    offset: int
+
+    @property
+    def address(self):
+        return self.label.address + self.offset
 
 
 class LabelManager:
