@@ -189,6 +189,11 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     def xref_auto_detect(address: Address):
         asm.xrefs.auto_declare(address)
 
+    @xref_cli.command('clear')
+    @address_arg()
+    def xref_auto_detect(address: Address):
+        asm.xrefs.clear(address)
+
     @xref_cli.group('declare')
     def xref_declare():
         pass
