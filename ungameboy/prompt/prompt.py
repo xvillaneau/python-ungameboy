@@ -7,6 +7,7 @@ from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import (
     Completer, CompleteEvent, Completion, NestedCompleter
 )
+from prompt_toolkit.document import Document
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.containers import ConditionalContainer
 from prompt_toolkit.widgets.base import TextArea
@@ -15,7 +16,6 @@ from ..address import Address
 from ..commands import AddressOrLabel, LabelName, create_core_cli
 
 if TYPE_CHECKING:
-    from prompt_toolkit.document import Document
     from .application import DisassemblyEditor
 
 
@@ -107,14 +107,20 @@ class UGBPrompt:
 
     def accept_handler(self, buffer: Buffer):
         if buffer.text:
-            args = shlex.split(buffer.text)
-            res = self.cli.main(args, "ungameboy", standalone_mode=False)
-            if res is not False:
-                self.editor.layout.refresh()
+            self.run_command(*shlex.split(buffer.text))
 
-        self.editor.prompt_active = False
-        self.editor.app.layout.focus_last()
+        self.editor.layout.unfocus_prompt()
         return False
+
+    def pre_fill(self, *args: str):
+        line = ' '.join(shlex.quote(arg) for arg in args) + ' '
+        self.prompt.buffer.reset(Document(line))
+
+    def run_command(self, *args):
+        res = self.cli.main(args, "ungameboy", standalone_mode=False)
+        if res is not False:
+            self.editor.layout.refresh()
+        return res
 
     def reset(self) -> None:
         self.prompt.buffer.reset()

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 class UGBLayout:
     def __init__(self, editor: "DisassemblyEditor"):
+        self.editor = editor
         self.main_control = AsmControl(editor.disassembler)
 
         main_window = Window(
@@ -27,3 +28,11 @@ class UGBLayout:
 
     def refresh(self):
         self.main_control.refresh()
+
+    def focus_prompt(self):
+        self.editor.prompt_active = True
+        self.layout.focus(self.editor.prompt.container)
+
+    def unfocus_prompt(self):
+        self.editor.prompt_active = False
+        self.layout.focus_last()

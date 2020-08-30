@@ -1,13 +1,18 @@
 from functools import wraps
+from typing import TYPE_CHECKING
 
+from prompt_toolkit.application import get_app
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.keys import Keys
 
 from .control import AsmControl
 
+if TYPE_CHECKING:
+    from .application import DisassemblyEditor
 
-def load_layout_bindings(editor):
+
+def load_layout_bindings(editor: "DisassemblyEditor"):
     prompt_active = Condition(lambda: editor.prompt_active)
     # editor_loaded = Condition(lambda: editor.disassembler.rom is not None)
 
@@ -18,16 +23,14 @@ def load_layout_bindings(editor):
         event.app.exit()
 
     @bindings.add(":", filter=~prompt_active)
-    def _focus_prompt(event):
-        editor.prompt_active = True
-        event.app.layout.focus(editor.prompt.container)
+    def _focus_prompt(_):
+        editor.layout.focus_prompt()
 
     @bindings.add("c-c", filter=prompt_active)
     @bindings.add(Keys.Escape, filter=prompt_active)
     def _quit_prompt(event):
-        editor.prompt_active = False
+        editor.layout.unfocus_prompt()
         editor.prompt.reset()
-        event.app.layout.focus_last()
 
     return bindings
 
@@ -44,10 +47,10 @@ def load_asm_control_bindings(editor):
                 func(ctrl)
         return handler
 
-    def asm_control_binding(key):
+    def asm_control_binding(*keys):
         def decorator(func):
             func = handle_active_asm(func)
-            return bindings.add(key, filter=editor_active)(func)
+            return bindings.add(*keys, filter=editor_active)(func)
         return decorator
 
     @asm_control_binding("c")
@@ -92,4 +95,48 @@ def load_asm_control_bindings(editor):
         if isinstance(ctrl, AsmControl):
             ctrl.move_down(window.render_info.window_height)
 
+    add_editor_shortcuts(editor, bindings)
+
     return bindings
+
+
+def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
+
+    cursor = object()
+
+    def _cursor_active():
+        ctrl = get_app().layout.current_control
+        return isinstance(ctrl, AsmControl) and ctrl.cursor_mode
+
+    cursor_active = Condition(_cursor_active)
+    editor_active = Condition(lambda: not editor.prompt_active)
+
+    def bind_shortcut(keys, args, filter=None, run=False):
+        if isinstance(keys, str):
+            keys = (keys,)
+        if isinstance(args, str):
+            args = (args,)
+
+        def handler(event: KeyPressEvent) -> None:
+            ctrl = event.app.layout.current_control
+            if not isinstance(ctrl, AsmControl):
+                return
+            str_args = (
+                str(ctrl.cursor if arg is cursor else arg)
+                for arg in args
+            )
+            if run:
+                editor.prompt.run_command(*str_args)
+            else:
+                editor.prompt.pre_fill(*str_args)
+                editor.layout.focus_prompt()
+
+        bindings.add(*keys, filter=filter)(handler)
+
+    bind_shortcut('g', 'seek', filter=editor_active)
+    bind_shortcut(
+        ('x', 'x'),
+        ('xref', 'auto', cursor),
+        run=True,
+        filter=editor_active & cursor_active,
+    )
