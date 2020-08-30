@@ -6,6 +6,7 @@ from .decoder import ROMBytes
 from .labels import LabelManager
 from .models import AsmElement, Instruction, DataRow
 from .sections import SectionManager
+from .xrefs import XRefManager
 from ..address import Address, ROM
 
 __all__ = ['Disassembler']
@@ -25,6 +26,7 @@ class Disassembler:
         self.context = ContextManager(self)
         self.labels = LabelManager()
         self.sections = SectionManager()
+        self.xrefs = XRefManager(self)
 
     @property
     def is_loaded(self):
@@ -46,11 +48,13 @@ class Disassembler:
         if not isinstance(addr, Address):
             raise TypeError()
 
-        labels = self.labels.get_labels(addr)
-        section = self.sections.get_section(addr)
-
         scope = self.labels.scope_at(addr)
-        scope_name = scope[1][-1] if scope is not None else ''
+        common_args = {
+            "labels": self.labels.get_labels(addr),
+            "section": self.sections.get_section(addr),
+            "xrefs": self.xrefs.get_xrefs(addr),
+            "scope": scope[1][-1] if scope is not None else ''
+        }
 
         data = self.data.get_data(addr)
         if data is not None:
@@ -71,9 +75,7 @@ class Disassembler:
             return DataRow(
                 address=row_addr,
                 size=len(row_bin),
-                labels=labels,
-                scope=scope_name,
-                section_start=section,
+                **common_args,
                 bytes=row_bin,
                 data_block=data,
                 values=row_values,
@@ -87,9 +89,7 @@ class Disassembler:
             return Instruction(
                 address=raw_instr.address,
                 size=raw_instr.length,
-                labels=labels,
-                scope=scope_name,
-                section_start=section,
+                **common_args,
                 bytes=raw_instr.bytes,
                 raw_instruction=raw_instr,
                 value=value,

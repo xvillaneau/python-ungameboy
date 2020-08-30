@@ -197,6 +197,8 @@ class AsmRegionView:
 
             if asm.sections.get_section(address) is not None:
                 n_lines += 1
+            if asm.xrefs.get_xrefs(address) is not None:
+                n_lines += 1
             n_lines += len(asm.labels.get_labels(address))
 
             if address >= next_data_addr and next_data is not None:

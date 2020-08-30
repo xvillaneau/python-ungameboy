@@ -48,6 +48,8 @@ def get_save_state(asm: "Disassembler"):
             label.name,
         )
 
+    yield from asm.xrefs.save_items()
+
     for context in asm.context.list_context():
         if context.force_scalar:
             yield ('context', 'force-scalar', context.address)

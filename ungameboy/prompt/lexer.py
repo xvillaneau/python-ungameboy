@@ -126,8 +126,8 @@ def render_element(address: Address, control: "AsmControl"):
     lines = []
 
     elem = control.asm[address]
-    if elem.section_start is not None:
-        section = elem.section_start
+    if elem.section is not None:
+        section = elem.section
         lines.append([
             ('class:ugb.section', 'SECTION'),
             ('', ' "'),
@@ -161,6 +161,16 @@ def render_element(address: Address, control: "AsmControl"):
             ('', '  '),
             *render_binary(elem, control),
         ]
+
+        if elem.xrefs is not None:
+            n_calls = len(elem.xrefs.called_by)
+            lines.append([
+                addr_items[0],
+                (
+                    'class:ugb.xrefs',
+                    f"; Called from {n_calls} place{'s' * (n_calls != 1)}",
+                )
+            ])
 
         if isinstance(elem, Instruction):
             lines.append([

@@ -57,7 +57,9 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     def ugb_core_cli():
         pass
 
-    address_arg = AddressOrLabel(asm)
+    def address_arg(name="address"):
+        return click.argument(name, type=AddressOrLabel(asm))
+
     label_arg = LabelName(asm)
 
     # Base commands
@@ -93,23 +95,23 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
         pass
 
     @context_cli.command("force-scalar")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     def context_force_scalar(address: Address):
         asm.context.set_context(address, force_scalar=True)
 
     @context_cli.command("no-force-scalar")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     def context_no_force_scalar(address: Address):
         asm.context.set_context(address, force_scalar=False)
 
     @context_cli.command("force-bank")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.argument("bank", type=int)
     def context_set_bank(address: Address, bank: int):
         asm.context.set_context(address, bank=bank)
 
     @context_cli.command("no-force-bank")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     def context_bo_bank(address: Address):
         asm.context.set_context(address, bank=-1)
 
@@ -119,19 +121,19 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
         pass
 
     @data_cli.command("create")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.argument("size", type=int)
     def data_create(address: Address, size):
         asm.data.create(address, size)
 
     @data_cli.command("create-simple")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.argument("size", type=int)
     def data_create_simple(address: Address, size):
         asm.data.create(address, size)
 
     @data_cli.command("create-table")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.argument("rows", type=int)
     @click.argument("structure", type=str)
     def data_create_table(address: Address, rows: int, structure: str):
@@ -144,13 +146,13 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
         pass
 
     @label_cli.command("create")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.argument("name")
     def label_create(address: Address, name: str):
         asm.labels.create(address, name)
 
     @label_cli.command("auto")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.option("--local", "-l", is_flag=True)
     def label_auto(address: Address, local=False):
         asm.labels.auto_create(address, local)
@@ -172,9 +174,29 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
         pass
 
     @section_cli.command("create")
-    @click.argument("address", type=address_arg)
+    @address_arg()
     @click.argument("name")
     def section_create(address: Address, name: str):
         asm.sections.create(address, name)
+
+    # XRef commands
+    @ugb_core_cli.group('xref')
+    def xref_cli():
+        pass
+
+    @xref_cli.command('auto')
+    @address_arg()
+    def xref_auto_detect(address: Address):
+        asm.xrefs.auto_declare(address)
+    
+    @xref_cli.group('declare')
+    def xref_declare():
+        pass
+    
+    @xref_declare.command('call')
+    @address_arg('addr_from')
+    @address_arg('addr_to')
+    def xref_declare_call(addr_from, addr_to):
+        asm.xrefs.declare_call(addr_from, addr_to)
 
     return ugb_core_cli
