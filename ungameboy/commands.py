@@ -98,22 +98,26 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @address_arg()
     def context_force_scalar(address: Address):
         asm.context.set_context(address, force_scalar=True)
+        return False
 
     @context_cli.command("no-force-scalar")
     @address_arg()
     def context_no_force_scalar(address: Address):
         asm.context.set_context(address, force_scalar=False)
+        return False
 
     @context_cli.command("force-bank")
     @address_arg()
     @click.argument("bank", type=int)
     def context_set_bank(address: Address, bank: int):
         asm.context.set_context(address, bank=bank)
+        return False
 
     @context_cli.command("no-force-bank")
     @address_arg()
-    def context_bo_bank(address: Address):
+    def context_no_bank(address: Address):
         asm.context.set_context(address, bank=-1)
+        return False
 
     # Data commands
     @ugb_core_cli.group("data")
@@ -162,6 +166,7 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @click.argument("new_name")
     def label_rename(old_name: str, new_name: str):
         asm.labels.rename(old_name, new_name)
+        return False
 
     @label_cli.command("delete")
     @click.argument("name", type=label_arg)
@@ -215,11 +220,13 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @address_arg('addr_to')
     def xref_declare_read(addr_from, addr_to):
         asm.xrefs.declare('read', addr_from, addr_to)
+        return False
 
     @xref_declare.command('write')
     @address_arg('addr_from')
     @address_arg('addr_to')
     def xref_declare_write(addr_from, addr_to):
         asm.xrefs.declare('write', addr_from, addr_to)
+        return False
 
     return ugb_core_cli
