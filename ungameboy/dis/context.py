@@ -72,9 +72,12 @@ class ContextManager:
         return self.address_context(instr.address, target)
 
     def address_context(
-            self, pos: Address, address: Address, allow_relative=False
+            self, pos: Address,
+            address: Address,
+            ignore_scalar=False,
+            allow_relative=False,
     ) -> "Value":
-        if pos in self.force_scalar and not allow_relative:
+        if pos in self.force_scalar and not ignore_scalar:
             return Word(address.memory_address)
 
         # Auto-detect ROM bank if current instruction requires one
