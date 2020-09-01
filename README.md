@@ -42,6 +42,8 @@ Install steps:
 * `:` (colon): Open command prompt
 * `c`: enter cursor mode
 * `Enter`: jump to the "destination" under the cursor position
+* `u` (lowercase): un-do the last jump, go back to previous position
+* `U` (uppercase): re-do the last jump after an un-do
 
 When the prompt is active:
 
