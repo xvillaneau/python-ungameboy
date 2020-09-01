@@ -137,4 +137,4 @@ distributed under the Mozilla Public License 2.0
 
 [BadBoy]: https://github.com/daid/BadBoy
 [radare2]: https://rada.re/n/radare2.html
-[RGBDS]: 
+[RGBDS]: https://github.com/rednex/rgbds
