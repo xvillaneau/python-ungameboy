@@ -1,13 +1,12 @@
 import os
 from pathlib import Path
 import shlex
+from typing import TYPE_CHECKING
 
-from .dis.binary_data import ROW_TYPES_NAMES, DataTable
-from .dis.disassembler import Disassembler
+if TYPE_CHECKING:
+    from .dis.disassembler import Disassembler
 
 PROJECTS_DIR = Path.home() / '.ungameboy' / 'projects'
-
-TYPES_NAMES = {obj: name for name, obj in ROW_TYPES_NAMES}
 
 
 def get_save_state(asm: "Disassembler"):
@@ -22,32 +21,7 @@ def get_save_state(asm: "Disassembler"):
             section.name,
         )
 
-    for data_blk in asm.data.list_items():
-        if isinstance(data_blk, DataTable):
-            row = ','.join(TYPES_NAMES[obj] for obj in data_blk.row_struct)
-            yield (
-                'data',
-                'create-table',
-                data_blk.address,
-                data_blk.rows,
-                row,
-            )
-        else:
-            yield (
-                'data',
-                'create-simple',
-                data_blk.address,
-                data_blk.size,
-            )
-
-    for label in asm.labels.list_items():
-        yield (
-            'label',
-            'create',
-            label.address,
-            label.name,
-        )
-
+    yield from asm.data.save_items()
     yield from asm.xrefs.save_items()
 
     for context in asm.context.list_context():

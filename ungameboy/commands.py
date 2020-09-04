@@ -1,15 +1,14 @@
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 import click
 
 from .address import Address
-from .dis.binary_data import ROW_TYPES_NAMES
-from .dis.disassembler import Disassembler
 from .project_save import save_project, load_project
 
-__all__ = ['AddressOrLabel', 'LabelName', 'create_core_cli']
+if TYPE_CHECKING:
+    from .dis.disassembler import Disassembler
 
-DATA_TYPES = {name: obj for name, obj in ROW_TYPES_NAMES}
+__all__ = ['AddressOrLabel', 'LabelName', 'create_core_cli']
 
 
 class LabelName(click.ParamType):
@@ -120,29 +119,7 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
         return False
 
     # Data commands
-    @ugb_core_cli.group("data")
-    def data_cli():
-        pass
-
-    @data_cli.command("create")
-    @address_arg()
-    @click.argument("size", type=int)
-    def data_create(address: Address, size):
-        asm.data.create(address, size)
-
-    @data_cli.command("create-simple")
-    @address_arg()
-    @click.argument("size", type=int)
-    def data_create_simple(address: Address, size):
-        asm.data.create(address, size)
-
-    @data_cli.command("create-table")
-    @address_arg()
-    @click.argument("rows", type=int)
-    @click.argument("structure", type=str)
-    def data_create_table(address: Address, rows: int, structure: str):
-        struct = [DATA_TYPES[item] for item in structure.split(',')]
-        asm.data.create_table(address, rows, struct)
+    ugb_core_cli.add_command(asm.data.build_cli())
 
     # Label commands
     @ugb_core_cli.group("label")

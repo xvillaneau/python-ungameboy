@@ -33,9 +33,8 @@ class Disassembler:
         return self.rom is not None
 
     def reset(self):
-        proj_name = self.project_name
-        self.__init__()
-        self.project_name = proj_name
+        # TODO: run resets
+        pass
 
     def load_rom(self, rom_file: BinaryIO):
         if hasattr(rom_file, 'name'):
