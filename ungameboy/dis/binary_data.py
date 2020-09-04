@@ -26,6 +26,7 @@ TYPES_NAMES = {obj: name for name, obj in ROW_TYPES_NAMES}
 
 class DataBlock:
     row_size: int = 8
+    description: str = ''
 
     def __init__(self, address: Address, size: int):
         self.address = address
@@ -86,6 +87,10 @@ class DataTable(DataBlock):
         return row
 
     @property
+    def description(self) -> str:
+        return f"{self.rows} rows"
+
+    @property
     def rows(self):
         return self._rows
 
@@ -93,6 +98,42 @@ class DataTable(DataBlock):
     def create_cmd(self):
         row = ','.join(TYPES_NAMES[obj] for obj in self.row_struct)
         return ('data', 'create-table', self.address, self.rows, row)
+
+
+class RLEDataBlock(DataBlock):
+    def __init__(self, address: Address):
+        super().__init__(address, 0)
+        self.unpacked_data = b''
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        data = []
+        start_pos = pos = self.address.rom_file_offset
+        byte = rom[pos]
+        while byte != 0:
+            pos += 1
+            pkg_type, arg = divmod(byte, 0x80)
+
+            if pkg_type > 0:  # Data
+                data.extend(rom[pos:pos + arg])
+                pos += arg
+            else:  # RLE
+                value = rom[pos]
+                data.extend(value for _ in range(arg))
+                pos += 1
+
+            byte = rom[pos]
+
+        self.bytes = rom[start_pos:pos + 1]
+        self.unpacked_data = bytes(data)
+        self.size = pos - start_pos + 1
+
+    @property
+    def description(self) -> str:
+        return f'{len(self.unpacked_data)} bytes decompressed'
+
+    @property
+    def create_cmd(self):
+        return ('data', 'create-rle', self.address)
 
 
 class DataManager(AsmManager):
@@ -112,6 +153,9 @@ class DataManager(AsmManager):
 
     def create_table(self, address: Address, rows: int, structure: List[RowType]):
         self._insert(DataTable(address, rows, structure))
+
+    def create_rle(self, address: Address):
+        self._insert(RLEDataBlock(address))
 
     def _insert(self, data: DataBlock):
         data.load_from_rom(self.asm.rom)
@@ -157,6 +201,11 @@ class DataManager(AsmManager):
         def data_create_table(address: Address, rows: int, structure: str):
             struct = [DATA_TYPES[item] for item in structure.split(',')]
             self.create_table(address, rows, struct)
+
+        @data_cli.command('create-rle')
+        @click.argument('address', type=address_arg)
+        def data_create_rle(address: Address):
+            self.create_rle(address)
 
         return data_cli
 

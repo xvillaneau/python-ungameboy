@@ -236,6 +236,8 @@ def render_element(address: Address, control: "AsmControl"):
                     elem.data_block.__class__.__name__ +
                     f' ({elem.data_block.size} bytes)'
                 )
+                if elem.data_block.description:
+                    desc += ', ' + elem.data_block.description
                 lines.append([
                     addr_items[0],
                     ('class:ugb.data.header', '; ' + desc)
