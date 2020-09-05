@@ -84,10 +84,9 @@ class ContextManager(AsmManager):
 
         # Auto-detect ROM bank if current instruction requires one
         if address.bank < 0:
-            if address.type is ROM and pos.bank > 0:
+            bank = self.bank_override.get(pos, -1)
+            if bank < 0 < pos.bank and address.type is ROM:
                 bank = pos.bank
-            else:
-                bank = self.bank_override.get(pos, -1)
             if bank >= 0:
                 address = Address(address.type, bank, address.offset)
 
