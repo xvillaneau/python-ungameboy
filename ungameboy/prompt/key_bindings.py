@@ -103,6 +103,17 @@ def load_asm_control_bindings(editor):
 def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
 
     cursor = object()
+    cursor_dest = object()
+
+    def replace_arg(control: AsmControl, arg):
+        if arg is cursor:
+            return control.cursor
+        if arg is cursor_dest:
+            dest = control.cursor_destination
+            if dest is None:
+                raise ValueError()
+            return dest
+        return arg
 
     def _cursor_active():
         ctrl = get_app().layout.current_control
@@ -110,6 +121,7 @@ def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
 
     cursor_active = Condition(_cursor_active)
     editor_active = Condition(lambda: not editor.prompt_active)
+    shortcuts_active = editor_active & cursor_active
 
     def bind_shortcut(keys, args, filter=None, run=False):
         if isinstance(keys, str):
@@ -121,10 +133,12 @@ def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
             ctrl = event.app.layout.current_control
             if not isinstance(ctrl, AsmControl):
                 return
-            str_args = (
-                str(ctrl.cursor if arg is cursor else arg)
-                for arg in args
-            )
+
+            try:
+                str_args = [replace_arg(ctrl, arg) for arg in args]
+            except ValueError:
+                return
+
             if run:
                 editor.prompt.run_command(*str_args)
             else:
@@ -133,10 +147,23 @@ def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
 
         bindings.add(*keys, filter=filter)(handler)
 
-    shortcuts_active = editor_active & cursor_active
-
     bind_shortcut('g', 'seek', filter=editor_active)
-
+    bind_shortcut(
+        ('a', 'a'), ('label', 'auto', cursor), run=True,
+        filter=shortcuts_active,
+    )
+    bind_shortcut(
+        ('a', 'x'), ('label', 'auto', cursor_dest), run=True,
+        filter=shortcuts_active,
+    )
+    bind_shortcut(
+        ('A', 'a'), ('label', 'auto', cursor, '--local'), run=True,
+        filter=shortcuts_active,
+    )
+    bind_shortcut(
+        ('A', 'x'), ('label', 'auto', cursor_dest, '--local'), run=True,
+        filter=shortcuts_active,
+    )
     bind_shortcut(
         ('x', 'x'), ('xref', 'auto', cursor), run=True,
         filter=shortcuts_active,
