@@ -206,6 +206,7 @@ class AsmRegionView:
             if address >= next_data_addr and next_data is not None:
                 n_lines += 2
                 address = next_data.address
+                self._addr[-1] = address
 
                 for row in range(1, next_data.rows):
                     address = address + next_data.row_size
