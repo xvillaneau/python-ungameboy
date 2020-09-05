@@ -51,6 +51,10 @@ class DataBlock:
     def rows(self) -> int:
         return (self.size + self.row_size - 1) // self.row_size
 
+    @property
+    def end_address(self) -> Address:
+        return self.address + self.size
+
     def get_row_bin(self, row: int) -> bytes:
         if not 0 <= row < self.rows:
             raise IndexError("Row index out of range")
@@ -159,9 +163,13 @@ class DataManager(AsmManager):
 
     def _insert(self, data: DataBlock):
         data.load_from_rom(self.asm.rom)
+
+        prev_blk = self.get_data(data.address)
+        if prev_blk and prev_blk.end_address > data.address:
+            raise ValueError("Data overlap detected")
+
         next_blk = self.next_block(data.address)
-        end_addr = data.address + data.size
-        if next_blk is not None and next_blk.address < end_addr:
+        if next_blk and next_blk.address < data.end_address:
             raise ValueError("Data overlap detected")
 
         self.inventory[data.address] = data
