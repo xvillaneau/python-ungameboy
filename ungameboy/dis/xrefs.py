@@ -4,7 +4,7 @@ import click
 
 from .labels import Label
 from .manager_base import AsmManager
-from .models import Instruction
+from .models import DataRow, Instruction
 from ..address import Address
 from ..commands import AddressOrLabel
 from ..data_structures import AddressMapping
@@ -94,6 +94,16 @@ class XRefManager(AsmManager):
                 self.declare('call', elem.address, target)
             elif op in (Op.AbsJump, Op.RelJump):
                 self.declare('jump', elem.address, target)
+
+        elif isinstance(elem, DataRow):
+            if len(elem.values) != 1:
+                return
+            target = elem.values[0]
+            if isinstance(target, Label):
+                target = target.address
+            elif not isinstance(target, Address):
+                return
+            self.declare('jump', elem.address, target)
 
     def declare(self, link_type: str, addr_from: Address, addr_to: Address):
         self._mappings[link_type].create_link(addr_from, addr_to)
