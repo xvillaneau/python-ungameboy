@@ -161,6 +161,12 @@ class DataManager(AsmManager):
     def create_rle(self, address: Address):
         self._insert(RLEDataBlock(address))
 
+    def delete(self, address: Address):
+        if address not in self.inventory:
+            raise IndexError(address)
+        del self.inventory[address]
+        del self._blocks_map[address]
+
     def _insert(self, data: DataBlock):
         data.load_from_rom(self.asm.rom)
 
@@ -214,6 +220,11 @@ class DataManager(AsmManager):
         @click.argument('address', type=address_arg)
         def data_create_rle(address: Address):
             self.create_rle(address)
+
+        @data_cli.command('delete')
+        @click.argument('address', type=address_arg)
+        def data_delete(address: Address):
+            self.delete(address)
 
         return data_cli
 
