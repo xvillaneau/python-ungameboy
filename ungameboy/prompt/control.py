@@ -61,6 +61,7 @@ class AsmControl(UIControl):
     def load_zone(self, zone: Tuple[MemoryType, int]):
         self.current_zone = zone
         self.current_view = self._get_zone(self.asm, zone)
+        self.refresh()
 
     def refresh(self):
         self.current_view.build_names_map()
