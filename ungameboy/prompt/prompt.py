@@ -22,11 +22,21 @@ if TYPE_CHECKING:
 def create_ui_cli(ugb_app: "DisassemblyEditor"):
     """Add the the main CLI the UI-specific options"""
     ugb_core_cli = create_core_cli(ugb_app.disassembler)
+    address_arg = AddressOrLabel(ugb_app.disassembler)
 
     @ugb_core_cli.command()
-    @click.argument("address", type=AddressOrLabel(ugb_app.disassembler))
+    @click.argument("address", type=address_arg)
     def seek(address: Address):
         ugb_app.layout.main_control.seek(address)
+        return False
+
+    @ugb_core_cli.command()
+    @click.argument("address", type=address_arg)
+    def inspect(address: Address):
+        ugb_app.xrefs_address = address
+        ugb_app.xrefs_cursor_index = 0
+        ugb_app.prompt_active = False
+        ugb_app.layout.layout.focus(ugb_app.layout.xref_window)
         return False
 
     return ugb_core_cli

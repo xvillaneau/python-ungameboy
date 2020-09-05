@@ -1,9 +1,11 @@
 from itertools import product
+from typing import Optional
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import merge_key_bindings
 from prompt_toolkit.styles import Style
 
+from .filters import UGBFilters
 from .key_bindings import load_asm_control_bindings, load_layout_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
@@ -63,6 +65,10 @@ class DisassemblyEditor:
         self.disassembler = asm
         self.prompt_active = False
 
+        self.xrefs_address: Optional[Address] = None
+        self.xrefs_cursor_index = 0
+
+        self.filters = UGBFilters(self)
         self.prompt = UGBPrompt(self)
         self.layout = UGBLayout(self)
 

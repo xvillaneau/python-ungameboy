@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
 
-from prompt_toolkit.layout import HSplit, Layout, Window
+from prompt_toolkit.layout import D, HSplit, Layout, VSplit, Window
 
 from .control import AsmControl
+from .ref_browser import build_xref_sidebar
 
 if TYPE_CHECKING:
     from .application import DisassemblyEditor
@@ -17,10 +18,13 @@ class UGBLayout:
             content=self.main_control,
             allow_scroll_beyond_bottom=True,
             get_vertical_scroll=self.main_control.get_vertical_scroll,
+            width=D(weight=4),
         )
+        self.xref_window, xref_sidebar = build_xref_sidebar(editor)
+
         # noinspection PyTypeChecker
         body = HSplit([
-            main_window,
+            VSplit([main_window, xref_sidebar]),
             editor.prompt.container,
         ])
 
@@ -34,5 +38,6 @@ class UGBLayout:
         self.layout.focus(self.editor.prompt.container)
 
     def unfocus_prompt(self):
-        self.editor.prompt_active = False
-        self.layout.focus_last()
+        if self.editor.prompt_active:
+            self.editor.prompt_active = False
+            self.layout.focus_last()

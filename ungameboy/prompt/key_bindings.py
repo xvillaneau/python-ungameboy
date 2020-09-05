@@ -1,8 +1,6 @@
 from functools import wraps
 from typing import TYPE_CHECKING
 
-from prompt_toolkit.application import get_app
-from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, KeyPressEvent
 from prompt_toolkit.keys import Keys
 
@@ -13,8 +11,6 @@ if TYPE_CHECKING:
 
 
 def load_layout_bindings(editor: "DisassemblyEditor"):
-    prompt_active = Condition(lambda: editor.prompt_active)
-    # editor_loaded = Condition(lambda: editor.disassembler.rom is not None)
 
     bindings = KeyBindings()
 
@@ -22,22 +18,33 @@ def load_layout_bindings(editor: "DisassemblyEditor"):
     def _exit(event):
         event.app.exit()
 
-    @bindings.add(":", filter=~prompt_active)
+    @bindings.add(":", filter=~editor.filters.prompt_active)
     def _focus_prompt(_):
         editor.layout.focus_prompt()
 
-    @bindings.add("c-c", filter=prompt_active)
-    @bindings.add(Keys.Escape, filter=prompt_active)
-    def _quit_prompt(event):
+    @bindings.add("c-c", filter=editor.filters.prompt_active)
+    @bindings.add(Keys.Escape, filter=editor.filters.prompt_active)
+    def _quit_prompt(_):
         editor.layout.unfocus_prompt()
         editor.prompt.reset()
+
+    @bindings.add("c-c", filter=editor.filters.prompt_active)
+    @bindings.add(Keys.Escape, filter=editor.filters.prompt_active)
+    def _quit_prompt(_):
+        editor.layout.unfocus_prompt()
+        editor.prompt.reset()
+
+    @bindings.add("c-c", filter=editor.filters.xrefs_visible)
+    @bindings.add(Keys.Escape, filter=editor.filters.xrefs_visible)
+    def _quit_inspector(event):
+        editor.xrefs_address = None
+        event.app.layout.focus(editor.layout.main_control)
 
     return bindings
 
 
-def load_asm_control_bindings(editor):
+def load_asm_control_bindings(editor: 'DisassemblyEditor'):
     bindings = KeyBindings()
-    editor_active = ~Condition(lambda: editor.prompt_active)
 
     def handle_active_asm(func):
         @wraps(func)
@@ -50,7 +57,9 @@ def load_asm_control_bindings(editor):
     def asm_control_binding(*keys):
         def decorator(func):
             func = handle_active_asm(func)
-            return bindings.add(*keys, filter=editor_active)(func)
+            return bindings.add(
+                *keys, filter=editor.filters.editor_active
+            )(func)
         return decorator
 
     @asm_control_binding("c")
@@ -77,7 +86,7 @@ def load_asm_control_bindings(editor):
     def handle_down(ctrl: AsmControl):
         ctrl.move_down(1)
 
-    @bindings.add("pageup", filter=editor_active)
+    @bindings.add("pageup", filter=editor.filters.editor_active)
     def handle_page_up(event: KeyPressEvent):
         window = event.app.layout.current_window
         if not (window and window.render_info):
@@ -86,7 +95,7 @@ def load_asm_control_bindings(editor):
         if isinstance(ctrl, AsmControl):
             ctrl.move_up(window.render_info.window_height)
 
-    @bindings.add("pagedown", filter=editor_active)
+    @bindings.add("pagedown", filter=editor.filters.editor_active)
     def handle_page_down(event: KeyPressEvent):
         window = event.app.layout.current_window
         if not (window and window.render_info):
@@ -115,14 +124,6 @@ def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
             return dest
         return arg
 
-    def _cursor_active():
-        ctrl = get_app().layout.current_control
-        return isinstance(ctrl, AsmControl) and ctrl.cursor_mode
-
-    cursor_active = Condition(_cursor_active)
-    editor_active = Condition(lambda: not editor.prompt_active)
-    shortcuts_active = editor_active & cursor_active
-
     def bind_shortcut(keys, args, filter=None, run=False):
         if isinstance(keys, str):
             keys = (keys,)
@@ -147,37 +148,37 @@ def add_editor_shortcuts(editor: "DisassemblyEditor", bindings: KeyBindings):
 
         bindings.add(*keys, filter=filter)(handler)
 
-    bind_shortcut('g', 'seek', filter=editor_active)
+    bind_shortcut('g', 'seek', filter=editor.filters.editor_active)
     bind_shortcut(
         ('a', 'a'), ('label', 'auto', cursor), run=True,
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
     bind_shortcut(
         ('a', 'x'), ('label', 'auto', cursor_dest), run=True,
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
     bind_shortcut(
         ('A', 'a'), ('label', 'auto', cursor, '--local'), run=True,
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
     bind_shortcut(
         ('A', 'x'), ('label', 'auto', cursor_dest, '--local'), run=True,
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
     bind_shortcut(
         ('x', 'x'), ('xref', 'auto', cursor), run=True,
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
     bind_shortcut(
         ('x', 'r'), ('xref', 'declare', 'read', cursor),
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
     bind_shortcut(
         ('x', 'w'), ('xref', 'declare', 'write', cursor),
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
 
     bind_shortcut(
         ('C', 's'), ('context', 'force-scalar', cursor), run=True,
-        filter=shortcuts_active,
+        filter=editor.filters.shortcuts_active,
     )
