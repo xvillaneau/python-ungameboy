@@ -6,7 +6,7 @@ from .special_labels import SpecialLabel
 from .labels import LabelOffset
 from .manager_base import AsmManager
 from ..address import Address, ROM
-from ..commands import AddressOrLabel
+from ..commands import AddressOrLabel, ExtendedInt
 from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
@@ -119,7 +119,7 @@ class ContextManager(AsmManager):
 
         @context_cli.command("force-bank")
         @click.argument('address', type=address_arg)
-        @click.argument("bank", type=int)
+        @click.argument("bank", type=ExtendedInt())
         def context_set_bank(address: Address, bank: int):
             self.set_context(address, bank=bank)
             return False

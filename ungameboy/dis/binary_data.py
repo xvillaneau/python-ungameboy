@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Dict, Optional, List, Tuple, Type, Union
 import click
 
 from .manager_base import AsmManager
-from ..commands import AddressOrLabel
+from ..commands import AddressOrLabel, ExtendedInt
 from ..address import Address
 from ..data_structures import AddressMapping
 from ..data_types import Byte, ParameterMeta, Word
@@ -190,13 +190,13 @@ class DataManager(AsmManager):
 
         @data_cli.command('create-simple')
         @click.argument('address', type=address_arg)
-        @click.argument('size', type=int)
+        @click.argument('size', type=ExtendedInt())
         def data_create_simple(address: Address, size):
             self.create(address, size)
 
         @data_cli.command('create-table')
         @click.argument('address', type=address_arg)
-        @click.argument('rows', type=int)
+        @click.argument('rows', type=ExtendedInt())
         @click.argument('structure', type=str)
         def data_create_table(address: Address, rows: int, structure: str):
             struct = [DATA_TYPES[item] for item in structure.split(',')]

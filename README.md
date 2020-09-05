@@ -78,9 +78,10 @@ A few useful commands:
 Here's a quick list of the commands that somewhat work:
   
 * `context force-scalar ADDR`
-* `context force-bank ADDR N` (note: `N` in decimal)
-* `data create ADDR LEN` (note: `LEN` in decimal)
+* `context force-bank ADDR N`
+* `data create ADDR LEN`
 * `data create-table ADDR ROWS STRUCTURE`
+* `data create-rle ADDR`
 * `label auto ADDR`
 * `label create ADDR NAME`
 * `label delete NAME`

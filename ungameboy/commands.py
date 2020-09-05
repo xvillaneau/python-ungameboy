@@ -8,7 +8,7 @@ from .project_save import save_project, load_project
 if TYPE_CHECKING:
     from .dis.disassembler import Disassembler
 
-__all__ = ['AddressOrLabel', 'LabelName', 'create_core_cli']
+__all__ = ['AddressOrLabel', 'ExtendedInt', 'LabelName', 'create_core_cli']
 
 
 class LabelName(click.ParamType):
@@ -21,6 +21,26 @@ class LabelName(click.ParamType):
     def convert(self, value, param, ctx):
         if value not in self.asm.labels:
             self.fail(f"Label {value} not found", param, ctx)
+        return value
+
+
+class ExtendedInt(click.ParamType):
+    """Integer parameter that also accepts hexadecimal input"""
+    name = "extended_integer"
+
+    def convert(self, value, param, ctx):
+        if value is None:
+            return value
+        if isinstance(value, str):
+            if value.startswith('0x'):
+                value, base = value[2:], 16
+            elif value.startswith('$'):
+                value, base = value[1:], 16
+            else:
+                base = 10
+            value = int(value, base=base)
+        if not isinstance(value, int):
+            self.fail("Invalid base 10 or 16 integer", param, ctx)
         return value
 
 
