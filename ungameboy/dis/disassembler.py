@@ -1,9 +1,10 @@
-from typing import BinaryIO, Optional
+from typing import BinaryIO, List, Optional
 
 from .binary_data import DataManager
 from .context import ContextManager
 from .decoder import ROMBytes
 from .labels import LabelManager
+from .manager_base import AsmManager
 from .models import AsmElement, Instruction, DataRow
 from .sections import SectionManager
 from .xrefs import XRefManager
@@ -24,9 +25,13 @@ class Disassembler:
 
         self.data = DataManager(self)
         self.context = ContextManager(self)
-        self.labels = LabelManager()
+        self.labels = LabelManager(self)
         self.sections = SectionManager()
         self.xrefs = XRefManager(self)
+
+        self.managers: List[AsmManager] = [
+            self.data, self.labels, self.xrefs, self.context
+        ]
 
     @property
     def is_loaded(self):

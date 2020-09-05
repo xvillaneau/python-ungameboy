@@ -1,8 +1,12 @@
 from typing import TYPE_CHECKING, NamedTuple, Optional, Set, Tuple
 
+import click
+
 from .labels import Label
+from .manager_base import AsmManager
 from .models import Instruction
 from ..address import Address
+from ..commands import AddressOrLabel
 from ..data_structures import AddressMapping
 from ..enums import Operation as Op
 
@@ -26,6 +30,10 @@ class LinksCollection:
     def __init__(self):
         self.links_to: AddressMapping[Address] = AddressMapping()
         self.links_from: AddressMapping[Set[Address]] = AddressMapping()
+
+    def reset(self):
+        self.links_to.clear()
+        self.links_from.clear()
 
     def items(self):
         return self.links_to.items()
@@ -57,9 +65,9 @@ class LinksCollection:
         return self.links_to.get(address), self.links_from.get(address, set())
 
 
-class XRefManager:
+class XRefManager(AsmManager):
     def __init__(self, disassembler: "Disassembler"):
-        self.asm = disassembler
+        super().__init__(disassembler)
 
         self._mappings = {
             'call': LinksCollection(),
@@ -67,6 +75,10 @@ class XRefManager:
             'read': LinksCollection(),
             'write': LinksCollection(),
         }
+
+    def reset(self) -> None:
+        for collection in self._mappings.values():
+            collection.reset()
 
     def auto_declare(self, address: Address):
         elem = self.asm[address]
@@ -99,6 +111,52 @@ class XRefManager:
                 for arg in links.get_links(address)
             )
         )
+
+    def build_cli(self) -> 'click.Command':
+        xref_cli = click.Group('xref')
+        address_arg = AddressOrLabel(self.asm)
+
+        @xref_cli.command('auto')
+        @click.argument("address", type=address_arg)
+        def xref_auto_detect(address: Address):
+            self.auto_declare(address)
+
+        @xref_cli.command('clear')
+        @click.argument("address", type=address_arg)
+        def xref_clear(address: Address):
+            self.clear(address)
+
+        @xref_cli.group('declare')
+        def xref_declare():
+            pass
+
+        @xref_declare.command('call')
+        @click.argument("addr_from", type=address_arg)
+        @click.argument("addr_to", type=address_arg)
+        def xref_declare_call(addr_from, addr_to):
+            self.declare('call', addr_from, addr_to)
+
+        @xref_declare.command('jump')
+        @click.argument("addr_from", type=address_arg)
+        @click.argument("addr_to", type=address_arg)
+        def xref_declare_jump(addr_from, addr_to):
+            self.declare('jump', addr_from, addr_to)
+
+        @xref_declare.command('read')
+        @click.argument("addr_from", type=address_arg)
+        @click.argument("addr_to", type=address_arg)
+        def xref_declare_read(addr_from, addr_to):
+            self.declare('read', addr_from, addr_to)
+            return False
+
+        @xref_declare.command('write')
+        @click.argument("addr_from", type=address_arg)
+        @click.argument("addr_to", type=address_arg)
+        def xref_declare_write(addr_from, addr_to):
+            self.declare('write', addr_from, addr_to)
+            return False
+
+        return xref_cli
 
     def save_items(self):
         for _type, _links in self._mappings.items():

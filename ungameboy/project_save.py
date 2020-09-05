@@ -13,22 +13,8 @@ def get_save_state(asm: "Disassembler"):
     if asm.rom is not None:
         yield ('load-rom', Path(asm.rom_path).resolve())
 
-    for section in asm.sections.list_sections():
-        yield (
-            'section',
-            'create',
-            section.address,
-            section.name,
-        )
-
-    yield from asm.data.save_items()
-    yield from asm.xrefs.save_items()
-
-    for context in asm.context.list_context():
-        if context.force_scalar:
-            yield ('context', 'force-scalar', context.address)
-        if context.bank >= 0:
-            yield ('context', 'force-bank', context.address, context.bank)
+    for mgr in asm.managers:
+        yield from mgr.save_items()
 
 
 def save_project(asm: "Disassembler"):

@@ -59,8 +59,6 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     def address_arg(name="address"):
         return click.argument(name, type=AddressOrLabel(asm))
 
-    label_arg = LabelName(asm)
-
     # Base commands
     @ugb_core_cli.command()
     @click.argument("rom_path", type=click.File('rb'))
@@ -88,67 +86,9 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
             asm.project_name = name
         load_project(asm)
 
-    # Context commands
-    @ugb_core_cli.group("context")
-    def context_cli():
-        pass
-
-    @context_cli.command("force-scalar")
-    @address_arg()
-    def context_force_scalar(address: Address):
-        asm.context.set_context(address, force_scalar=True)
-        return False
-
-    @context_cli.command("no-force-scalar")
-    @address_arg()
-    def context_no_force_scalar(address: Address):
-        asm.context.set_context(address, force_scalar=False)
-        return False
-
-    @context_cli.command("force-bank")
-    @address_arg()
-    @click.argument("bank", type=int)
-    def context_set_bank(address: Address, bank: int):
-        asm.context.set_context(address, bank=bank)
-        return False
-
-    @context_cli.command("no-force-bank")
-    @address_arg()
-    def context_no_bank(address: Address):
-        asm.context.set_context(address, bank=-1)
-        return False
-
-    # Data commands
-    ugb_core_cli.add_command(asm.data.build_cli())
-
-    # Label commands
-    @ugb_core_cli.group("label")
-    def label_cli():
-        pass
-
-    @label_cli.command("create")
-    @address_arg()
-    @click.argument("name")
-    def label_create(address: Address, name: str):
-        asm.labels.create(address, name)
-
-    @label_cli.command("auto")
-    @address_arg()
-    @click.option("--local", "-l", is_flag=True)
-    def label_auto(address: Address, local=False):
-        asm.labels.auto_create(address, local)
-
-    @label_cli.command("rename")
-    @click.argument("old_name", type=label_arg)
-    @click.argument("new_name")
-    def label_rename(old_name: str, new_name: str):
-        asm.labels.rename(old_name, new_name)
-        return False
-
-    @label_cli.command("delete")
-    @click.argument("name", type=label_arg)
-    def label_delete(name: str):
-        asm.labels.delete(name)
+    # Manager sub-commands
+    for mgr in asm.managers:
+        ugb_core_cli.add_command(mgr.build_cli())
 
     # Section commands
     @ugb_core_cli.group("section")
@@ -160,50 +100,5 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
     @click.argument("name")
     def section_create(address: Address, name: str):
         asm.sections.create(address, name)
-
-    # XRef commands
-    @ugb_core_cli.group('xref')
-    def xref_cli():
-        pass
-
-    @xref_cli.command('auto')
-    @address_arg()
-    def xref_auto_detect(address: Address):
-        asm.xrefs.auto_declare(address)
-
-    @xref_cli.command('clear')
-    @address_arg()
-    def xref_clear(address: Address):
-        asm.xrefs.clear(address)
-
-    @xref_cli.group('declare')
-    def xref_declare():
-        pass
-
-    @xref_declare.command('call')
-    @address_arg('addr_from')
-    @address_arg('addr_to')
-    def xref_declare_call(addr_from, addr_to):
-        asm.xrefs.declare('call', addr_from, addr_to)
-
-    @xref_declare.command('jump')
-    @address_arg('addr_from')
-    @address_arg('addr_to')
-    def xref_declare_jump(addr_from, addr_to):
-        asm.xrefs.declare('jump', addr_from, addr_to)
-
-    @xref_declare.command('read')
-    @address_arg('addr_from')
-    @address_arg('addr_to')
-    def xref_declare_read(addr_from, addr_to):
-        asm.xrefs.declare('read', addr_from, addr_to)
-        return False
-
-    @xref_declare.command('write')
-    @address_arg('addr_from')
-    @address_arg('addr_to')
-    def xref_declare_write(addr_from, addr_to):
-        asm.xrefs.declare('write', addr_from, addr_to)
-        return False
 
     return ugb_core_cli

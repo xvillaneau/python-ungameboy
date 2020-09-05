@@ -1,8 +1,12 @@
-from typing import TYPE_CHECKING, Dict, NamedTuple, Optional, Set
+from typing import TYPE_CHECKING, Dict, Optional, Set
+
+import click
 
 from .special_labels import SpecialLabel
 from .labels import LabelOffset
+from .manager_base import AsmManager
 from ..address import Address, ROM
+from ..commands import AddressOrLabel
 from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
@@ -14,18 +18,16 @@ if TYPE_CHECKING:
 __all__ = ['ContextManager']
 
 
-class SavedContext(NamedTuple):
-    address: Address
-    force_scalar: bool
-    bank: int
-
-
-class ContextManager:
+class ContextManager(AsmManager):
     def __init__(self, disassembler: "Disassembler"):
-        self.asm = disassembler
+        super().__init__(disassembler)
 
         self.force_scalar: Set[Address] = set()
         self.bank_override: Dict[Address, int] = {}
+
+    def reset(self) -> None:
+        self.force_scalar.clear()
+        self.bank_override.clear()
 
     def set_context(
             self,
@@ -99,11 +101,42 @@ class ContextManager:
                 return LabelOffset(label, offset)
         return target_labels[-1] if target_labels else address
 
-    def list_context(self):
+    def build_cli(self) -> 'click.Command':
+        context_cli = click.Group('context')
+        address_arg = AddressOrLabel(self.asm)
+
+        @context_cli.command("force-scalar")
+        @click.argument('address', type=address_arg)
+        def context_force_scalar(address: Address):
+            self.set_context(address, force_scalar=True)
+            return False
+
+        @context_cli.command("no-force-scalar")
+        @click.argument('address', type=address_arg)
+        def context_no_force_scalar(address: Address):
+            self.set_context(address, force_scalar=False)
+            return False
+
+        @context_cli.command("force-bank")
+        @click.argument('address', type=address_arg)
+        @click.argument("bank", type=int)
+        def context_set_bank(address: Address, bank: int):
+            self.set_context(address, bank=bank)
+            return False
+
+        @context_cli.command("no-force-bank")
+        @click.argument('address', type=address_arg)
+        def context_no_bank(address: Address):
+            self.set_context(address, bank=-1)
+            return False
+
+        return context_cli
+
+    def save_items(self):
         addresses = set(self.bank_override) | self.force_scalar
         for address in sorted(addresses):
-            yield SavedContext(
-                address,
-                address in self.force_scalar,
-                self.bank_override.get(address, -1),
-            )
+            if address in self.force_scalar:
+                yield ('context', 'force-scalar', address)
+            bank = self.bank_override.get(address, -1)
+            if bank >= 0:
+                yield ('context', 'force-bank', address, bank)

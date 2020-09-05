@@ -1,7 +1,14 @@
-from typing import Iterator, List, NamedTuple, Tuple
+from typing import TYPE_CHECKING, List, NamedTuple, Tuple
 
+import click
+
+from .manager_base import AsmManager
 from ..address import Address
+from ..commands import AddressOrLabel, LabelName
 from ..data_structures import AddressMapping, SortedStrMapping
+
+if TYPE_CHECKING:
+    from .disassembler import Disassembler
 
 __all__ = ['Label', 'LabelManager', 'LabelOffset']
 
@@ -28,13 +35,20 @@ class LabelOffset(NamedTuple):
         return self.label.address + self.offset
 
 
-class LabelManager:
-    def __init__(self):
+class LabelManager(AsmManager):
+    def __init__(self, disassembler: 'Disassembler'):
+        super().__init__(disassembler)
+
         self._globals: AddressMapping[List[str]] = AddressMapping()
         self._locals: AddressMapping[List[str]] = AddressMapping()
-
         self._all: AddressMapping[List[Label]] = AddressMapping()
         self._by_name: SortedStrMapping[Address] = SortedStrMapping()
+
+    def reset(self) -> None:
+        self._globals.clear()
+        self._locals.clear()
+        self._all.clear()
+        self._by_name.clear()
 
     def __contains__(self, item):
         if isinstance(item, str):
@@ -74,10 +88,6 @@ class LabelManager:
 
     def get_labels(self, address: Address) -> List[Label]:
         return self._all.get(address, [])
-
-    def list_items(self) -> Iterator[Label]:
-        for labels in self._all.values():
-            yield from labels
 
     def locals_at(self, addr: Address) -> List[Tuple[Address, str]]:
         try:
@@ -243,3 +253,40 @@ class LabelManager:
                 globals_here.remove(name)
 
         self._rebuild_all()
+
+    def build_cli(self) -> 'click.Command':
+
+        label_cli = click.Group('label')
+        address_arg = AddressOrLabel(self.asm)
+        label_arg = LabelName(self.asm)
+
+        @label_cli.command("create")
+        @click.argument("address", type=address_arg)
+        @click.argument("name")
+        def label_create(address: Address, name: str):
+            self.create(address, name)
+
+        @label_cli.command("auto")
+        @click.argument("address", type=address_arg)
+        @click.option("--local", "-l", is_flag=True)
+        def label_auto(address: Address, local=False):
+            self.auto_create(address, local)
+
+        @label_cli.command("rename")
+        @click.argument("old_name", type=label_arg)
+        @click.argument("new_name")
+        def label_rename(old_name: str, new_name: str):
+            self.rename(old_name, new_name)
+            return False
+
+        @label_cli.command("delete")
+        @click.argument("name", type=label_arg)
+        def label_delete(name: str):
+            self.delete(name)
+
+        return label_cli
+
+    def save_items(self):
+        for labels in self._all.values():
+            for label in labels:
+                yield ('label', 'create', label.address, label.name)
