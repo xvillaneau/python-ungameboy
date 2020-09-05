@@ -90,10 +90,16 @@ class XRefManager(AsmManager):
             else:
                 return
             op = elem.raw_instruction.type
+            declare = ''
             if op in (Op.Call, Op.Vector):
-                self.declare('call', elem.address, target)
+                declare = 'call'
             elif op in (Op.AbsJump, Op.RelJump):
-                self.declare('jump', elem.address, target)
+                declare = 'jump'
+            elif op in (Op.Load, Op.LoadFast):
+                declare = ('', 'write', 'read')[elem.raw_instruction.value_pos]
+
+            if declare:
+                self.declare(declare, elem.address, target)
 
         elif isinstance(elem, DataRow):
             if len(elem.values) != 1:
