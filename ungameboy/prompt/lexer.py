@@ -159,10 +159,12 @@ def render_binary(data: RomElement, control: "AsmControl"):
 
 
 def render_flags(data: RomElement, asm):
-    flags = "C" if data.xrefs.calls else " "
-    flags += "J" if data.xrefs.jumps_to else " "
-    flags += "+" if asm.context.has_context(data.address) else " "
-    return flags
+    xr = data.xrefs
+    flags = {
+        'x': any([xr.calls, xr.jumps_to, xr.reads, xr.writes_to]),
+        '+': asm.context.has_context(data.address),
+    }
+    return ''.join(flag if cond else ' ' for flag, cond in flags.items())
 
 
 def render_element(address: Address, control: "AsmControl"):
