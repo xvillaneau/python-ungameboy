@@ -98,7 +98,9 @@ def render_instruction(data: Instruction, control: "AsmControl"):
             add(']')
 
     reads = data.xrefs.reads
+    reads = reads if reads != data.dest_address else None
     writes = data.xrefs.writes_to
+    writes = writes if writes != data.dest_address else None
     if reads or writes:
         line_len = sum(len(s) for _, s in items)
         items.append(('', ' ' * max(22 - line_len, 2)))
