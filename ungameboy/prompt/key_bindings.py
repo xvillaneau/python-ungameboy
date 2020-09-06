@@ -55,7 +55,7 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
 
     def bind_shortcut(keys, args, filter=None, run=False):
         if isinstance(keys, str):
-            keys = (keys,)
+            keys = tuple(keys)
         if isinstance(args, str):
             args = (args,)
 
@@ -65,7 +65,7 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
                 return
 
             try:
-                str_args = [replace_arg(ctrl, arg) for arg in args]
+                str_args = [str(replace_arg(ctrl, arg)) for arg in args]
             except ValueError:
                 return
 
@@ -77,40 +77,58 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
 
         bindings.add(*keys, filter=filter)(handler)
 
+    # Navigation shortcuts
     bind_shortcut('g', 'seek', filter=editor.filters.editor_active)
     bind_shortcut(
-        ('a', 'a'), ('label', 'auto', cursor), run=True,
+        'X', ('inspect', cursor), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
-        ('a', 'x'), ('label', 'auto', cursor_dest), run=True,
+        ('c-s',), ('project', 'save'), run=True,
+        filter=~editor.filters.prompt_active,
+    )
+
+    # Label shortcuts
+    bind_shortcut(
+        'aa', ('label', 'auto', cursor), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
-        ('A', 'a'), ('label', 'auto', cursor, '--local'), run=True,
+        'ax', ('label', 'auto', cursor_dest), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
-        ('A', 'x'), ('label', 'auto', cursor_dest, '--local'), run=True,
+        'Aa', ('label', 'auto', cursor, '--local'), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
-        ('x', 'x'), ('xref', 'auto', cursor), run=True,
-        filter=editor.filters.cursor_active,
-    )
-    bind_shortcut(
-        ('x', 'r'), ('xref', 'declare', 'read', cursor),
-        filter=editor.filters.cursor_active,
-    )
-    bind_shortcut(
-        ('x', 'w'), ('xref', 'declare', 'write', cursor),
-        filter=editor.filters.cursor_active,
-    )
-    bind_shortcut(
-        ('C', 's'), ('context', 'force-scalar', cursor), run=True,
+        'Ax', ('label', 'auto', cursor_dest, '--local'), run=True,
         filter=editor.filters.cursor_active,
     )
 
+    # XREF shortcuts
+    bind_shortcut(
+        'xx', ('xref', 'auto', cursor), run=True,
+        filter=editor.filters.cursor_active,
+    )
+    bind_shortcut(
+        'xr', ('xref', 'declare', 'read', cursor),
+        filter=editor.filters.cursor_active,
+    )
+    bind_shortcut(
+        'xw', ('xref', 'declare', 'write', cursor),
+        filter=editor.filters.cursor_active,
+    )
+
+    # Context shortcuts
+    bind_shortcut(
+        'Cs', ('context', 'force-scalar', cursor), run=True,
+        filter=editor.filters.cursor_active,
+    )
+    bind_shortcut(
+        'Cb', ('context', 'force-bank', cursor),
+        filter=editor.filters.cursor_active,
+    )
     return bindings
 
 
@@ -125,6 +143,7 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
     def move_down(_):
         app.xrefs.move_down()
 
+    @bindings.add("q", filter=app.filters.xrefs_visible)
     @bindings.add("c-c", filter=app.filters.xrefs_visible)
     @bindings.add('escape', filter=app.filters.xrefs_visible)
     def quit_inspector(event):
