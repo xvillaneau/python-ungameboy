@@ -66,19 +66,13 @@ class Disassembler:
             row_n = offset // data.row_size
             row_bin = data.get_row_bin(row_n)
             row_addr = data.address + row_n * data.row_size
-
-            row_values = [
-                (
-                    self.context.address_context(row_addr, item)
-                    if isinstance(item, Address)
-                    else item
-                )
-                for item in data[row_n]
-            ]
+            row = data[row_n]
+            row_values, dest_address = self.context.row_context(row, row_addr)
 
             return DataRow(
                 address=row_addr,
                 size=len(row_bin),
+                dest_address=dest_address,
                 **common_args,
                 bytes=row_bin,
                 data_block=data,
@@ -88,11 +82,12 @@ class Disassembler:
 
         elif addr.type is ROM:
             raw_instr = self.rom.decode_instruction(addr.rom_file_offset)
-            value = self.context.instruction_context(raw_instr)
+            value, dest_address = self.context.instruction_context(raw_instr)
 
             return Instruction(
                 address=raw_instr.address,
                 size=raw_instr.length,
+                dest_address=dest_address,
                 **common_args,
                 bytes=raw_instr.bytes,
                 raw_instruction=raw_instr,

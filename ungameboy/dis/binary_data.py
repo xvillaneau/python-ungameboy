@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .decoder import ROMBytes
     from .disassembler import Disassembler
 
-__all__ = ['ROW_TYPES_NAMES', 'DataBlock', 'DataTable', 'DataManager']
+__all__ = ['ROW_TYPES_NAMES', 'DataBlock', 'DataTable', 'DataManager', 'RowItem']
 
 RowItem = Union[Byte, Word, Address]
 RowType = Type[RowItem]

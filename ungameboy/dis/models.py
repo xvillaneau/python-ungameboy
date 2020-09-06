@@ -33,6 +33,7 @@ class AsmElement:
 
 @dataclass
 class RomElement(AsmElement):
+    dest_address: Optional[Address]
     bytes: bytes
 
 

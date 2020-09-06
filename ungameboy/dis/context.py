@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Optional, Set
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 import click
 
@@ -11,6 +11,7 @@ from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
 if TYPE_CHECKING:
+    from .binary_data import RowItem
     from .disassembler import Disassembler
     from .instructions import RawInstruction
     from .models import Value
@@ -50,9 +51,11 @@ class ContextManager(AsmManager):
     def has_context(self, address: Address) -> bool:
         return address in self.force_scalar or address in self.bank_override
 
-    def instruction_context(self, instr: "RawInstruction") -> "Value":
+    def instruction_context(
+            self, instr: "RawInstruction"
+    ) -> Tuple["Value", Optional[Address]]:
         if instr.value_pos <= 0:
-            return 0
+            return 0, None
 
         arg = instr.args[instr.value_pos - 1]
         if isinstance(arg, Word):
@@ -64,14 +67,29 @@ class ContextManager(AsmManager):
         elif isinstance(arg, Ref) and isinstance(arg.target, Word):
             target = Address.from_memory_address(arg.target)
         else:
-            return arg
+            return arg, None
 
         if instr.type is Op.Load and instr.value_pos == 1:
             special = SpecialLabel.detect(target)
             if special is not None:
-                return special
+                return special, None
 
-        return self.address_context(instr.address, target)
+        return self.address_context(instr.address, target), target
+
+    def row_context(
+            self, row: List['RowItem'], address: Address
+    ) -> Tuple[List['Value'], Optional[Address]]:
+        n_addr, dest_addr, values = 0, None, []
+
+        for item in row:
+            if isinstance(item, Address):
+                n_addr += 1
+                dest_addr = dest_addr or item
+                values.append(self.address_context(address, item))
+            else:
+                values.append(item)
+
+        return values, (dest_addr if n_addr == 1 else None)
 
     def address_context(
             self, pos: Address,
