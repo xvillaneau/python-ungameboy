@@ -28,10 +28,14 @@ def create_layout_bindings(editor: 'DisassemblyEditor'):
     def _focus_prompt(_):
         editor.layout.focus_prompt()
 
+    @bindings.add('tab', filter=~editor.filters.prompt_active)
+    def _rotate_focus(event):
+        event.app.layout.focus_next()
+
     @bindings.add("c-c", filter=editor.filters.prompt_active)
     @bindings.add(Keys.Escape, filter=editor.filters.prompt_active)
     def _quit_prompt(_):
-        editor.layout.unfocus_prompt()
+        editor.layout.exit_prompt()
         editor.prompt.reset()
 
     return bindings
@@ -143,9 +147,15 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
     def move_down(_):
         app.xrefs.move_down()
 
-    @bindings.add("q", filter=app.filters.xrefs_visible)
-    @bindings.add("c-c", filter=app.filters.xrefs_visible)
-    @bindings.add('escape', filter=app.filters.xrefs_visible)
+    @bindings.add('enter')
+    def go_to_ref(event):
+        addr = app.xrefs.get_selected_xref()
+        app.layout.main_control.seek(addr)
+        event.app.layout.focus(app.layout.main_control)
+
+    @bindings.add("q")
+    @bindings.add("c-c")
+    @bindings.add('escape')
     def quit_inspector(event):
         app.xrefs.address = None
 

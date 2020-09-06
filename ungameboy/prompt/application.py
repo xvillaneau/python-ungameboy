@@ -7,7 +7,7 @@ from .filters import UGBFilters
 from .key_bindings import create_global_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
-from .ref_browser import XRefBrowser
+from .xref_browser import XRefBrowser
 from ..address import Address
 from ..dis import Disassembler
 

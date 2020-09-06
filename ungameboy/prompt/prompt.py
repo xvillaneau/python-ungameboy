@@ -127,7 +127,7 @@ class UGBPrompt:
         if buffer.text:
             self.run_command(*shlex.split(buffer.text))
 
-        self.editor.layout.unfocus_prompt()
+        self.editor.layout.exit_prompt()
         return False
 
     def pre_fill(self, *args: str):

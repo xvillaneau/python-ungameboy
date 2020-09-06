@@ -51,7 +51,7 @@ class UGBLayout:
         self.editor.prompt_active = True
         self.layout.focus(self.editor.prompt.container)
 
-    def unfocus_prompt(self):
+    def exit_prompt(self):
         if self.editor.prompt_active:
             self.editor.prompt_active = False
             self.layout.focus_last()

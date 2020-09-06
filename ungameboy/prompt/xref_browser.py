@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Set
 
 from prompt_toolkit.layout.controls import FormattedTextControl
 
@@ -35,16 +35,33 @@ class XRefBrowser:
         )
 
     def move_up(self):
-        refs_count = self.get_refs_count()
-        if refs_count:
-            self.index -= 1
-            self.index %= refs_count
+        self.index = max(self.index - 1, 0)
 
     def move_down(self):
         refs_count = self.get_refs_count()
-        if refs_count:
-            self.index += 1
-            self.index %= refs_count
+        self.index = min(self.index + 1, refs_count - 1)
+
+    def get_selected_xref(self) -> Address:
+        index = self.index
+        if index < 0:
+            raise IndexError(index)
+
+        xr = self.asm.xrefs.get_xrefs(self.address)
+
+        def _get_index(collection: Set[Address]):
+            nonlocal index
+            if index < len(collection):
+                return list(sorted(collection))[index]
+            else:
+                index -= len(collection)
+                return None
+
+        for col in (xr.called_by, xr.jumps_from, xr.read_by, xr.written_by):
+            res = _get_index(col)
+            if res is not None:
+                return res
+
+        raise IndexError(self.index)
 
     def get_xrefs_content(self):
         if self.address is None:
