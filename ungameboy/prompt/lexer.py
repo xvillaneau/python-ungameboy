@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Tuple, Union
 
 from ..address import Address
-from ..data_types import Byte, IORef, Ref, Word, SPOffset
+from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
     AsmElement,
     DataRow,
@@ -43,6 +43,64 @@ def render_reference(
     return out, cls
 
 
+def render_value(elem: AsmElement, value, suffix=''):
+    items = []
+
+    def add(item, cls=''):
+        if cls:
+            cls = f'class:ugb.value.{cls}.{suffix}'.rstrip('.')
+        items.append((cls, str(item)))
+
+    if isinstance(value, Ref):
+        ref = value.__class__
+        value = value.target
+        add('[')
+    else:
+        ref = None
+
+    # Handle IO references separately, they're weird
+    if ref is IORef and isinstance(value, Byte):
+        add(Word(value + 0xff00), 'scalar')
+    elif ref is IORef and value is C:
+        add(Word(0xff00), 'scalar')
+        add(' + ')
+        add('c', 'reg')
+
+    # Registers are very common, handle those first
+    elif isinstance(value, (Register, DoubleRegister)):
+        add(str(value).lower(), 'reg')
+
+    # Then, addresses and labels
+    elif isinstance(value, (Address, Label)):
+        add(*render_reference(elem, value))
+
+    # Display the scalar values
+    elif isinstance(value, int):
+        if isinstance(value, SPOffset):
+            add('sp', 'reg')
+            add(' + ')
+            value = Byte(value)
+        elif isinstance(value, CgbColor):
+            r, g, b = value.rgb_5
+            color = f'#{r*8:02x}{g*8:02x}{b*8:02x}'
+            items.append((f'fg:{color}', '\u25a0'))
+            items.append(('', ' '))
+        add(value, 'scalar')
+
+    # Various stuff last
+    elif isinstance(value, Condition):
+        add(str(value).lower(), 'cond')
+    elif isinstance(value, SpecialLabel):
+        add(value.name, 'special')
+    else:
+        add(value)
+
+    if ref:
+        add(']')
+
+    return items
+
+
 def render_instruction(data: Instruction, control: "AsmControl"):
     instr = data.raw_instruction
 
@@ -51,51 +109,15 @@ def render_instruction(data: Instruction, control: "AsmControl"):
     if not instr.args:
         return items
 
-    def add(string, cls=''):
-        if cls:
-            cls = f'class:ugb.value.{cls}.{op_type}'
-        items.append((cls, str(string)))
-
     for pos, arg in enumerate(instr.args):
-        add(', ' if pos > 0 else ' ')
-
-        if isinstance(arg, Ref):
-            ref = arg.__class__
-            arg = arg.target
-            add('[')
-        else:
-            ref = None
-
         if (pos + 1 == instr.value_pos):
-            arg = data.value
+            if isinstance(arg, Ref):
+                arg = arg.cast(data.value)
+            else:
+                arg = data.value
 
-        # Arg can be: (Double)Register, Byte/Word/SignedByte/SPOffset,
-        #   Label, Ref/IORef to any of the previous, condition, integer
-        if ref is IORef and isinstance(arg, Byte):
-            add(Word(arg + 0xff00), 'scalar')
-        elif ref is IORef and arg is C:
-            add(Word(0xff00), 'scalar')
-            add(' + ')
-            add('c', 'reg')
-        elif isinstance(arg, (Register, DoubleRegister)):
-            add(str(arg).lower(), 'reg')
-        elif isinstance(arg, SPOffset):
-            add('sp', 'reg')
-            add(' + ')
-            add(Byte(arg), 'scalar')
-        elif isinstance(arg, int):
-            add(arg, 'scalar')
-        elif isinstance(arg, (Address, Label)):
-            add(*render_reference(data, arg))
-        elif isinstance(arg, Condition):
-            add(str(arg).lower(), 'cond')
-        elif isinstance(arg, SpecialLabel):
-            add(arg.name, 'special')
-        else:
-            add(arg)
-
-        if ref:
-            add(']')
+        items.append(('', ', ' if pos > 0 else ' '))
+        items.extend(render_value(data, arg, op_type))
 
     reads = data.xrefs.reads
     reads = reads if reads != data.dest_address else None
@@ -122,12 +144,8 @@ def render_instruction(data: Instruction, control: "AsmControl"):
 def render_row(data: DataRow):
     line = []
     for item in data.values:
-        if isinstance(item, (Address, Label)):
-            item, cls = render_reference(data, item)
-            cls = '.' + cls
-        else:
-            cls = ''
-        line.extend([('class:ugb.value' + cls, str(item)), ('', ', ')])
+        line.extend(render_value(data, item))
+        line.append(('', ', '))
     line.pop()
 
     return line

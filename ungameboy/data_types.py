@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import Any
 
 __all__ = [
-    'Ref', 'IORef',
-    'Byte', 'Word', 'SignedByte', 'SPOffset', 'ParameterMeta',
+    'Ref', 'IORef', 'ParameterMeta',
+    'Byte', 'CgbColor', 'Word', 'SignedByte', 'SPOffset',
 ]
 
 
@@ -13,6 +13,10 @@ class Ref:
 
     def __repr__(self):
         return f"[{self.target}]"
+
+    @classmethod
+    def cast(cls, value):
+        return cls(value)
 
 
 @dataclass(frozen=True)
@@ -68,3 +72,18 @@ class Word(int, metaclass=ParameterMeta):
 
     def __repr__(self):
         return f"${self:04x}"
+
+
+class CgbColor(Word):
+    symbol = 'color'
+
+    @property
+    def rgb_5(self):
+        rem, red = divmod(self, 32)
+        blue, green = divmod(rem, 32)
+        blue %= 32
+        return (red, green, blue)
+
+    def __repr__(self):
+        r, g, b = self.rgb_5
+        return f'#{r:02x}{g:02x}{b:02x}'

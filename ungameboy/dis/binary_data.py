@@ -6,7 +6,7 @@ from .manager_base import AsmManager
 from ..commands import AddressOrLabel, ExtendedInt
 from ..address import Address
 from ..data_structures import AddressMapping
-from ..data_types import Byte, ParameterMeta, Word
+from ..data_types import Byte, CgbColor, ParameterMeta, Word
 
 if TYPE_CHECKING:
     from .decoder import ROMBytes
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 __all__ = ['ROW_TYPES_NAMES', 'DataBlock', 'DataTable', 'DataManager', 'RowItem']
 
-RowItem = Union[Byte, Word, Address]
+RowItem = Union[Byte, CgbColor, Word, Address]
 RowType = Type[RowItem]
 
 ROW_TYPES_NAMES: List[Tuple[str, RowType]] = [
@@ -104,6 +104,15 @@ class DataTable(DataBlock):
         return ('data', 'create-table', self.address, self.rows, row)
 
 
+class PaletteData(DataTable):
+    def __init__(self, address: Address, rows: int = 8):
+        super().__init__(address, rows, [CgbColor] * 4)
+
+    @property
+    def create_cmd(self):
+        return ('data', 'create-palette', self.address, self.rows)
+
+
 class RLEDataBlock(DataBlock):
     def __init__(self, address: Address):
         super().__init__(address, 0)
@@ -157,6 +166,9 @@ class DataManager(AsmManager):
 
     def create_table(self, address: Address, rows: int, structure: List[RowType]):
         self._insert(DataTable(address, rows, structure))
+
+    def create_palette(self, address: Address, rows: int):
+        self._insert(PaletteData(address, rows))
 
     def create_rle(self, address: Address):
         self._insert(RLEDataBlock(address))
@@ -215,6 +227,12 @@ class DataManager(AsmManager):
         def data_create_table(address: Address, rows: int, structure: str):
             struct = [DATA_TYPES[item] for item in structure.split(',')]
             self.create_table(address, rows, struct)
+
+        @data_cli.command('create-palette')
+        @click.argument('address', type=address_arg)
+        @click.argument('rows', type=int, default=8)
+        def data_create_palette(address, rows):
+            self.create_palette(address, rows)
 
         @data_cli.command('create-rle')
         @click.argument('address', type=address_arg)
