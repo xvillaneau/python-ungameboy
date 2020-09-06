@@ -149,9 +149,13 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
 
     @bindings.add('enter')
     def go_to_ref(event):
+        show_ref(event)
+        event.app.layout.focus(app.layout.main_control)
+
+    @bindings.add('space')
+    def show_ref(_):
         addr = app.xrefs.get_selected_xref()
         app.layout.main_control.seek(addr)
-        event.app.layout.focus(app.layout.main_control)
 
     @bindings.add("q")
     @bindings.add("c-c")
