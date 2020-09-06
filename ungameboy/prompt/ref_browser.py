@@ -63,17 +63,12 @@ class XRefBrowser:
         line_index = 0
         tokens = []
 
-        def get_name(_addr):
-            return self.asm.context.address_context(
-                _addr, _addr, ignore_scalar=True, allow_relative=True
-            )
-
         def display_xref(_addr):
             tokens.append(('', '  '))
             sel = ',ugb.hl' * (line_index == self.index)
             tokens.append(('class:ugb.address' + sel, str(_addr)))
 
-            name = get_name(_addr)
+            name = self.asm.context.address_context(_addr, _addr, relative=True)
             if isinstance(name, Label):
                 tokens.extend([
                     ('', ' ('),

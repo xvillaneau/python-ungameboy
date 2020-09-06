@@ -105,16 +105,12 @@ def render_instruction(data: Instruction, control: "AsmControl"):
         items.append(('class:ugb.xrefs', ';'))
 
         if reads is not None:
-            reads = control.asm.context.address_context(
-                data.address, reads, ignore_scalar=True
-            )
+            reads = control.asm.context.address_context(data.address, reads)
             reads = 'Reads: ' + render_reference(data, reads)[0]
             items.extend([('', ' '), ('class:ugb.xrefs', reads)])
 
         if writes is not None:
-            writes = control.asm.context.address_context(
-                data.address, writes, ignore_scalar=True
-            )
+            writes = control.asm.context.address_context(data.address, writes)
             writes = 'Writes: ' + render_reference(data, writes)[0]
             items.extend([('', ' '), ('class:ugb.xrefs', writes)])
 
@@ -212,14 +208,14 @@ def render_element(address: Address, control: "AsmControl"):
 
         addr_context = control.asm.context.address_context
         for call_orig in elem.xrefs.called_by:
-            call_orig = addr_context(elem.address, call_orig, True, True)
+            call_orig = addr_context(elem.address, call_orig, relative=True)
             call_orig, _ = render_reference(elem, call_orig)
             lines.append([
                 addr_items[0],
                 ('class:ugb.xrefs', f"; Call from {call_orig}")
             ])
         for jump_orig in elem.xrefs.jumps_from:
-            jump_orig = addr_context(elem.address, jump_orig, True, True)
+            jump_orig = addr_context(elem.address, jump_orig, relative=True)
             jump_orig, _ = render_reference(elem, jump_orig)
             lines.append([
                 addr_items[0],

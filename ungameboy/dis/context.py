@@ -58,7 +58,9 @@ class ContextManager(AsmManager):
             return 0, None
 
         arg = instr.args[instr.value_pos - 1]
-        if isinstance(arg, Word):
+        if instr.address in self.force_scalar:
+            return arg, None
+        elif isinstance(arg, Word):
             target = Address.from_memory_address(arg)
         elif instr.type is Op.RelJump:
             target = instr.next_address + arg
@@ -92,14 +94,8 @@ class ContextManager(AsmManager):
         return values, (dest_addr if n_addr == 1 else None)
 
     def address_context(
-            self, pos: Address,
-            address: Address,
-            ignore_scalar=False,
-            allow_relative=False,
+            self, pos: Address, address: Address, relative=False
     ) -> "Value":
-        if pos in self.force_scalar and not ignore_scalar:
-            return Word(address.memory_address)
-
         # Auto-detect ROM bank if current instruction requires one
         if address.bank < 0:
             bank = self.bank_override.get(pos, -1)
@@ -110,7 +106,7 @@ class ContextManager(AsmManager):
 
         # Detect labels
         target_labels = self.asm.labels.get_labels(address)
-        if allow_relative and not target_labels:
+        if relative and not target_labels:
             scope = self.asm.labels.scope_at(address)
             if scope:
                 label = scope[-1]
