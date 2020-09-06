@@ -8,7 +8,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .lexer import render_element
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
-from ..dis import DataRow, Disassembler, Instruction, Label
+from ..dis import Disassembler, RomElement
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
@@ -19,8 +19,6 @@ class AsmControl(UIControl):
 
     def __init__(self, asm: Disassembler):
         from .key_bindings import create_asm_control_bindings
-
-        self.cursor_destination: Optional[Address]
 
         self.asm = asm
         self.key_bindings = create_asm_control_bindings(self)
@@ -33,7 +31,6 @@ class AsmControl(UIControl):
 
         self._stack: StateStack[Address] = StateStack()
         self._stack.push(Address(ROM, 0, 0))
-        self._update_cursor_destination()
 
         self.load_zone(self.current_zone)
 
@@ -79,36 +76,18 @@ class AsmControl(UIControl):
     @cursor.setter
     def cursor(self, value: Address):
         self._stack.head = value
-        self._update_cursor_destination()
 
     @property
     def cursor_position(self) -> int:
         return self.current_view.find_line(self.cursor)
 
-    def _update_cursor_destination(self):
-        self.cursor_destination = None
-
+    @property
+    def cursor_destination(self) -> Optional[Address]:
         item = self.asm[self.cursor]
-        if isinstance(item, DataRow):
-            # TODO: Deal with more than one address per row
-            for value in item.values:
-                if isinstance(value, Label):
-                    value = value.address
-                if isinstance(value, Address):
-                    self.cursor_destination = value
-                    break
-            return
-        if not isinstance(item, Instruction):
-            return
-
-        value = item.value
-        if isinstance(value, Label):
-            value = value.address
-        if not isinstance(value, Address) or value.bank < 0:
-            return
-
-        if self.cursor not in self.asm.context.force_scalar:
-            self.cursor_destination = value
+        if isinstance(item, RomElement):
+            return item.dest_address
+        else:
+            return None
 
     def get_vertical_scroll(self, window: "Window") -> int:
         if self.cursor_mode and not self._reset_scroll:

@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING, NamedTuple, Optional, Set, Tuple
 
 import click
 
-from .labels import Label
 from .manager_base import AsmManager
 from .models import DataRow, Instruction
 from ..address import Address
@@ -83,12 +82,9 @@ class XRefManager(AsmManager):
     def auto_declare(self, address: Address):
         elem = self.asm[address]
         if isinstance(elem, Instruction):
-            if isinstance(elem.value, Label):
-                target = elem.value.address
-            elif isinstance(elem.value, Address):
-                target = elem.value
-            else:
+            if elem.dest_address is None:
                 return
+
             op = elem.raw_instruction.type
             declare = ''
             if op in (Op.Call, Op.Vector):
@@ -99,17 +95,11 @@ class XRefManager(AsmManager):
                 declare = ('', 'write', 'read')[elem.raw_instruction.value_pos]
 
             if declare:
-                self.declare(declare, elem.address, target)
+                self.declare(declare, elem.address, elem.dest_address)
 
         elif isinstance(elem, DataRow):
-            if len(elem.values) != 1:
-                return
-            target = elem.values[0]
-            if isinstance(target, Label):
-                target = target.address
-            elif not isinstance(target, Address):
-                return
-            self.declare('jump', elem.address, target)
+            if elem.dest_address is not None:
+                self.declare('jump', elem.address, elem.dest_address)
 
     def declare(self, link_type: str, addr_from: Address, addr_to: Address):
         self._mappings[link_type].create_link(addr_from, addr_to)
