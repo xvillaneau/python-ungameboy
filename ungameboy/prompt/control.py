@@ -18,9 +18,12 @@ class AsmControl(UIControl):
     _ZONES: Dict[Tuple[MemoryType, int], "AsmRegionView"] = {}
 
     def __init__(self, asm: Disassembler):
+        from .key_bindings import create_asm_control_bindings
+
         self.cursor_destination: Optional[Address]
 
         self.asm = asm
+        self.key_bindings = create_asm_control_bindings(self)
 
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
         self.current_view = AsmRegionView(self.asm, ROM, 0)
@@ -33,6 +36,9 @@ class AsmControl(UIControl):
         self._update_cursor_destination()
 
         self.load_zone(self.current_zone)
+
+    def get_key_bindings(self):
+        return self.key_bindings
 
     def create_content(self, width: int, height: int) -> UIContent:
         return UIContent(

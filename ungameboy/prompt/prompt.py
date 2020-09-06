@@ -3,6 +3,7 @@ import shlex
 from typing import TYPE_CHECKING, Iterable
 
 import click
+from prompt_toolkit.application import get_app
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.completion import (
     Completer, CompleteEvent, Completion, NestedCompleter
@@ -12,11 +13,13 @@ from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.containers import ConditionalContainer
 from prompt_toolkit.widgets.base import TextArea
 
+from .control import AsmControl
 from ..address import Address
 from ..commands import AddressOrLabel, LabelName, create_core_cli
 
 if TYPE_CHECKING:
     from .application import DisassemblyEditor
+    from ..dis import Disassembler
 
 
 def create_ui_cli(ugb_app: "DisassemblyEditor"):
@@ -27,16 +30,18 @@ def create_ui_cli(ugb_app: "DisassemblyEditor"):
     @ugb_core_cli.command()
     @click.argument("address", type=address_arg)
     def seek(address: Address):
-        ugb_app.layout.main_control.seek(address)
+        control = ugb_app.layout.layout.previous_control
+        if isinstance(control, AsmControl):
+            control.seek(address)
         return False
 
     @ugb_core_cli.command()
     @click.argument("address", type=address_arg)
     def inspect(address: Address):
-        ugb_app.xrefs_address = address
-        ugb_app.xrefs_cursor_index = 0
+        ugb_app.xrefs.address = address
+        ugb_app.xrefs.index = 0
         ugb_app.prompt_active = False
-        ugb_app.layout.layout.focus(ugb_app.layout.xref_window)
+        ugb_app.layout.layout.focus(ugb_app.xrefs.refs_control)
         return False
 
     return ugb_core_cli
@@ -45,9 +50,8 @@ def create_ui_cli(ugb_app: "DisassemblyEditor"):
 class LabelCompleter(Completer):
     RE_LABEL = re.compile(r'([a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?)')
 
-    def __init__(self, editor: "DisassemblyEditor"):
-        self.editor = editor
-        self.asm = editor.disassembler
+    def __init__(self, disassembler: "Disassembler"):
+        self.asm = disassembler
 
     def get_completions(
             self, document: "Document", complete_event: CompleteEvent
@@ -55,8 +59,12 @@ class LabelCompleter(Completer):
         name_head = document.get_word_before_cursor(pattern=self.RE_LABEL)
 
         if not name_head:
-            addr = self.editor.layout.main_control.cursor
-            dest = self.editor.layout.main_control.cursor_destination
+            control = get_app().layout.previous_control
+            if not isinstance(control, AsmControl):
+                return
+
+            addr = control.cursor
+            dest = control.cursor_destination
             yield from (
                 Completion(lb.name)
                 for lb in self.asm.labels.get_labels(addr)
@@ -90,7 +98,7 @@ class UGBPrompt:
         )
 
     def create_completer(self):
-        label_complete = LabelCompleter(self.editor)
+        label_complete = LabelCompleter(self.editor.disassembler)
 
         def _create_cmd_completer(cmd: click.Command):
             if cmd.params:

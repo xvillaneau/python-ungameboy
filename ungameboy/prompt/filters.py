@@ -14,9 +14,12 @@ class UGBFilters:
 
         self.prompt_active = Condition(self._prompt_active)
         self.xrefs_visible = Condition(self._xrefs_visible)
-        self.editor_active = ~ (self.prompt_active | self.xrefs_visible)
+        self.editor_active = Condition(self._editor_active)
         self.cursor_active = Condition(self._cursor_active)
-        self.shortcuts_active = self.editor_active & self.cursor_active
+
+    def _editor_active(self):
+        ctrl = self.app.layout.layout.current_control
+        return isinstance(ctrl, AsmControl)
 
     def _cursor_active(self):
         ctrl = self.app.layout.layout.current_control
@@ -26,4 +29,4 @@ class UGBFilters:
         return self.app.prompt_active
 
     def _xrefs_visible(self):
-        return self.app.xrefs_address is not None
+        return self.app.xrefs.address is not None

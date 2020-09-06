@@ -1,14 +1,13 @@
 from itertools import product
-from typing import Optional
 
 from prompt_toolkit.application import Application
-from prompt_toolkit.key_binding import merge_key_bindings
 from prompt_toolkit.styles import Style
 
 from .filters import UGBFilters
-from .key_bindings import load_asm_control_bindings, load_layout_bindings
+from .key_bindings import create_global_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
+from .ref_browser import XRefBrowser
 from ..address import Address
 from ..dis import Disassembler
 
@@ -65,20 +64,15 @@ class DisassemblyEditor:
         self.disassembler = asm
         self.prompt_active = False
 
-        self.xrefs_address: Optional[Address] = None
-        self.xrefs_cursor_index = 0
-
         self.filters = UGBFilters(self)
+        self.xrefs = XRefBrowser(self)
         self.prompt = UGBPrompt(self)
         self.layout = UGBLayout(self)
 
         self.app = Application(
             layout=self.layout.layout,
             style=Style.from_dict(UGB_STYLE),
-            key_bindings=merge_key_bindings([
-                load_layout_bindings(self),
-                load_asm_control_bindings(self),
-            ]),
+            key_bindings=create_global_bindings(self),
             full_screen=True,
         )
 
