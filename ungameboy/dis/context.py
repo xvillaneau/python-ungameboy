@@ -76,7 +76,10 @@ class ContextManager(AsmManager):
             if special is not None:
                 return special, None
 
-        return self.address_context(instr.address, target), target
+        return (
+            self.address_context(instr.address, target),
+            self.detect_addr_bank(instr.address, target),
+        )
 
     def row_context(
             self, row: List['RowItem'], address: Address
@@ -91,18 +94,28 @@ class ContextManager(AsmManager):
             else:
                 values.append(item)
 
-        return values, (dest_addr if n_addr == 1 else None)
+        if n_addr == 1:
+            dest_addr = self.detect_addr_bank(address, dest_addr)
+        else:
+            dest_addr = None
+
+        return values, dest_addr
+
+    def detect_addr_bank(self, pos: Address, ref: Address) -> Address:
+        # Auto-detect ROM bank if current instruction requires one
+        if ref.bank >= 0:
+            return ref
+
+        bank = self.bank_override.get(pos, -1)
+        if bank < 0 < pos.bank and ref.type is ROM:
+            bank = pos.bank
+
+        return Address(ref.type, bank, ref.offset) if bank >= 0 else ref
 
     def address_context(
             self, pos: Address, address: Address, relative=False
     ) -> "Value":
-        # Auto-detect ROM bank if current instruction requires one
-        if address.bank < 0:
-            bank = self.bank_override.get(pos, -1)
-            if bank < 0 < pos.bank and address.type is ROM:
-                bank = pos.bank
-            if bank >= 0:
-                address = Address(address.type, bank, address.offset)
+        address = self.detect_addr_bank(pos, address)
 
         # Detect labels
         target_labels = self.asm.labels.get_labels(address)
