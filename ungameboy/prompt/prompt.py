@@ -69,6 +69,10 @@ class LabelCompleter(Completer):
                 Completion(lb.name)
                 for lb in self.asm.labels.get_labels(addr)
             )
+            yield from (
+                Completion(lb.name)
+                for lb in self.asm.labels.get_labels(dest)
+            )
             yield Completion(str(addr))
             if dest is not None:
                 yield Completion(str(dest))
