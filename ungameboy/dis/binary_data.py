@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Optional, List, Tuple, Type, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
 
 import click
 
@@ -14,11 +14,15 @@ if TYPE_CHECKING:
 
 __all__ = ['ROW_TYPES_NAMES', 'DataBlock', 'DataTable', 'DataManager', 'RowItem']
 
+addr_le = object()
+addr_be = object()
+
 RowItem = Union[Byte, CgbColor, Word, Address]
-RowType = Type[RowItem]
+# noinspection PyTypeHints
+RowType = Union[ParameterMeta, Literal[addr_le], Literal[addr_be]]
 
 ROW_TYPES_NAMES: List[Tuple[str, RowType]] = [
-    ('db', Byte), ('dw', Word), ('addr', Address)
+    ('db', Byte), ('dw', Word), ('addr', addr_le), ('addr_be', addr_be)
 ]
 DATA_TYPES = {name: obj for name, obj in ROW_TYPES_NAMES}
 TYPES_NAMES = {obj: name for name, obj in ROW_TYPES_NAMES}
@@ -80,10 +84,11 @@ class DataTable(DataBlock):
         row, row_bytes = [], self.get_row_bin(item)
 
         for t in self.row_struct:
-            n_bytes = 2 if t is Address else t.n_bytes
-            value = int.from_bytes(row_bytes[:n_bytes], 'little')
+            n_bytes = t.n_bytes if isinstance(t, ParameterMeta) else 2
+            endian = 'big' if t is addr_be else 'little'
+            value = int.from_bytes(row_bytes[:n_bytes], endian)
             row_bytes = row_bytes[n_bytes:]
-            if t is Address:
+            if t is addr_le or t is addr_be:
                 row.append(Address.from_memory_address(value))
             else:
                 row.append(t(value))
