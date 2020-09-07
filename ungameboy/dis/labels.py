@@ -149,7 +149,12 @@ class LabelManager(AsmManager):
             raise ValueError(f"Label {name} already exists at {cur_addr}")
 
         self._globals.setdefault(address, []).append(name)
-        self._rebuild_all()
+        if not self.locals_at(address):
+            label = Label(address, name)
+            self._all.setdefault(address, []).append(label)
+            self._by_name[name] = address
+        else:
+            self._rebuild_all()
 
     def create(self, address: Address, name: str):
         if "." in name:

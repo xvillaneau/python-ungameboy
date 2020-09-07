@@ -108,6 +108,10 @@ class XRefManager(AsmManager):
         for links in self._mappings.values():
             links.clear(address)
 
+    def count_incoming(self, link_type: str, address: Address):
+        links = self._mappings[link_type].links_from
+        return len(links.get(address, ()))
+
     def get_xrefs(self, address: Address) -> XRefs:
         return XRefs(
             address,
