@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from .decoder import ROMBytes
     from .disassembler import Disassembler
 
-__all__ = ['ROW_TYPES', 'DataBlock', 'DataTable', 'DataManager', 'RowItem']
+__all__ = ['DataBlock', 'DataManager', 'RowItem']
 
 RowItem = Union[Byte, CgbColor, Word, Address]
 
@@ -76,7 +76,7 @@ class DataBlock:
 
     @property
     def create_cmd(self):
-        return ('data', 'create-simple', self.address, self.size)
+        return ('data', 'create', 'simple', self.address, self.size)
 
 
 class DataTable(DataBlock):
@@ -108,7 +108,7 @@ class DataTable(DataBlock):
     @property
     def create_cmd(self):
         row = ','.join(obj.name for obj in self.row_struct)
-        return ('data', 'create-table', self.address, self.rows, row)
+        return ('data', 'create', 'table', self.address, self.rows, row)
 
 
 class PaletteData(DataTable):
@@ -118,7 +118,7 @@ class PaletteData(DataTable):
 
     @property
     def create_cmd(self):
-        return ('data', 'create-palette', self.address, self.rows)
+        return ('data', 'create', 'palette', self.address, self.rows)
 
 
 class RLEDataBlock(DataBlock):
@@ -154,7 +154,7 @@ class RLEDataBlock(DataBlock):
 
     @property
     def create_cmd(self):
-        return ('data', 'create-rle', self.address)
+        return ('data', 'create', 'rle', self.address)
 
 
 class DataManager(AsmManager):
@@ -222,13 +222,17 @@ class DataManager(AsmManager):
         data_cli = click.Group('data')
         address_arg = AddressOrLabel(self.asm)
 
-        @data_cli.command('create-simple')
+        @data_cli.group('create')
+        def data_create():
+            pass
+
+        @data_create.command('simple')
         @click.argument('address', type=address_arg)
         @click.argument('size', type=ExtendedInt())
         def data_create_simple(address: Address, size):
             self.create(address, size)
 
-        @data_cli.command('create-table')
+        @data_create.command('table')
         @click.argument('address', type=address_arg)
         @click.argument('rows', type=ExtendedInt())
         @click.argument('structure', type=str)
@@ -236,13 +240,13 @@ class DataManager(AsmManager):
             struct = [TYPES_BY_NAME[item] for item in structure.split(',')]
             self.create_table(address, rows, struct)
 
-        @data_cli.command('create-palette')
+        @data_create.command('palette')
         @click.argument('address', type=address_arg)
         @click.argument('rows', type=int, default=8)
         def data_create_palette(address, rows):
             self.create_palette(address, rows)
 
-        @data_cli.command('create-rle')
+        @data_create.command('rle')
         @click.argument('address', type=address_arg)
         def data_create_rle(address: Address):
             self.create_rle(address)
