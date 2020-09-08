@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
 import click
 
@@ -6,26 +7,34 @@ from .manager_base import AsmManager
 from ..commands import AddressOrLabel, ExtendedInt
 from ..address import Address
 from ..data_structures import AddressMapping
-from ..data_types import Byte, CgbColor, ParameterMeta, Word
+from ..data_types import Byte, CgbColor, Word
 
 if TYPE_CHECKING:
     from .decoder import ROMBytes
     from .disassembler import Disassembler
 
-__all__ = ['ROW_TYPES_NAMES', 'DataBlock', 'DataTable', 'DataManager', 'RowItem']
-
-addr_le = object()
-addr_be = object()
+__all__ = ['ROW_TYPES', 'DataBlock', 'DataTable', 'DataManager', 'RowItem']
 
 RowItem = Union[Byte, CgbColor, Word, Address]
-# noinspection PyTypeHints
-RowType = Union[ParameterMeta, Literal[addr_le], Literal[addr_be]]
 
-ROW_TYPES_NAMES: List[Tuple[str, RowType]] = [
-    ('db', Byte), ('dw', Word), ('addr', addr_le), ('addr_be', addr_be)
+
+@dataclass(frozen=True)
+class RowType:
+    name: str
+    type: Callable[[int], RowItem]
+    n_bytes: int = 2
+    endian: str = 'little'
+
+
+ROW_TYPES: List[RowType] = [
+    RowType('db', Byte, n_bytes=1),
+    RowType('dw', Word),
+    RowType('addr', Address.from_memory_address),
+    RowType('addr_be', Address.from_memory_address, endian='big'),
+    RowType('color', CgbColor),
+    RowType('color_be', CgbColor, endian='big'),
 ]
-DATA_TYPES = {name: obj for name, obj in ROW_TYPES_NAMES}
-TYPES_NAMES = {obj: name for name, obj in ROW_TYPES_NAMES}
+TYPES_BY_NAME = {obj.name: obj for obj in ROW_TYPES}
 
 
 class DataBlock:
@@ -73,31 +82,24 @@ class DataBlock:
 class DataTable(DataBlock):
     def __init__(self, address: Address, rows: int, row_struct: List[RowType]):
         self.row_struct = row_struct
-        self.row_size = sum(
-            item.n_bytes if isinstance(item, ParameterMeta) else 2
-            for item in self.row_struct
-        )
+        self.row_size = sum(item.n_bytes for item in self.row_struct)
         self._rows = rows
         super().__init__(address, rows * self.row_size)
 
     def __getitem__(self, item) -> List[RowItem]:
-        row, row_bytes = [], self.get_row_bin(item)
+        row_bytes = self.get_row_bin(item)
+        row_values, pos = [], 0
 
         for t in self.row_struct:
-            n_bytes = t.n_bytes if isinstance(t, ParameterMeta) else 2
-            endian = 'big' if t is addr_be else 'little'
-            value = int.from_bytes(row_bytes[:n_bytes], endian)
-            row_bytes = row_bytes[n_bytes:]
-            if t is addr_le or t is addr_be:
-                row.append(Address.from_memory_address(value))
-            else:
-                row.append(t(value))
+            value = int.from_bytes(row_bytes[pos:pos + t.n_bytes], t.endian)
+            row_values.append(t.type(value))
+            pos += t.n_bytes
 
-        return row
+        return row_values
 
     @property
     def description(self) -> str:
-        return f"{self.rows} rows"
+        return f"{self.rows} × " + ','.join(t.name for t in self.row_struct)
 
     @property
     def rows(self):
@@ -105,13 +107,14 @@ class DataTable(DataBlock):
 
     @property
     def create_cmd(self):
-        row = ','.join(TYPES_NAMES[obj] for obj in self.row_struct)
+        row = ','.join(obj.name for obj in self.row_struct)
         return ('data', 'create-table', self.address, self.rows, row)
 
 
 class PaletteData(DataTable):
     def __init__(self, address: Address, rows: int = 8):
-        super().__init__(address, rows, [CgbColor] * 4)
+        color_type = TYPES_BY_NAME['color']
+        super().__init__(address, rows, [color_type] * 4)
 
     @property
     def create_cmd(self):
@@ -230,7 +233,7 @@ class DataManager(AsmManager):
         @click.argument('rows', type=ExtendedInt())
         @click.argument('structure', type=str)
         def data_create_table(address: Address, rows: int, structure: str):
-            struct = [DATA_TYPES[item] for item in structure.split(',')]
+            struct = [TYPES_BY_NAME[item] for item in structure.split(',')]
             self.create_table(address, rows, struct)
 
         @data_cli.command('create-palette')
