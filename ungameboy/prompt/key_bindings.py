@@ -126,11 +126,11 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
 
     # Context shortcuts
     bind_shortcut(
-        'Cs', ('context', 'force-scalar', cursor), run=True,
+        'Cs', ('context', 'set', 'scalar', cursor), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
-        'Cb', ('context', 'force-bank', cursor),
+        'Cb', ('context', 'set', 'bank', cursor),
         filter=editor.filters.cursor_active,
     )
     return bindings

@@ -131,29 +131,27 @@ class ContextManager(AsmManager):
         context_cli = click.Group('context')
         address_arg = AddressOrLabel(self.asm)
 
-        @context_cli.command("force-scalar")
+        @context_cli.group('set')
+        def set_context():
+            pass
+
+        @set_context.command("scalar")
         @click.argument('address', type=address_arg)
         def context_force_scalar(address: Address):
             self.set_context(address, force_scalar=True)
             return False
 
-        @context_cli.command("no-force-scalar")
-        @click.argument('address', type=address_arg)
-        def context_no_force_scalar(address: Address):
-            self.set_context(address, force_scalar=False)
-            return False
-
-        @context_cli.command("force-bank")
+        @set_context.command("bank")
         @click.argument('address', type=address_arg)
         @click.argument("bank", type=ExtendedInt())
         def context_set_bank(address: Address, bank: int):
             self.set_context(address, bank=bank)
             return False
 
-        @context_cli.command("no-force-bank")
+        @context_cli.command('clear')
         @click.argument('address', type=address_arg)
-        def context_no_bank(address: Address):
-            self.set_context(address, bank=-1)
+        def context_clear(address):
+            self.set_context(address, force_scalar=True, bank=-1)
             return False
 
         return context_cli
@@ -162,7 +160,7 @@ class ContextManager(AsmManager):
         addresses = set(self.bank_override) | self.force_scalar
         for address in sorted(addresses):
             if address in self.force_scalar:
-                yield ('context', 'force-scalar', address)
+                yield ('context', 'set', 'scalar', address)
             bank = self.bank_override.get(address, -1)
             if bank >= 0:
-                yield ('context', 'force-bank', address, bank)
+                yield ('context', 'set', 'bank', address, bank)

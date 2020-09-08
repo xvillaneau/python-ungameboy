@@ -76,9 +76,10 @@ A few useful commands:
   starting the editor with `ungameboy -p <name>`
 
 Here's a quick list of the commands that somewhat work:
-  
-* `context force-scalar ADDR`
-* `context force-bank ADDR N`
+
+* `context clear ADDR`
+* `context set scalar ADDR`
+* `context set bank ADDR N`
 * `data create palette ADDR [LEN]`
 * `data create rle ADDR`
 * `data create simple ADDR LEN`
