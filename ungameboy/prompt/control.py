@@ -183,8 +183,12 @@ class AsmRegionView:
 
             if asm.sections.get_section(address) is not None:
                 n_lines += 1
-            n_lines += asm.xrefs.count_incoming('call', address)
-            n_lines += asm.xrefs.count_incoming('jump', address)
+
+            calls = asm.xrefs.count_incoming('call', address)
+            n_lines += calls if calls <= 3 else 1
+            jumps = asm.xrefs.count_incoming('jump', address)
+            n_lines += jumps if jumps <= 3 else 1
+
             n_lines += len(asm.labels.get_labels(address))
 
             if address >= next_data_addr and next_data is not None:

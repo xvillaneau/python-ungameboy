@@ -226,21 +226,25 @@ def render_element(address: Address, control: "AsmControl"):
             ('', ' '),
         ]
 
-        addr_context = control.asm.context.address_context
-        for call_orig in elem.xrefs.called_by:
-            call_orig = addr_context(elem.address, call_orig, relative=True)
-            call_orig, _ = render_reference(elem, call_orig)
-            lines.append([
-                addr_items[0],
-                ('class:ugb.xrefs', f"; Call from {call_orig}")
-            ])
-        for jump_orig in elem.xrefs.jumps_from:
-            jump_orig = addr_context(elem.address, jump_orig, relative=True)
-            jump_orig, _ = render_reference(elem, jump_orig)
-            lines.append([
-                addr_items[0],
-                ('class:ugb.xrefs', f"; Jump from {jump_orig}")
-            ])
+        def render_xrefs(refs, name):
+            if len(refs) > 3:
+                yield [
+                    addr_items[0],
+                    ('class:ugb.xrefs', f"; {name}s from {len(refs)} places"),
+                ]
+                return
+            for ref in refs:
+                ref = control.asm.context.address_context(
+                    elem.address, ref, relative=True
+                )
+                ref, _ = render_reference(elem, ref)
+                yield [
+                    addr_items[0],
+                    ('class:ugb.xrefs', f"; {name} from {ref}")
+                ]
+
+        lines.extend(render_xrefs(elem.xrefs.called_by, 'Call'))
+        lines.extend(render_xrefs(elem.xrefs.jumps_from, 'Jump'))
 
         if isinstance(elem, Instruction):
             lines.append([
