@@ -1,6 +1,6 @@
 from typing import BinaryIO, List, Optional
 
-from .binary_data import DataManager
+from .binary_data import BinaryData, DataManager
 from .context import ContextManager
 from .decoder import ROMBytes
 from .labels import LabelManager
@@ -61,7 +61,7 @@ class Disassembler:
         }
 
         data = self.data.get_data(addr)
-        if data is not None:
+        if isinstance(data, BinaryData):
             offset = addr.offset - data.address.offset
             row_n = offset // data.row_size
             row_bin = data.get_row_bin(row_n)
@@ -75,7 +75,7 @@ class Disassembler:
                 dest_address=dest_address,
                 **common_args,
                 bytes=row_bin,
-                data_block=data,
+                data=data,
                 values=row_values,
                 row=row_n,
             )

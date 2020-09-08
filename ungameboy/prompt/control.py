@@ -8,7 +8,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .lexer import render_element
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
-from ..dis import Disassembler, RomElement
+from ..dis import BinaryData, Disassembler, RomElement
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
@@ -196,11 +196,12 @@ class AsmRegionView:
                 address = next_data.address
                 self._addr[-1] = address
 
-                for row in range(1, next_data.rows):
-                    address = address + next_data.row_size
-                    self._lines.append(n_lines)
-                    self._addr.append(address)
-                    n_lines += 1
+                if isinstance(next_data, BinaryData):
+                    for row in range(1, next_data.rows):
+                        address = address + next_data.row_size
+                        self._lines.append(n_lines)
+                        self._addr.append(address)
+                        n_lines += 1
 
                 address = next_data.address + next_data.size
 

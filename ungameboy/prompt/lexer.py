@@ -156,7 +156,7 @@ def render_binary(data: RomElement, control: "AsmControl"):
     bin_hex = data.bytes.hex()
 
     bin_size = (
-        max(data.data_block.row_size * 2, 6)
+        max(data.data.row_size * 2, 6)
         if isinstance(data, DataRow)
         else 6
     )
@@ -255,11 +255,11 @@ def render_element(address: Address, control: "AsmControl"):
         elif isinstance(elem, DataRow):
             if elem.row == 0:
                 desc = (
-                    elem.data_block.__class__.__name__ +
-                    f' ({elem.data_block.size} bytes)'
+                     elem.data.__class__.__name__ +
+                     f' ({elem.data.size} bytes)'
                 )
-                if elem.data_block.description:
-                    desc += ', ' + elem.data_block.description
+                if elem.data.description:
+                    desc += ', ' + elem.data.description
                 lines.append([
                     addr_items[0],
                     ('class:ugb.data.header', '; ' + desc)

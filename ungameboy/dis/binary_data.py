@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     from .decoder import ROMBytes
     from .disassembler import Disassembler
 
-__all__ = ['DataBlock', 'DataManager', 'RowItem']
+__all__ = ['BaseData', 'BinaryData', 'DataManager', 'RowItem']
 
 RowItem = Union[Byte, CgbColor, Word, Address]
 
@@ -37,14 +38,30 @@ ROW_TYPES: List[RowType] = [
 TYPES_BY_NAME = {obj.name: obj for obj in ROW_TYPES}
 
 
-class DataBlock:
-    row_size: int = 8
+class BaseData(metaclass=ABCMeta):
     description: str = ''
 
     def __init__(self, address: Address, size: int):
         self.address = address
         self.bytes = b''
         self.size = size
+
+    @property
+    def end_address(self) -> Address:
+        return self.address + self.size
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        pos = self.address.rom_file_offset
+        self.bytes = rom[pos:pos + self.size]
+
+    @property
+    @abstractmethod
+    def create_cmd(self):
+        pass
+
+
+class BinaryData(BaseData):
+    row_size: int = 8
 
     def __getitem__(self, item) -> List[RowItem]:
         if not isinstance(item, int):
@@ -56,17 +73,9 @@ class DataBlock:
         for row in range(self.rows):
             yield self[row]
 
-    def load_from_rom(self, rom: 'ROMBytes'):
-        pos = self.address.rom_file_offset
-        self.bytes = rom[pos:pos + self.size]
-
     @property
     def rows(self) -> int:
         return (self.size + self.row_size - 1) // self.row_size
-
-    @property
-    def end_address(self) -> Address:
-        return self.address + self.size
 
     def get_row_bin(self, row: int) -> bytes:
         if not 0 <= row < self.rows:
@@ -79,7 +88,7 @@ class DataBlock:
         return ('data', 'create', 'simple', self.address, self.size)
 
 
-class DataTable(DataBlock):
+class DataTable(BinaryData):
     def __init__(self, address: Address, rows: int, row_struct: List[RowType]):
         self.row_struct = row_struct
         self.row_size = sum(item.n_bytes for item in self.row_struct)
@@ -121,7 +130,7 @@ class PaletteData(DataTable):
         return ('data', 'create', 'palette', self.address, self.rows)
 
 
-class RLEDataBlock(DataBlock):
+class RLEDataBlock(BinaryData):
     def __init__(self, address: Address):
         super().__init__(address, 0)
         self.unpacked_data = b''
@@ -162,7 +171,7 @@ class DataManager(AsmManager):
     def __init__(self, disassembler: 'Disassembler'):
         super().__init__(disassembler)
 
-        self.inventory: Dict[Address, DataBlock] = {}
+        self.inventory: Dict[Address, BaseData] = {}
         self._blocks_map: AddressMapping[int] = AddressMapping()
 
     def reset(self):
@@ -170,7 +179,7 @@ class DataManager(AsmManager):
         self._blocks_map.clear()
 
     def create(self, address: Address, size: int):
-        self._insert(DataBlock(address, size))
+        self._insert(BinaryData(address, size))
 
     def create_table(self, address: Address, rows: int, structure: List[RowType]):
         self._insert(DataTable(address, rows, structure))
@@ -187,7 +196,7 @@ class DataManager(AsmManager):
         del self.inventory[address]
         del self._blocks_map[address]
 
-    def _insert(self, data: DataBlock):
+    def _insert(self, data: BaseData):
         data.load_from_rom(self.asm.rom)
 
         prev_blk = self.get_data(data.address)
@@ -201,14 +210,14 @@ class DataManager(AsmManager):
         self.inventory[data.address] = data
         self._blocks_map[data.address] = data.size
 
-    def next_block(self, address) -> Optional[DataBlock]:
+    def next_block(self, address) -> Optional[BaseData]:
         try:
             addr, _ = self._blocks_map.get_ge(address)
         except LookupError:
             return None
         return self.inventory[addr]
 
-    def get_data(self, address):
+    def get_data(self, address) -> Optional[BaseData]:
         try:
             addr, size = self._blocks_map.get_le(address)
         except LookupError:

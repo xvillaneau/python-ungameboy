@@ -6,7 +6,7 @@ from .special_labels import SpecialLabel
 from ..address import Address
 
 if TYPE_CHECKING:
-    from .binary_data import DataBlock
+    from .binary_data import BinaryData
     from .instructions import RawInstruction
     from .sections import Section
     from .xrefs import XRefs
@@ -45,6 +45,6 @@ class Instruction(RomElement):
 
 @dataclass
 class DataRow(RomElement):
-    data_block: 'DataBlock'
+    data: 'BinaryData'
     values: List[Value]
     row: int
