@@ -5,7 +5,7 @@ from .context import ContextManager
 from .decoder import ROMBytes
 from .labels import LabelManager
 from .manager_base import AsmManager
-from .models import AsmElement, Instruction, DataRow
+from .models import AsmElement, Instruction, DataBlock, DataRow
 from .sections import SectionManager
 from .xrefs import XRefManager
 from ..address import Address, ROM
@@ -78,6 +78,16 @@ class Disassembler:
                 data=data,
                 values=row_values,
                 row=row_n,
+            )
+
+        elif data is not None:
+            return DataBlock(
+                address=addr,
+                size=data.size,
+                dest_address=None,
+                **common_args,
+                bytes=data.bytes,
+                data=data,
             )
 
         elif addr.type is ROM:

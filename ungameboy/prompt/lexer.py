@@ -4,6 +4,7 @@ from ..address import Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
     AsmElement,
+    DataBlock,
     DataRow,
     Instruction,
     Label,
@@ -185,8 +186,18 @@ def render_flags(data: RomElement, asm):
 
 def render_element(address: Address, control: "AsmControl"):
     lines = []
-
     elem = control.asm[address]
+
+    def render_xrefs(refs, name):
+        if len(refs) > 3:
+            msg = f"; {name}s from {len(refs)} places"
+            yield ('class:ugb.xrefs', msg)
+            return
+        get_context = control.asm.context.address_context
+        for ref in refs:
+            ref = get_context(elem.address, ref, relative=True)
+            ref, _ = render_reference(elem, ref)
+            yield ('class:ugb.xrefs', f"; {name} from {ref}")
 
     if elem.section is not None:
         section = elem.section
@@ -217,53 +228,39 @@ def render_element(address: Address, control: "AsmControl"):
             addr_cls += HIGHLIGHT
 
         addr_str = str(elem.address)
-        addr_items = [
-            ('', ' ' * (MARGIN + 12 - len(addr_str))),
-            (addr_cls, addr_str),
-            ('', '  '),
-            *render_binary(elem, control),
+        margin = ('', ' ' * (MARGIN + 12 - len(addr_str)))
+
+        addr_items = [margin, (addr_cls, addr_str), ('', '  ')]
+        bin_items = render_binary(elem, control)
+        flag_items = [
             ('class:ugb.flags', render_flags(elem, control.asm)),
             ('', ' '),
         ]
 
-        def render_xrefs(refs, name):
-            if len(refs) > 3:
-                yield [
-                    addr_items[0],
-                    ('class:ugb.xrefs', f"; {name}s from {len(refs)} places"),
-                ]
-                return
-            for ref in refs:
-                ref = control.asm.context.address_context(
-                    elem.address, ref, relative=True
-                )
-                ref, _ = render_reference(elem, ref)
-                yield [
-                    addr_items[0],
-                    ('class:ugb.xrefs', f"; {name} from {ref}")
-                ]
-
-        lines.extend(render_xrefs(elem.xrefs.called_by, 'Call'))
-        lines.extend(render_xrefs(elem.xrefs.jumps_from, 'Jump'))
+        calls, jumps = elem.xrefs.called_by, elem.xrefs.jumps_from
+        lines.extend([margin, tok] for tok in render_xrefs(calls, 'Call'))
+        lines.extend([margin, tok] for tok in render_xrefs(jumps, 'Jump'))
 
         if isinstance(elem, Instruction):
             lines.append([
-                *addr_items,
+                *addr_items, *bin_items, *flag_items,
                 *render_instruction(elem, control),
             ])
 
         elif isinstance(elem, DataRow):
             if elem.row == 0:
-                desc = (
-                     elem.data.__class__.__name__ +
-                     f' ({elem.data.size} bytes)'
-                )
                 if elem.data.description:
-                    desc += ', ' + elem.data.description
-                lines.append([
-                    addr_items[0],
-                    ('class:ugb.data.header', '; ' + desc)
-                ])
-            lines.append([*addr_items, *render_row(elem)])
+                    desc = elem.data.description
+                else:
+                    desc = elem.data.__class__.__name__
+                desc = f'; {desc} ({elem.data.size} bytes)'
+                lines.append([margin, ('class:ugb.data.header', desc)])
+
+            lines.append([
+                *addr_items, *bin_items, *flag_items, *render_row(elem)
+            ])
+
+        elif isinstance(elem, DataBlock):
+            pass
 
     return lines

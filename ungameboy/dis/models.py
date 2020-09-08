@@ -6,12 +6,14 @@ from .special_labels import SpecialLabel
 from ..address import Address
 
 if TYPE_CHECKING:
-    from .binary_data import BinaryData
+    from .binary_data import BaseData, BinaryData
     from .instructions import RawInstruction
     from .sections import Section
     from .xrefs import XRefs
 
-__all__ = ['AsmElement', 'RomElement', 'DataRow', 'Instruction', 'Value']
+__all__ = [
+    'AsmElement', 'RomElement', 'DataBlock', 'DataRow', 'Instruction', 'Value'
+]
 
 Value = Union[int, Address, Label, LabelOffset, SpecialLabel]
 
@@ -48,3 +50,8 @@ class DataRow(RomElement):
     data: 'BinaryData'
     values: List[Value]
     row: int
+
+
+@dataclass
+class DataBlock(RomElement):
+    data: 'BaseData'
