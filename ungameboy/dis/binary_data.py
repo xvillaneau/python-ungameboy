@@ -16,7 +16,8 @@ if TYPE_CHECKING:
     from .disassembler import Disassembler
 
 __all__ = [
-    'BaseData', 'BinaryData', 'CartridgeHeader', 'DataManager', 'RowItem'
+    'BaseData', 'BinaryData', 'CartridgeHeader',
+    'DataManager', 'EmptyData', 'RowItem',
 ]
 
 RowItem = Union[Byte, CgbColor, Word, Address]
@@ -187,6 +188,30 @@ class CartridgeHeader(BaseData):
         return ('data', 'create', 'header')
 
 
+class EmptyData(BaseData):
+    description = "Empty"
+
+    def __init__(self, address: Address, size: int = 0):
+        super().__init__(address, size)
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        if not self.size:
+            pos = start = self.address.rom_file_offset
+            end = self.address.zone_end.rom_file_offset
+            while pos <= end:
+                # Special case to exclude the NOP at the entry point
+                if rom[pos] != 0 or pos == 0x100:
+                    break
+                pos += 1
+            self.size = pos - start
+
+        self.bytes = bytes(self.size)
+
+    @property
+    def create_cmd(self):
+        return ('data', 'create', 'empty', self.address, self.size)
+
+
 class DataManager(AsmManager):
 
     def __init__(self, disassembler: 'Disassembler'):
@@ -210,6 +235,9 @@ class DataManager(AsmManager):
 
     def create_rle(self, address: Address):
         self._insert(RLEDataBlock(address))
+
+    def create_empty(self, address: Address, size: int = 0):
+        self._insert(EmptyData(address, size))
 
     def create_header(self):
         self._insert(CartridgeHeader())
@@ -283,6 +311,12 @@ class DataManager(AsmManager):
         @click.argument('address', type=address_arg)
         def data_create_rle(address: Address):
             self.create_rle(address)
+
+        @data_create.command('empty')
+        @click.argument('address', type=address_arg)
+        @click.argument('size', type=int, default=0)
+        def data_create_empty(address: Address, size: int):
+            self.create_empty(address, size)
 
         @data_create.command('header')
         def data_create_header():

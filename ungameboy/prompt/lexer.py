@@ -7,6 +7,7 @@ from ..dis import (
     CartridgeHeader,
     DataBlock,
     DataRow,
+    EmptyData,
     Instruction,
     Label,
     LabelOffset,
@@ -307,7 +308,10 @@ def render_element(address: Address, control: "AsmControl"):
                 desc = elem.data.__class__.__name__
             desc = f'; {desc} ({elem.data.size} bytes)'
 
-            cls = 'class:ugb.data.header'
+            if isinstance(elem.data, EmptyData):
+                cls = 'class:ugb.data.empty'
+            else:
+                cls = 'class:ugb.data.header'
             if elem.address <= control.cursor < elem.next_address:
                 cls += HIGHLIGHT
             lines.append([*addr_items, (cls, desc)])
