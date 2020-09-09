@@ -8,7 +8,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .lexer import render_element
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
-from ..dis import BinaryData, Disassembler, RomElement
+from ..dis import BinaryData, CartridgeHeader, Disassembler, RomElement
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
@@ -192,16 +192,18 @@ class AsmRegionView:
             n_lines += len(asm.labels.get_labels(address))
 
             if address >= next_data_addr and next_data is not None:
-                n_lines += 2
                 address = next_data.address
                 self._addr[-1] = address
 
                 if isinstance(next_data, BinaryData):
+                    n_lines += 2
                     for row in range(1, next_data.rows):
                         address = address + next_data.row_size
                         self._lines.append(n_lines)
                         self._addr.append(address)
                         n_lines += 1
+                elif isinstance(next_data, CartridgeHeader):
+                    n_lines += 5
 
                 address = next_data.address + next_data.size
 

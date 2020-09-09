@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
 import click
 
+from .decoder import HeaderDecoder
 from .manager_base import AsmManager
 from ..commands import AddressOrLabel, ExtendedInt
 from ..address import Address
@@ -14,7 +15,9 @@ if TYPE_CHECKING:
     from .decoder import ROMBytes
     from .disassembler import Disassembler
 
-__all__ = ['BaseData', 'BinaryData', 'DataManager', 'RowItem']
+__all__ = [
+    'BaseData', 'BinaryData', 'CartridgeHeader', 'DataManager', 'RowItem'
+]
 
 RowItem = Union[Byte, CgbColor, Word, Address]
 
@@ -166,6 +169,24 @@ class RLEDataBlock(BinaryData):
         return ('data', 'create', 'rle', self.address)
 
 
+class CartridgeHeader(BaseData):
+    description = "Cartridge Header"
+
+    def __init__(self):
+        super().__init__(Address.from_rom_offset(0x104), 0x4c)
+
+    @property
+    def metadata(self):
+        return HeaderDecoder(self.bytes)
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        self.bytes = rom[0x100:0x150]
+
+    @property
+    def create_cmd(self):
+        return ('data', 'create', 'header')
+
+
 class DataManager(AsmManager):
 
     def __init__(self, disassembler: 'Disassembler'):
@@ -189,6 +210,9 @@ class DataManager(AsmManager):
 
     def create_rle(self, address: Address):
         self._insert(RLEDataBlock(address))
+
+    def create_header(self):
+        self._insert(CartridgeHeader())
 
     def delete(self, address: Address):
         if address not in self.inventory:
@@ -259,6 +283,10 @@ class DataManager(AsmManager):
         @click.argument('address', type=address_arg)
         def data_create_rle(address: Address):
             self.create_rle(address)
+
+        @data_create.command('header')
+        def data_create_header():
+            self.create_header()
 
         @data_cli.command('delete')
         @click.argument('address', type=address_arg)

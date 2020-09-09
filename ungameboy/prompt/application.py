@@ -17,10 +17,13 @@ UGB_STYLE = {
     'ugb.address.data': 'fg:#10a080',
     'ugb.bin': 'fg:#aaaaaa',
     'ugb.data': 'fg:#55cccc',
+    'ugb.data.key': 'fg:#cc6666',
+    'ugb.data.value': 'fg:#ebcb4d',
     'ugb.flags': 'fg:#aaaa55',
     'ugb.xrefs': 'fg:#cc5555',
     # Highlight
     'ugb.hl': 'fg:black',
+    'ugb.hl ugb.data': 'bg:#55cccc',
     'ugb.hl ugb.address': 'bg:#10b020',
     'ugb.hl ugb.address.data': 'bg:#10a080',
     'ugb.hl ugb.bin': 'bg:#aaaaaa',

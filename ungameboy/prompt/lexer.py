@@ -4,6 +4,7 @@ from ..address import Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
     AsmElement,
+    CartridgeHeader,
     DataBlock,
     DataRow,
     Instruction,
@@ -19,6 +20,13 @@ if TYPE_CHECKING:
 
 MARGIN = 4
 HIGHLIGHT = ',ugb.hl'
+
+
+def spc(n):
+    return ('', ' ' * n)
+
+
+S1, S2, S4 = spc(1), spc(2), spc(4)
 
 
 def render_reference(
@@ -85,7 +93,7 @@ def render_value(elem: AsmElement, value, suffix=''):
             r, g, b = value.rgb_5
             color = f'#{r*8:02x}{g*8:02x}{b*8:02x}'
             items.append((f'fg:{color}', '\u25a0'))
-            items.append(('', ' '))
+            items.append(S1)
         add(value, 'scalar')
 
     # Various stuff last
@@ -126,18 +134,18 @@ def render_instruction(data: Instruction, control: "AsmControl"):
     writes = writes if writes != data.dest_address else None
     if reads or writes:
         line_len = sum(len(s) for _, s in items)
-        items.append(('', ' ' * max(22 - line_len, 2)))
+        items.append(spc(max(22 - line_len, 2)))
         items.append(('class:ugb.xrefs', ';'))
 
         if reads is not None:
             reads = control.asm.context.address_context(data.address, reads)
             reads = 'Reads: ' + render_reference(data, reads)[0]
-            items.extend([('', ' '), ('class:ugb.xrefs', reads)])
+            items.extend([S1, ('class:ugb.xrefs', reads)])
 
         if writes is not None:
             writes = control.asm.context.address_context(data.address, writes)
             writes = 'Writes: ' + render_reference(data, writes)[0]
-            items.extend([('', ' '), ('class:ugb.xrefs', writes)])
+            items.extend([S1, ('class:ugb.xrefs', writes)])
 
     return items
 
@@ -150,6 +158,39 @@ def render_row(data: DataRow):
     line.pop()
 
     return line
+
+
+def render_data_block(elem: DataBlock):
+    if isinstance(elem.data, CartridgeHeader):
+        kc, vc = 'class:ugb.data.key', 'class:ugb.data.value'
+
+        header = elem.data.metadata
+        yield [(kc, '; Name:'), spc(5), (vc, header.title)]
+
+        hardware = []
+        if header.cgb_flag in ('dmg', 'both'):
+            hardware.append('DMG')
+        if header.cgb_flag in ('cgb', 'both'):
+            hardware.append('CGB')
+        if header.sgb_flag:
+            hardware.append('SGB')
+        yield [(kc, '; Hardware:'), spc(1), (vc, ', '.join(hardware))]
+
+        if header.rom_banks > 0:
+            size = header.rom_banks * 16
+            banks = f'{header.rom_banks} banks ({size:,} KiB)'
+        else:
+            banks = f'No banks (32 KiB)'
+        yield [(kc, '; ROM:'), spc(6), (vc, banks)]
+
+        sram_size = f'{header.sram_size_kb:,} KiB'
+        if header.sram_size_kb == 0:
+            sram = 'n/a'
+        elif header.sram_size_kb <= 8:
+            sram = sram_size
+        else:
+            sram = f'{header.sram_size_kb // 8} banks ({sram_size})'
+        yield [(kc, '; SRAM:'), spc(5), (vc, sram)]
 
 
 def render_binary(data: RomElement, control: "AsmControl"):
@@ -172,7 +213,7 @@ def render_binary(data: RomElement, control: "AsmControl"):
             yield (bin_cls, bin_hex[pos + 2:])
     else:
         yield (bin_cls, bin_hex)
-    yield ('', ' ' * (bin_size - len(bin_hex) + 2))
+    yield spc(bin_size - len(bin_hex) + 2)
 
 
 def render_flags(data: RomElement, asm):
@@ -223,18 +264,17 @@ def render_element(address: Address, control: "AsmControl"):
 
     if isinstance(elem, RomElement):
         addr_cls = 'class:ugb.address'
-        addr_cls += '.data' if isinstance(elem, DataRow) else ''
+        addr_cls += '.data' if isinstance(elem, (DataRow, DataBlock)) else ''
         if control.cursor_mode and elem.address == control.cursor_destination:
             addr_cls += HIGHLIGHT
 
         addr_str = str(elem.address)
-        margin = ('', ' ' * (MARGIN + 12 - len(addr_str)))
+        margin = spc(MARGIN + 12 - len(addr_str))
 
-        addr_items = [margin, (addr_cls, addr_str), ('', '  ')]
+        addr_items = [margin, (addr_cls, addr_str), S2]
         bin_items = render_binary(elem, control)
         flag_items = [
-            ('class:ugb.flags', render_flags(elem, control.asm)),
-            ('', ' '),
+            ('class:ugb.flags', render_flags(elem, control.asm)), S1
         ]
 
         calls, jumps = elem.xrefs.called_by, elem.xrefs.jumps_from
@@ -261,6 +301,18 @@ def render_element(address: Address, control: "AsmControl"):
             ])
 
         elif isinstance(elem, DataBlock):
-            pass
+            if elem.data.description:
+                desc = elem.data.description
+            else:
+                desc = elem.data.__class__.__name__
+            desc = f'; {desc} ({elem.data.size} bytes)'
+
+            cls = 'class:ugb.data.header'
+            if elem.address <= control.cursor < elem.next_address:
+                cls += HIGHLIGHT
+            lines.append([*addr_items, (cls, desc)])
+
+            for items in render_data_block(elem):
+                lines.append([margin, ('', '    '), *items])
 
     return lines
