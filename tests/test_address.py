@@ -9,11 +9,11 @@ def addresses(draw):
     mem_type = draw(st.sampled_from(MemoryType))
 
     if mem_type in BANKS:
-        max_offset = BANKS[mem_type]
+        max_offset = BANKS[mem_type] or mem_type.size
         mem_bank = draw(st.integers(min_value=0, max_value=511))
     else:
         max_offset = mem_type.size
-        mem_bank = -1
+        mem_bank = 0
 
     offset = draw(st.integers(min_value=0, max_value=max_offset - 1))
     return Address(mem_type, mem_bank, offset)
