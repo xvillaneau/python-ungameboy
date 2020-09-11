@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     'BaseData', 'BinaryData', 'CartridgeHeader',
-    'DataManager', 'EmptyData', 'RowItem',
+    'DataManager', 'EmptyData', 'RLEDataBlock', 'RowItem',
 ]
 
 RowItem = Union[Byte, CgbColor, Word, Address]

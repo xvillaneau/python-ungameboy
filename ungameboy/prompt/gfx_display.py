@@ -4,6 +4,7 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 
 from .key_bindings import create_gfx_display_bindings
 from ..address import Address
+from ..dis.binary_data import RLEDataBlock
 from ..dis.graphics import read_2bpp_values
 
 if TYPE_CHECKING:
@@ -32,8 +33,13 @@ class GraphicsDisplay:
 
         classes = [f'class:ugb.gfx.pixel.{i}' for i in range(4)]
 
+        if isinstance(data, RLEDataBlock):
+            bitmap = data.unpacked_data
+        else:
+            bitmap = data.bytes
+
         tokens = []
-        pixels = read_2bpp_values(data.bytes)
+        pixels = read_2bpp_values(bitmap)
         for i, pixel in enumerate(pixels, start=1):
             tokens.append((classes[pixel], '  '))
             if i % 8 == 0:
