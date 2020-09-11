@@ -18,9 +18,11 @@ def build_sidebar(app: 'DisassemblyEditor'):
         Window(height=1, char='\u2500'),
         Window(app.xrefs.refs_control),
     ])
+    gfx_view = Window(app.gfx.gfx_control)
 
     views = [
         (xrefs_view, app.filters.xrefs_visible),
+        (gfx_view, app.filters.gfx_visible),
     ]
 
     separator = ConditionalContainer(

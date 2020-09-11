@@ -14,6 +14,7 @@ class UGBFilters:
 
         self.prompt_active = Condition(self._prompt_active)
         self.xrefs_visible = Condition(self._xrefs_visible)
+        self.gfx_visible = Condition(self._gfx_visible)
         self.editor_active = Condition(self._editor_active)
         self.cursor_active = Condition(self._cursor_active)
 
@@ -30,3 +31,6 @@ class UGBFilters:
 
     def _xrefs_visible(self):
         return self.app.xrefs.address is not None
+
+    def _gfx_visible(self):
+        return self.app.gfx.address is not None

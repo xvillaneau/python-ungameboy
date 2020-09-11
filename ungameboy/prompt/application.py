@@ -4,6 +4,7 @@ from prompt_toolkit.application import Application
 from prompt_toolkit.styles import Style
 
 from .filters import UGBFilters
+from .gfx_display import GraphicsDisplay
 from .key_bindings import create_global_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
@@ -22,6 +23,11 @@ UGB_STYLE = {
     'ugb.data.value': 'fg:#ebcb4d',
     'ugb.flags': 'fg:#aaaa55',
     'ugb.xrefs': 'fg:#cc5555',
+    # Graphics
+    'ugb.gfx.pixel.0': 'bg:#ffffff',
+    'ugb.gfx.pixel.1': 'bg:#aaaaaa',
+    'ugb.gfx.pixel.2': 'bg:#555555',
+    'ugb.gfx.pixel.3': 'bg:#000000',
     # Highlight
     'ugb.hl': 'fg:black',
     'ugb.hl ugb.data': 'bg:#55cccc',
@@ -71,6 +77,7 @@ class DisassemblyEditor:
 
         self.filters = UGBFilters(self)
         self.xrefs = XRefBrowser(self)
+        self.gfx = GraphicsDisplay(self)
         self.prompt = UGBPrompt(self)
         self.layout = UGBLayout(self)
 

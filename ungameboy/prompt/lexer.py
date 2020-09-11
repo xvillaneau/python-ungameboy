@@ -181,7 +181,7 @@ def render_data_block(elem: DataBlock):
             size = header.rom_banks * 16
             banks = f'{header.rom_banks} banks ({size:,} KiB)'
         else:
-            banks = f'No banks (32 KiB)'
+            banks = 'No banks (32 KiB)'
         yield [(kc, '; ROM:'), spc(6), (vc, banks)]
 
         sram_size = f'{header.sram_size_kb:,} KiB'

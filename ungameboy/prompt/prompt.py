@@ -44,6 +44,13 @@ def create_ui_cli(ugb_app: "DisassemblyEditor"):
         ugb_app.layout.layout.focus(ugb_app.xrefs.refs_control)
         return False
 
+    @ugb_core_cli.command()
+    @click.argument("address", type=address_arg)
+    def display(address: Address):
+        ugb_app.gfx.address = address
+        ugb_app.prompt_active = False
+        ugb_app.layout.layout.focus(ugb_app.gfx.gfx_control)
+
     return ugb_core_cli
 
 

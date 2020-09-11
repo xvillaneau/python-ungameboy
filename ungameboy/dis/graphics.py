@@ -16,3 +16,11 @@ def zip_bits(data: ByteString):
 
         yield ZIPPED[lo >> 4] + (ZIPPED[hi >> 4] << 1)
         yield ZIPPED[lo & 15] + (ZIPPED[hi & 15] << 1)
+
+
+def read_2bpp_values(data: ByteString):
+    for zipped in zip_bits(data):
+        yield zipped >> 6
+        yield (zipped & 0x30) >> 4
+        yield (zipped & 0x0c) >> 2
+        yield zipped & 0x03

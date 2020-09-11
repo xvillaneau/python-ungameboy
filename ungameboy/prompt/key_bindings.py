@@ -1,3 +1,4 @@
+from functools import wraps
 from typing import TYPE_CHECKING
 
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
@@ -136,6 +137,20 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
     return bindings
 
 
+def quit_sidebar(app: 'DisassemblyEditor'):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(event):
+            func(event)
+
+            control = event.app.layout.previous_control
+            if not isinstance(control, AsmControl):
+                control = app.layout.main_control
+            event.app.layout.focus(control)
+        return wrapper
+    return decorator
+
+
 def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
     bindings = KeyBindings()
 
@@ -159,14 +174,21 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
 
     @bindings.add("q")
     @bindings.add("c-c")
-    @bindings.add('escape')
-    def quit_inspector(event):
+    @quit_sidebar(app)
+    def quit_inspector(_):
         app.xrefs.address = None
 
-        control = event.app.layout.previous_control
-        if not isinstance(control, AsmControl):
-            control = app.layout.main_control
-        event.app.layout.focus(control)
+    return bindings
+
+
+def create_gfx_display_bindings(app: 'DisassemblyEditor'):
+    bindings = KeyBindings()
+
+    @bindings.add("q")
+    @bindings.add("c-c")
+    @quit_sidebar(app)
+    def quit_display(_):
+        app.gfx.address = None
 
     return bindings
 
