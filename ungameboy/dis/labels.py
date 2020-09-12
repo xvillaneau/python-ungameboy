@@ -202,6 +202,8 @@ class LabelManager(AsmManager):
             locals_there[pos] = new_loc
 
         else:
+            if '.' in new_name:
+                raise ValueError("Invalid global label name")
             # Rename global
             globals_there = self._globals[address]
             pos = globals_there.index(old_name)
