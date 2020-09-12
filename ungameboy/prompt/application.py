@@ -4,7 +4,7 @@ from prompt_toolkit.application import Application
 from prompt_toolkit.styles import Style
 
 from .filters import UGBFilters
-from .gfx_display import GraphicsDisplay
+from .gfx_display import GraphicsDisplayState
 from .key_bindings import create_global_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
@@ -77,7 +77,7 @@ class DisassemblyEditor:
 
         self.filters = UGBFilters(self)
         self.xrefs = XRefBrowser(self)
-        self.gfx = GraphicsDisplay(self)
+        self.gfx = GraphicsDisplayState()
         self.prompt = UGBPrompt(self)
         self.layout = UGBLayout(self)
 

@@ -190,6 +190,26 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
     def quit_display(_):
         app.gfx.address = None
 
+    @bindings.add('[')
+    def more_columns(_):
+        app.gfx.columns += 1
+
+    @bindings.add(']')
+    def fewer_columns(_):
+        app.gfx.columns = max(1, app.gfx.columns - 1)
+
+    @bindings.add('p')
+    def toggle_tall_sprites(_):
+        app.gfx.tile_height = 8 * (3 - app.gfx.tile_height // 8)
+
+    @bindings.add("down")
+    def move_down(_):
+        app.layout.gfx_control.move_down(1)
+
+    @bindings.add("up")
+    def move_up(_):
+        app.layout.gfx_control.move_up(1)
+
     return bindings
 
 
