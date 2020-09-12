@@ -154,13 +154,35 @@ def quit_sidebar(app: 'DisassemblyEditor'):
 def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
     bindings = KeyBindings()
 
+    def count_refs():
+        xr = app.disassembler.xrefs.get_xrefs(app.xrefs.address)
+        return (
+            len(xr.called_by) +
+            len(xr.jumps_from) +
+            len(xr.read_by) +
+            len(xr.written_by)
+        )
+
+    def get_selected_xref():
+        index = app.xrefs.cursor
+        if index < 0:
+            raise IndexError(index)
+
+        xr = app.disassembler.xrefs.get_xrefs(app.xrefs.address)
+        for col in (xr.called_by, xr.jumps_from, xr.read_by, xr.written_by):
+            if index < len(col):
+                return list(sorted(col))[index]
+            index -= len(col)
+
+        raise IndexError(app.xrefs.cursor)
+
     @bindings.add('up')
     def move_up(_):
-        app.xrefs.move_up()
+        app.xrefs.cursor = max(app.xrefs.cursor - 1, 0)
 
     @bindings.add('down')
     def move_down(_):
-        app.xrefs.move_down()
+        app.xrefs.cursor = min(app.xrefs.cursor + 1, count_refs() - 1)
 
     @bindings.add('enter')
     def go_to_ref(event):
@@ -169,8 +191,7 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
 
     @bindings.add('space')
     def show_ref(_):
-        addr = app.xrefs.get_selected_xref()
-        app.layout.main_control.seek(addr)
+        app.layout.main_control.seek(get_selected_xref())
 
     @bindings.add("q")
     @bindings.add("c-c")

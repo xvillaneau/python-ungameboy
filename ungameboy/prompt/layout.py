@@ -7,6 +7,7 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 
 from .control import AsmControl
 from .gfx_display import GraphicsControl
+from .xref_browser import make_xrefs_control, make_xrefs_title_function
 
 if TYPE_CHECKING:
     from .application import DisassemblyEditor
@@ -17,6 +18,7 @@ class UGBLayout:
         self.app = app
         self.main_control = AsmControl(app.disassembler)
         self.gfx_control = GraphicsControl(app)
+        self.xrefs_control = make_xrefs_control(app)
 
         main_window = Window(
             content=self.main_control,
@@ -36,7 +38,7 @@ class UGBLayout:
     def build_sidebar(self):
 
         xrefs = make_sidebar_container(
-            self.app.xrefs.refs_control, self.app.xrefs.get_header_text
+            self.xrefs_control, make_xrefs_title_function(self.app)
         )
         gfx = make_sidebar_container(self.gfx_control, "Bitmap preview")
 

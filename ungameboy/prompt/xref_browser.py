@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Optional, Set
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 from prompt_toolkit.layout.controls import FormattedTextControl
 
@@ -10,63 +11,19 @@ if TYPE_CHECKING:
     from .application import DisassemblyEditor
 
 
-class XRefBrowser:
-    def __init__(self, app: 'DisassemblyEditor'):
-        self.asm = app.disassembler
+@dataclass
+class XRefBrowserState:
+    address: Optional[Address] = None
+    cursor: int = 0
 
-        self.address: Optional[Address] = None
-        self.index = 0
 
-        self.refs_control = FormattedTextControl(
-            self.get_xrefs_content,
-            show_cursor=False,
-            focusable=True,
-            key_bindings=create_xref_inspect_bindings(app),
-        )
+def make_xrefs_control(app: 'DisassemblyEditor'):
 
-    def get_refs_count(self):
-        xr = self.asm.xrefs.get_xrefs(self.address)
-        return (
-            len(xr.called_by) +
-            len(xr.jumps_from) +
-            len(xr.read_by) +
-            len(xr.written_by)
-        )
-
-    def move_up(self):
-        self.index = max(self.index - 1, 0)
-
-    def move_down(self):
-        refs_count = self.get_refs_count()
-        self.index = min(self.index + 1, refs_count - 1)
-
-    def get_selected_xref(self) -> Address:
-        index = self.index
-        if index < 0:
-            raise IndexError(index)
-
-        xr = self.asm.xrefs.get_xrefs(self.address)
-
-        def _get_index(collection: Set[Address]):
-            nonlocal index
-            if index < len(collection):
-                return list(sorted(collection))[index]
-            else:
-                index -= len(collection)
-                return None
-
-        for col in (xr.called_by, xr.jumps_from, xr.read_by, xr.written_by):
-            res = _get_index(col)
-            if res is not None:
-                return res
-
-        raise IndexError(self.index)
-
-    def get_xrefs_content(self):
-        if self.address is None:
+    def get_xrefs_content():
+        if app.xrefs.address is None:
             return []
 
-        xrefs = self.asm.xrefs.get_xrefs(self.address)
+        xrefs = app.disassembler.xrefs.get_xrefs(app.xrefs.address)
         calls = list(sorted(xrefs.called_by))
         jumps = list(sorted(xrefs.jumps_from))
         reads = list(sorted(xrefs.read_by))
@@ -81,10 +38,12 @@ class XRefBrowser:
 
         def display_xref(_addr):
             tokens.append(('', '  '))
-            sel = ',ugb.hl' * (line_index == self.index)
+            sel = ',ugb.hl' * (line_index == app.xrefs.cursor)
             tokens.append(('class:ugb.address' + sel, str(_addr)))
 
-            name = self.asm.context.address_context(_addr, _addr, relative=True)
+            name = app.disassembler.context.address_context(
+                _addr, _addr, relative=True
+            )
             if isinstance(name, Label):
                 tokens.extend([
                     ('', ' ('),
@@ -134,14 +93,27 @@ class XRefBrowser:
 
         return tokens
 
-    def get_header_text(self):
-        if self.address is None:
+    return FormattedTextControl(
+        text=get_xrefs_content,
+        show_cursor=False,
+        focusable=True,
+        key_bindings=create_xref_inspect_bindings(app),
+    )
+
+
+def make_xrefs_title_function(app: 'DisassemblyEditor'):
+
+    def get_xrefs_title():
+        address = app.xrefs.address
+        if address is None:
             return 'No address selected'
 
-        labels = self.asm.labels.get_labels(self.address)
+        labels = app.disassembler.labels.get_labels(address)
         if labels:
-            target = f'{labels[-1].name} ({self.address})'
+            target = f'{labels[-1].name} ({address})'
         else:
-            target = str(self.address)
+            target = str(address)
 
         return f'XREFs for: {target}'
+
+    return get_xrefs_title

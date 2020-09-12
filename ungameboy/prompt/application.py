@@ -8,7 +8,7 @@ from .gfx_display import GraphicsDisplayState
 from .key_bindings import create_global_bindings
 from .layout import UGBLayout
 from .prompt import UGBPrompt
-from .xref_browser import XRefBrowser
+from .xref_browser import XRefBrowserState
 from ..address import Address
 from ..dis import Disassembler
 
@@ -77,9 +77,10 @@ class DisassemblyEditor:
         self.disassembler = asm
         self.prompt_active = False
 
-        self.filters = UGBFilters(self)
-        self.xrefs = XRefBrowser(self)
+        self.xrefs = XRefBrowserState()
         self.gfx = GraphicsDisplayState()
+
+        self.filters = UGBFilters(self)
         self.prompt = UGBPrompt(self)
         self.layout = UGBLayout(self)
 
