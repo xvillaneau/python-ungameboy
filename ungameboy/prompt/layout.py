@@ -1,9 +1,9 @@
-from functools import reduce
-from operator import or_
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union, Callable
 
+from prompt_toolkit.application import get_app
 from prompt_toolkit.layout import D, HSplit, Layout, VSplit, Window
 from prompt_toolkit.layout.containers import ConditionalContainer
+from prompt_toolkit.layout.controls import FormattedTextControl
 
 from .control import AsmControl
 from .gfx_display import GraphicsControl
@@ -34,32 +34,21 @@ class UGBLayout:
         self.layout = Layout(body, focused_element=main_window)
 
     def build_sidebar(self):
-        xrefs_view = HSplit([
-            Window(self.app.xrefs.head_control, height=1),
-            Window(height=1, char='\u2500'),
-            Window(self.app.xrefs.refs_control),
-        ])
-        gfx_window = Window(
-            content=self.gfx_control,
-            get_vertical_scroll=lambda _: self.gfx_control.scroll_pos,
-            allow_scroll_beyond_bottom=True,
+
+        xrefs = make_sidebar_container(
+            self.app.xrefs.refs_control, self.app.xrefs.get_header_text
         )
+        gfx = make_sidebar_container(self.gfx_control, "Bitmap preview")
 
         views = [
-            (xrefs_view, self.app.filters.xrefs_visible),
-            (gfx_window, self.app.filters.gfx_visible),
+            (xrefs, self.app.filters.xrefs_visible),
+            (gfx, self.app.filters.gfx_visible),
         ]
 
-        separator = ConditionalContainer(
-            content=Window(width=1, char='\u2502'),
-            filter=reduce(or_, (filter for _, filter in views))
-        )
-        stack = HSplit([
-            ConditionalContainer(content=view, filter=filter)
-            for view, filter in views
+        return HSplit([
+            ConditionalContainer(content=HSplit(windows), filter=filter)
+            for windows, filter in views
         ])
-
-        return VSplit([separator, stack])
 
     def refresh(self):
         self.main_control.refresh()
@@ -72,3 +61,24 @@ class UGBLayout:
         if self.app.prompt_active:
             self.app.prompt_active = False
             self.layout.focus_last()
+
+
+def make_sidebar_container(control, header: Union[str, Callable[[], str]]):
+
+    def header_content():
+        if callable(header):
+            text = header()
+        else:
+            text = header
+
+        format = 'class:ugb.sidebar.title'
+        if get_app().layout.current_control is control:
+            format += ',ugb.hl'
+        return [(format, text)]
+
+    return [
+        Window(height=1),
+        Window(FormattedTextControl(header_content), height=1),
+        Window(height=1),
+        Window(control),
+    ]

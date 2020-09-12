@@ -28,6 +28,8 @@ UGB_STYLE = {
     'ugb.gfx.pixel.1': 'bg:#aaaaaa',
     'ugb.gfx.pixel.2': 'bg:#555555',
     'ugb.gfx.pixel.3': 'bg:#000000',
+    'ugb.sidebar.title': 'bold',
+    'ugb.hl ugb.sidebar.title': 'bg:white',
     # Highlight
     'ugb.hl': 'fg:black',
     'ugb.hl ugb.data': 'bg:#55cccc',

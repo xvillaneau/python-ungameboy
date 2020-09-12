@@ -23,7 +23,6 @@ class XRefBrowser:
             focusable=True,
             key_bindings=create_xref_inspect_bindings(app),
         )
-        self.head_control = FormattedTextControl(self.get_header_content)
 
     def get_refs_count(self):
         xr = self.asm.xrefs.get_xrefs(self.address)
@@ -135,19 +134,14 @@ class XRefBrowser:
 
         return tokens
 
-    def get_header_content(self):
+    def get_header_text(self):
         if self.address is None:
-            return [('', 'No address selected')]
-
-        tokens = [('', 'XREFs for: ')]
-        address = ('', str(self.address))
+            return 'No address selected'
 
         labels = self.asm.labels.get_labels(self.address)
         if labels:
-            tokens.extend(
-                [('', labels[-1].name), ('', ' ('), address, ('', ')')]
-            )
+            target = f'{labels[-1].name} ({self.address})'
         else:
-            tokens.append(address)
+            target = str(self.address)
 
-        return tokens
+        return f'XREFs for: {target}'

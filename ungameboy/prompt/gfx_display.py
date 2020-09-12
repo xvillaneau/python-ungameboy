@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 @dataclass
 class GraphicsDisplayState:
     address: Optional[Address] = None
-    columns: int = 3
-    tile_height: int = 16
+    columns: int = 2
+    tile_height: int = 8
 
 
 class GraphicsControl(UIControl):
