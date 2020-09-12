@@ -24,10 +24,10 @@ UGB_STYLE = {
     'ugb.flags': 'fg:#aaaa55',
     'ugb.xrefs': 'fg:#cc5555',
     # Graphics
-    'ugb.gfx.pixel.0': 'bg:#ffffff',
-    'ugb.gfx.pixel.1': 'bg:#aaaaaa',
-    'ugb.gfx.pixel.2': 'bg:#555555',
-    'ugb.gfx.pixel.3': 'bg:#000000',
+    'ugb.gfx.pixel.0': 'bg:#ffffff fg:#555555 bold',
+    'ugb.gfx.pixel.1': 'bg:#aaaaaa fg:#000000 bold',
+    'ugb.gfx.pixel.2': 'bg:#555555 fg:#ffffff bold',
+    'ugb.gfx.pixel.3': 'bg:#000000 fg:#aaaaaa bold',
     'ugb.sidebar.title': 'bold',
     'ugb.hl ugb.sidebar.title': 'bg:white',
     # Highlight

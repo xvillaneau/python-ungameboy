@@ -223,6 +223,10 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
     def toggle_tall_sprites(_):
         app.gfx.tile_height = 8 * (3 - app.gfx.tile_height // 8)
 
+    @bindings.add('n')
+    def show_ids(_):
+        app.gfx.show_ids = not app.gfx.show_ids
+
     @bindings.add("down")
     def move_down(_):
         app.layout.gfx_control.move_down(1)

@@ -18,6 +18,7 @@ class GraphicsDisplayState:
     address: Optional[Address] = None
     columns: int = 2
     tile_height: int = 8
+    show_ids: bool = False
 
 
 class GraphicsControl(UIControl):
@@ -83,6 +84,10 @@ class GraphicsControl(UIControl):
                     (classes[px], '  ')
                     for px in bitmap[i:i + 8]
                 )
+                if self.gfx.show_ids and i % 64 == 0:
+                    tile_num = f'{i // 64:04x}'
+                    tokens[-8] = (tokens[-8][0], tile_num[0:2])
+                    tokens[-7] = (tokens[-7][0], tile_num[2:4])
                 i += size * 8
             return tokens
 
