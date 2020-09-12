@@ -37,19 +37,22 @@ class UGBLayout:
 
     def build_sidebar(self):
 
-        xrefs = make_sidebar_container(
-            self.xrefs_control, make_xrefs_title_function(self.app)
-        )
-        gfx = make_sidebar_container(self.gfx_control, "Bitmap preview")
-
         views = [
-            (xrefs, self.app.filters.xrefs_visible),
-            (gfx, self.app.filters.gfx_visible),
+            (
+                Window(self.xrefs_control),
+                make_xrefs_title_function(self.app),
+                self.app.filters.xrefs_visible
+            ),
+            (
+                self.gfx_control.make_window(),
+                "Bitmap preview",
+                self.app.filters.gfx_visible
+            ),
         ]
 
         return HSplit([
-            ConditionalContainer(content=HSplit(windows), filter=filter)
-            for windows, filter in views
+            make_sidebar_container(window, header, filter)
+            for window, header, filter in views
         ])
 
     def refresh(self):
@@ -65,7 +68,9 @@ class UGBLayout:
             self.layout.focus_last()
 
 
-def make_sidebar_container(control, header: Union[str, Callable[[], str]]):
+def make_sidebar_container(
+        window, header: Union[str, Callable[[], str]], filter
+):
 
     def header_content():
         if callable(header):
@@ -74,13 +79,14 @@ def make_sidebar_container(control, header: Union[str, Callable[[], str]]):
             text = header
 
         format = 'class:ugb.sidebar.title'
-        if get_app().layout.current_control is control:
+        if get_app().layout.current_window is window:
             format += ',ugb.hl'
         return [(format, text)]
 
-    return [
+    windows = [
         Window(height=1),
         Window(FormattedTextControl(header_content), height=1),
         Window(height=1),
-        Window(control),
+        window,
     ]
+    return ConditionalContainer(content=HSplit(windows), filter=filter)

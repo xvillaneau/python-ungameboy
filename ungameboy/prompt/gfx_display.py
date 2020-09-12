@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import UIControl, UIContent
 from prompt_toolkit.data_structures import Point
 
@@ -30,6 +31,16 @@ class GraphicsControl(UIControl):
         self._loaded_data: Optional[BinaryData] = None
         self._bitmap = b''
         self._kb = create_gfx_display_bindings(app)
+
+    def make_window(self):
+        return Window(
+            content=self,
+            get_vertical_scroll=self.get_scroll_pos,
+            allow_scroll_beyond_bottom=True,
+        )
+
+    def get_scroll_pos(self, _):
+        return self.scroll_pos
 
     @property
     def bitmap(self) -> bytes:
