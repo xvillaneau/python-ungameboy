@@ -170,6 +170,51 @@ class RLEDataBlock(BinaryData):
         return ('data', 'create', 'rle', self.address)
 
 
+class InterlacedRLEDataBlock(RLEDataBlock):
+    def __init__(self, address: Address, full_size: int):
+        super().__init__(address)
+        self.full_size = full_size
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        data = []
+        start_pos = pos = self.address.rom_file_offset
+        byte = rom[pos]
+        while byte != 0:
+            pos += 1
+            pkg_type, arg = divmod(byte, 0x80)
+            remaining = self.full_size - len(data)
+
+            if pkg_type > 0:  # Data
+                packet = rom[pos:pos + arg]
+                pos += min(arg, remaining)
+            else:  # RLE
+                packet = [rom[pos]] * arg
+                pos += 1
+            data.extend(packet[:remaining])
+
+            if len(data) == self.full_size:
+                break
+            byte = rom[pos]
+        else:
+            pos += 1
+
+        half = self.full_size // 2
+        data = [
+            data[i // 2 + half * (i % 2)]
+            for i in range(self.full_size)
+        ]
+
+        self.bytes = rom[start_pos:pos]
+        self.unpacked_data = bytes(data)
+        self.size = pos - start_pos
+
+    @property
+    def create_cmd(self):
+        return (
+            'data', 'create', 'interlaced_rle', self.address, self.full_size
+        )
+
+
 class CartridgeHeader(BaseData):
     description = "Cartridge Header"
 
@@ -235,6 +280,9 @@ class DataManager(AsmManager):
 
     def create_rle(self, address: Address):
         self._insert(RLEDataBlock(address))
+
+    def create_interlaced_rle(self, address: Address, size: int):
+        self._insert(InterlacedRLEDataBlock(address, size))
 
     def create_empty(self, address: Address, size: int = 0):
         self._insert(EmptyData(address, size))
@@ -311,6 +359,12 @@ class DataManager(AsmManager):
         @click.argument('address', type=address_arg)
         def data_create_rle(address: Address):
             self.create_rle(address)
+
+        @data_create.command('interlaced_rle')
+        @click.argument('address', type=address_arg)
+        @click.argument('size', type=ExtendedInt())
+        def data_create_interlaced_rle(address: Address, size: int):
+            self.create_interlaced_rle(address, size)
 
         @data_create.command('empty')
         @click.argument('address', type=address_arg)
