@@ -91,11 +91,9 @@ class GraphicsControl(UIControl):
             i = (line % size) * 8 + (line // size) * cols * size * 8
             tokens = []
             for _ in range(cols):
-                tokens.extend(
-                    (classes[px], '  ')
-                    for px in bitmap[i:i + 8]
-                )
-                if self.gfx.show_ids and i % 64 == 0:
+                row = bitmap[i:i + 8]
+                tokens.extend((classes[px], '  ') for px in row)
+                if self.gfx.show_ids and i % 64 == 0 and row:
                     tile_num = f'{i // 64:04x}'
                     tokens[-8] = (tokens[-8][0], tile_num[0:2])
                     tokens[-7] = (tokens[-7][0], tile_num[2:4])
