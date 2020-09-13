@@ -64,6 +64,7 @@ class GraphicsControl(UIControl):
         return bytes(read_2bpp_values(bitmap))
 
     def reset(self) -> None:
+        self.scroll_pos = 0
         self._loaded_data = None
         self._bitmap = b''
 
