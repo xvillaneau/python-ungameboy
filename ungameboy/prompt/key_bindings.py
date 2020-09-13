@@ -89,6 +89,10 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
+        'V', ('display', cursor), run=True,
+        filter=editor.filters.cursor_active,
+    )
+    bind_shortcut(
         ('c-s',), ('project', 'save'), run=True,
         filter=~editor.filters.prompt_active,
     )
@@ -221,6 +225,7 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
 
     @bindings.add('p')
     def toggle_tall_sprites(_):
+        # Toggle between 8 and 16
         app.gfx.tile_height = 8 * (3 - app.gfx.tile_height // 8)
 
     @bindings.add('n')
@@ -234,6 +239,24 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
     @bindings.add("up")
     def move_up(_):
         app.layout.gfx_control.move_up(1)
+
+    @bindings.add("pageup")
+    def handle_page_up(event: 'KeyPressEvent'):
+        window = event.app.layout.current_window
+        if not (window and window.render_info):
+            return
+        control = app.layout.gfx_control
+        if window.content is control:
+            control.move_up(window.render_info.window_height // 2)
+
+    @bindings.add("pagedown")
+    def handle_page_down(event: 'KeyPressEvent'):
+        window = event.app.layout.current_window
+        if not (window and window.render_info):
+            return
+        control = app.layout.gfx_control
+        if window.content is control:
+            control.move_down(window.render_info.window_height // 2)
 
     return bindings
 
