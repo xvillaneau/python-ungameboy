@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import shlex
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -24,11 +25,13 @@ def save_project(asm: "Disassembler"):
     PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
     project_path = PROJECTS_DIR / f"{asm.project_name}.ugb.txt"
 
-    with open(project_path, 'w', encoding='utf8') as proj_save:
+    with NamedTemporaryFile('w', encoding='utf8', delete=False) as tmp:
         for command in get_save_state(asm):
             # Reproduce shlex.join, which was introduced in Python 3.8
             line = ' '.join(shlex.quote(str(item)) for item in command)
-            proj_save.write(line + os.linesep)
+            tmp.write(line + os.linesep)
+
+    os.replace(tmp.name, project_path)
 
 
 def load_project(asm: "Disassembler"):
