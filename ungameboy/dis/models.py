@@ -27,6 +27,7 @@ class AsmElement:
     scope: Optional[Label]
     section: Optional['Section']
     xrefs: 'XRefs'
+    comment: str
 
     @property
     def next_address(self):

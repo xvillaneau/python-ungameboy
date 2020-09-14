@@ -17,6 +17,7 @@ UGB_STYLE = {
     'ugb.address': 'fg:#10b020',
     'ugb.address.data': 'fg:#10a080',
     'ugb.bin': 'fg:#aaaaaa',
+    'ugb.comment': 'fg:#bbbbbb',
     'ugb.data': 'fg:#55cccc',
     'ugb.data.empty': 'fg:#888888',
     'ugb.data.key': 'fg:#cc6666',

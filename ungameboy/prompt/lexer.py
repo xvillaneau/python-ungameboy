@@ -116,8 +116,6 @@ def render_instruction(data: Instruction, control: "AsmControl"):
 
     op_type = instr.type.value.lower()
     items = [(f'class:ugb.instr.op.{op_type}', op_type)]
-    if not instr.args:
-        return items
 
     for pos, arg in enumerate(instr.args):
         if (pos + 1 == instr.value_pos):
@@ -147,6 +145,11 @@ def render_instruction(data: Instruction, control: "AsmControl"):
             writes = control.asm.context.address_context(data.address, writes)
             writes = 'Writes: ' + render_reference(data, writes)[0]
             items.extend([S1, ('class:ugb.xrefs', writes)])
+
+    if data.comment:
+        line_len = sum(len(s) for _, s in items)
+        items.append(spc(max(22 - line_len, 1)))
+        items.append(('class:ugb.comment', f"; {data.comment}"))
 
     return items
 

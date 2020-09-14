@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import BinaryIO, List, Optional
 
 from .binary_data import BinaryData, DataManager
+from .comments import CommentsManager
 from .context import ContextManager
 from .decoder import ROMBytes
 from .labels import LabelManager
@@ -26,13 +27,14 @@ class Disassembler:
         self.last_save = datetime.now(timezone.utc)
 
         self.data = DataManager(self)
+        self.comments = CommentsManager(self)
         self.context = ContextManager(self)
         self.labels = LabelManager(self)
         self.sections = SectionManager()
         self.xrefs = XRefManager(self)
 
         self.managers: List[AsmManager] = [
-            self.data, self.labels, self.xrefs, self.context
+            self.data, self.labels, self.xrefs, self.context, self.comments
         ]
 
     @property
@@ -60,6 +62,7 @@ class Disassembler:
             "section": self.sections.get_section(addr),
             "xrefs": self.xrefs.get_xrefs(addr),
             "scope": scope[-1] if scope else None,
+            "comment": self.comments.inline.get(addr, ""),
         }
 
         data = self.data.get_data(addr)
