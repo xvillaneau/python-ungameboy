@@ -30,6 +30,13 @@ def spc(n):
 S1, S2, S4 = spc(1), spc(2), spc(4)
 
 
+def cursor_in(control: 'AsmControl', thing):
+    return (
+        control.cursor_mode and
+        thing.address <= control.cursor < thing.next_address
+    )
+
+
 def render_reference(
         elem: AsmElement, reference: Union[Address, Label, LabelOffset]
 ) -> Tuple[str, str]:
@@ -207,8 +214,7 @@ def render_binary(data: RomElement, control: "AsmControl"):
         else 6
     )
 
-    cursor = control.cursor
-    if control.cursor_mode and data.address <= cursor < data.next_address:
+    if cursor_in(control, data):
         pos = (control.cursor.offset - data.address.offset) * 2
         if pos != 0:
             yield (bin_cls, bin_hex[:pos])
@@ -315,7 +321,7 @@ def render_element(address: Address, control: "AsmControl"):
                 cls = 'class:ugb.data.empty'
             else:
                 cls = 'class:ugb.data.header'
-            if elem.address <= control.cursor < elem.next_address:
+            if cursor_in(control, elem):
                 cls += HIGHLIGHT
             lines.append([*addr_items, (cls, desc)])
 
