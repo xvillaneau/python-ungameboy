@@ -16,6 +16,7 @@ from prompt_toolkit.widgets.base import TextArea
 from .control import AsmControl
 from ..address import Address
 from ..commands import AddressOrLabel, LabelName, create_core_cli
+from ..project_save import autosave_project
 
 if TYPE_CHECKING:
     from .application import DisassemblyEditor
@@ -149,6 +150,7 @@ class UGBPrompt:
 
     def run_command(self, *args):
         res = self.cli.main(args, "ungameboy", standalone_mode=False)
+        autosave_project(self.editor.disassembler)
         if res is not False:
             self.editor.layout.refresh()
         return res

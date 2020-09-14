@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import BinaryIO, List, Optional
 
 from .binary_data import BinaryData, DataManager
@@ -22,6 +23,7 @@ class Disassembler:
         self.rom: Optional[ROMBytes] = None
         self.rom_path = None
         self.project_name = ""
+        self.last_save = datetime.now(timezone.utc)
 
         self.data = DataManager(self)
         self.context = ContextManager(self)
