@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, List, Tuple, Union
 
 from ..address import Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
@@ -19,163 +19,141 @@ from ..enums import Condition, DoubleRegister, Register, C
 if TYPE_CHECKING:
     from .control import AsmControl
 
+__all__ = ['AssemblyRender']
+
 MARGIN = 4
 HIGHLIGHT = ',ugb.hl'
 
+FormatToken = Tuple[str, str]
+FormattedLine = List[FormatToken]
+FormattedText = List[FormattedLine]
+Reference = Union[Address, Label, LabelOffset]
 
-def spc(n):
+
+def spc(n) -> FormatToken:
     return ('', ' ' * n)
 
 
 S1, S2, S4 = spc(1), spc(2), spc(4)
 
 
-def cursor_in(control: 'AsmControl', thing):
-    return (
-        control.cursor_mode and
-        thing.address <= control.cursor < thing.next_address
-    )
+class AssemblyRender:
+    MARGIN = 4
+    LOC_MARGIN = 2
 
+    XREF_TYPES = {
+        "call": ("calls", "called_by", "Calls", "Call from", "Calls from"),
+        "jump": ("jumps_to", "jumps_from", "Jumps to", "Jump from", "Jumps from"),
+    }
 
-def render_reference(
-        elem: AsmElement, reference: Union[Address, Label, LabelOffset]
-) -> Tuple[str, str]:
-    if isinstance(reference, Label):
-        scope_name = elem.scope.name if elem.scope else ''
-        if reference.local_name and reference.global_name == scope_name:
-            out = '.' + reference.local_name
-        else:
-            out = reference.name
-        cls = 'label'
-    elif isinstance(reference, LabelOffset):
-        out = (
-            f"{reference.label.name} "
-            f"{'-' if reference.offset < 0 else '+'}"
-            f"${reference.offset:x}"
+    def __init__(self, control: 'AsmControl'):
+        self.ctrl = control
+        self.app = control.app
+        self.asm = control.asm
+
+    def cursor_at(self, elem: AsmElement):
+        return self.ctrl.cursor_mode and elem.address == self.ctrl.cursor
+
+    def cursor_at_dest(self, elem: AsmElement):
+        return (
+            self.ctrl.cursor_mode and
+            elem.address == self.ctrl.cursor_destination
         )
-        cls = 'label'
-    else:  # Address
-        out = str(reference)
-        cls = 'addr'
-    return out, cls
 
+    def cursor_in(self, elem: AsmElement):
+        return (
+            self.ctrl.cursor_mode and
+            elem.address <= self.ctrl.cursor < elem.next_address
+        )
 
-def render_value(elem: AsmElement, value, suffix=''):
-    items = []
+    def margin_at(self, address: Address) -> FormatToken:
+        return spc(self.MARGIN + 12 - len(str(address)))
 
-    def add(item, cls=''):
-        if cls:
-            cls = f'class:ugb.value.{cls}.{suffix}'.rstrip('.')
-        items.append((cls, str(item)))
-
-    if isinstance(value, Ref):
-        ref = value.__class__
-        value = value.target
-        add('[')
-    else:
-        ref = None
-
-    # Handle IO references separately, they're weird
-    if ref is IORef and isinstance(value, Byte):
-        add(Word(value + 0xff00), 'scalar')
-    elif ref is IORef and value is C:
-        add(Word(0xff00), 'scalar')
-        add(' + ')
-        add('c', 'reg')
-
-    # Registers are very common, handle those first
-    elif isinstance(value, (Register, DoubleRegister)):
-        add(str(value).lower(), 'reg')
-
-    # Then, addresses and labels
-    elif isinstance(value, (Address, Label)):
-        add(*render_reference(elem, value))
-
-    # Display the scalar values
-    elif isinstance(value, int):
-        if isinstance(value, SPOffset):
-            add('sp', 'reg')
-            add(' + ')
-            value = Byte(value)
-        elif isinstance(value, CgbColor):
-            r, g, b = value.rgb_5
-            color = f'#{r*8:02x}{g*8:02x}{b*8:02x}'
-            items.append((f'fg:{color}', '\u25a0'))
-            items.append(S1)
-        add(value, 'scalar')
-
-    # Various stuff last
-    elif isinstance(value, Condition):
-        add(str(value).lower(), 'cond')
-    elif isinstance(value, SpecialLabel):
-        add(value.name, 'special')
-    else:
-        add(value)
-
-    if ref:
-        add(']')
-
-    return items
-
-
-def render_instruction(data: Instruction, control: "AsmControl"):
-    instr = data.raw_instruction
-
-    op_type = instr.type.value.lower()
-    items = [(f'class:ugb.instr.op.{op_type}', op_type)]
-
-    for pos, arg in enumerate(instr.args):
-        if (pos + 1 == instr.value_pos):
-            if isinstance(arg, Ref):
-                arg = arg.cast(data.value)
+    @classmethod
+    def render_reference(
+            cls, elem: AsmElement, reference: Reference
+    ) -> FormatToken:
+        if isinstance(reference, Label):
+            scope_name = elem.scope.name if elem.scope else ''
+            if reference.local_name and reference.global_name == scope_name:
+                out = '.' + reference.local_name
             else:
-                arg = data.value
+                out = reference.name
+            value_type = 'label'
+        elif isinstance(reference, LabelOffset):
+            out = (
+                f"{reference.label.name} "
+                f"{'-' if reference.offset < 0 else '+'}"
+                f"${reference.offset:x}"
+            )
+            value_type = 'label'
+        else:  # Address
+            out = str(reference)
+            value_type = 'addr'
+        return out, value_type
 
-        items.append(('', ', ' if pos > 0 else ' '))
-        items.extend(render_value(data, arg, op_type))
+    def render_value(self, elem: AsmElement, value, suffix=''):
+        items = []
 
-    reads = data.xrefs.reads
-    reads = reads if reads != data.dest_address else None
-    writes = data.xrefs.writes_to
-    writes = writes if writes != data.dest_address else None
-    if reads or writes:
-        line_len = sum(len(s) for _, s in items)
-        items.append(spc(max(22 - line_len, 2)))
-        items.append(('class:ugb.xrefs', ';'))
+        def add(item, cls=''):
+            if cls:
+                cls = f'class:ugb.value.{cls}.{suffix}'.rstrip('.')
+            items.append((cls, str(item)))
 
-        if reads is not None:
-            reads = control.asm.context.address_context(data.address, reads)
-            reads = 'Reads: ' + render_reference(data, reads)[0]
-            items.extend([S1, ('class:ugb.xrefs', reads)])
+        if isinstance(value, Ref):
+            ref = value.__class__
+            value = value.target
+            add('[')
+        else:
+            ref = None
 
-        if writes is not None:
-            writes = control.asm.context.address_context(data.address, writes)
-            writes = 'Writes: ' + render_reference(data, writes)[0]
-            items.extend([S1, ('class:ugb.xrefs', writes)])
+        # Handle IO references separately, they're weird
+        if ref is IORef and isinstance(value, Byte):
+            add(Word(value + 0xff00), 'scalar')
+        elif ref is IORef and value is C:
+            add(Word(0xff00), 'scalar')
+            add(' + ')
+            add('c', 'reg')
 
-    if data.comment:
-        line_len = sum(len(s) for _, s in items)
-        items.append(spc(max(22 - line_len, 1)))
-        items.append(('class:ugb.comment', f"; {data.comment}"))
+        # Registers are very common, handle those first
+        elif isinstance(value, (Register, DoubleRegister)):
+            add(str(value).lower(), 'reg')
 
-    return items
+        # Then, addresses and labels
+        elif isinstance(value, (Address, Label)):
+            add(*self.render_reference(elem, value))
 
+        # Display the scalar values
+        elif isinstance(value, int):
+            if isinstance(value, SPOffset):
+                add('sp', 'reg')
+                add(' + ')
+                value = Byte(value)
+            elif isinstance(value, CgbColor):
+                r, g, b = value.rgb_5
+                color = f'#{r * 8:02x}{g * 8:02x}{b * 8:02x}'
+                items.append((f'fg:{color}', '\u25a0'))
+                items.append(S1)
+            add(value, 'scalar')
 
-def render_row(data: DataRow):
-    line = []
-    for item in data.values:
-        line.extend(render_value(data, item))
-        line.append(('', ', '))
-    line.pop()
+        # Various stuff last
+        elif isinstance(value, Condition):
+            add(str(value).lower(), 'cond')
+        elif isinstance(value, SpecialLabel):
+            add(value.name, 'special')
+        else:
+            add(value)
 
-    return line
+        if ref:
+            add(']')
 
+        return items
 
-def render_data_block(elem: DataBlock):
-    if isinstance(elem.data, CartridgeHeader):
+    @classmethod
+    def render_cartridge_header(cls, data: CartridgeHeader):
         kc, vc = 'class:ugb.data.key', 'class:ugb.data.value'
 
-        header = elem.data.metadata
+        header = data.metadata
         yield [(kc, '; Name:'), spc(5), (vc, header.title)]
 
         hardware = []
@@ -203,129 +181,193 @@ def render_data_block(elem: DataBlock):
             sram = f'{header.sram_size_kb // 8} banks ({sram_size})'
         yield [(kc, '; SRAM:'), spc(5), (vc, sram)]
 
-
-def render_binary(data: RomElement, control: "AsmControl"):
-    bin_cls = 'class:ugb.bin'
-    bin_hex = data.bytes.hex()
-
-    bin_size = (
-        max(data.data.row_size * 2, 6)
-        if isinstance(data, DataRow)
-        else 6
-    )
-
-    if cursor_in(control, data):
-        pos = (control.cursor.offset - data.address.offset) * 2
-        if pos != 0:
-            yield (bin_cls, bin_hex[:pos])
-        yield (bin_cls + HIGHLIGHT, bin_hex[pos:pos + 2])
-        if pos < len(bin_hex) - 2:
-            yield (bin_cls, bin_hex[pos + 2:])
-    else:
-        yield (bin_cls, bin_hex)
-    yield spc(bin_size - len(bin_hex) + 2)
-
-
-def render_flags(data: RomElement, asm):
-    xr = data.xrefs
-    flags = {
-        'x': any([xr.calls, xr.jumps_to, xr.reads, xr.writes_to]),
-        '+': asm.context.has_context(data.address),
-    }
-    return ''.join(flag if cond else ' ' for flag, cond in flags.items())
-
-
-def render_element(address: Address, control: "AsmControl"):
-    lines = []
-    elem = control.asm[address]
-
-    def render_xrefs(refs, name):
-        if len(refs) > 3:
-            msg = f"; {name}s from {len(refs)} places"
-            yield ('class:ugb.xrefs', msg)
-            return
-        get_context = control.asm.context.address_context
-        for ref in refs:
-            ref = get_context(elem.address, ref, relative=True)
-            ref, _ = render_reference(elem, ref)
-            yield ('class:ugb.xrefs', f"; {name} from {ref}")
-
-    if elem.section is not None:
-        section = elem.section
-        lines.append([
-            ('class:ugb.section', 'SECTION'),
-            ('', ' "'),
-            ('class:ugb.section.name', section.name),
-            ('', '", '),
-            ('class:ugb.section.address', str(section.address)),
-        ])
-
-    for label in elem.labels:
-        if label.local_name:
-            lines.append([
-                ('', '  .'),
-                ('class:ugb.label.local', label.local_name),
-            ])
-        else:
-            lines.append([
-                ('class:ugb.label.global', label.name),
-                ('', ':'),
-            ])
-
-    if isinstance(elem, RomElement):
+    def render_address(self, elem: AsmElement) -> FormattedLine:
         addr_cls = 'class:ugb.address'
         addr_cls += '.data' if isinstance(elem, (DataRow, DataBlock)) else ''
-        if control.cursor_mode and elem.address == control.cursor_destination:
+        if self.cursor_at_dest(elem):
             addr_cls += HIGHLIGHT
 
-        addr_str = str(elem.address)
-        margin = spc(MARGIN + 12 - len(addr_str))
+        addr = elem.address
+        return [self.margin_at(addr), (addr_cls, str(addr)), S2]
 
-        addr_items = [margin, (addr_cls, addr_str), S2]
-        bin_items = render_binary(elem, control)
-        flag_items = [
-            ('class:ugb.flags', render_flags(elem, control.asm)), S1
+    def render_bytes(self, elem: RomElement) -> FormattedLine:
+        bin_cls = 'class:ugb.bin'
+        bin_hex = elem.bytes.hex()
+
+        bin_size = (
+            max(elem.data.row_size * 2, 6)
+            if isinstance(elem, DataRow)
+            else 6
+        )
+
+        line = []
+        if self.cursor_in(elem):
+            pos = (self.ctrl.cursor.offset - elem.address.offset) * 2
+            if pos != 0:
+                line.append((bin_cls, bin_hex[:pos]))
+            line.append((bin_cls + HIGHLIGHT, bin_hex[pos:pos + 2]))
+            if pos < len(bin_hex) - 2:
+                line.append((bin_cls, bin_hex[pos + 2:]))
+        else:
+            line.append((bin_cls, bin_hex))
+        line.append(spc(bin_size - len(bin_hex) + 2))
+        return line
+
+    def render_flags(self, elem: AsmElement) -> FormattedLine:
+        xr = elem.xrefs
+        flags = {
+            'x': any([xr.calls, xr.jumps_to, xr.reads, xr.writes_to]),
+            '+': self.asm.context.has_context(elem.address),
+        }
+        flags_str = ''.join(
+            flag if cond else ' '
+            for flag, cond in flags.items()
+        )
+        return [('class:ugb.flags', flags_str), S1]
+
+    def _render_ref_lines(self, elem: AsmElement, name: str) -> FormattedText:
+        _, attr, _, single, plural = self.XREF_TYPES[name]
+        refs = getattr(elem.xrefs, attr)
+
+        lines = []
+        if len(refs) > 3:
+            lines.append(f"; {plural} {len(refs)} places")
+        else:
+            get_context = self.asm.context.address_context
+            for ref in refs:
+                ref = get_context(elem.address, ref, relative=True)
+                ref, _ = self.render_reference(elem, ref)
+                lines.append(f"; {name} from {ref}")
+
+        margin = self.margin_at(elem.address)
+        return [[margin, ('class:ugb.xrefs', line)] for line in lines]
+
+    def render_block_xrefs(self, elem: AsmElement) -> FormattedText:
+        return [
+            *self._render_ref_lines(elem, "call"),
+            *self._render_ref_lines(elem, "jump"),
         ]
 
-        calls, jumps = elem.xrefs.called_by, elem.xrefs.jumps_from
-        lines.extend([margin, tok] for tok in render_xrefs(calls, 'Call'))
-        lines.extend([margin, tok] for tok in render_xrefs(jumps, 'Jump'))
+    def render_inline_xrefs(self, elem: RomElement) -> FormattedLine:
+        reads = elem.xrefs.reads
+        reads = reads if reads != elem.dest_address else None
+        writes = elem.xrefs.writes_to
+        writes = writes if writes != elem.dest_address else None
 
-        if isinstance(elem, Instruction):
-            lines.append([
-                *addr_items, *bin_items, *flag_items,
-                *render_instruction(elem, control),
-            ])
+        line = []
+        if reads or writes:
+            line.append(('class:ugb.xrefs', ';'))
 
-        elif isinstance(elem, DataRow):
-            if elem.row == 0:
-                if elem.data.description:
-                    desc = elem.data.description
+        if reads is not None:
+            reads = self.asm.context.address_context(elem.address, reads)
+            reads = 'Reads: ' + self.render_reference(elem, reads)[0]
+            line.extend([S1, ('class:ugb.xrefs', reads)])
+
+        if writes is not None:
+            writes = self.asm.context.address_context(elem.address, writes)
+            writes = 'Writes: ' + self.render_reference(elem, writes)[0]
+            line.extend([S1, ('class:ugb.xrefs', writes)])
+
+        return line
+
+    def render_labels(self, elem: AsmElement) -> FormattedText:
+        cls = 'class:ugb.label.'
+        lines = []
+        for label in elem.labels:
+            if label.local_name:
+                pre = [spc(self.LOC_MARGIN), ('', '.')]
+                line = [*pre, (cls + 'local', label.local_name)]
+            else:
+                line = [(cls + 'global', label.name), ('', ':')]
+            lines.append(line)
+        return lines
+
+    def render_instruction(self, elem: Instruction) -> FormattedLine:
+        instr = elem.raw_instruction
+
+        op_type = instr.type.value.lower()
+        items = [
+            *self.render_address(elem),
+            *self.render_bytes(elem),
+            *self.render_flags(elem),
+            (f'class:ugb.instr.op.{op_type}', op_type),
+        ]
+
+        for pos, arg in enumerate(instr.args):
+            if (pos + 1 == instr.value_pos):
+                if isinstance(arg, Ref):
+                    arg = arg.cast(elem.value)
                 else:
-                    desc = elem.data.__class__.__name__
-                desc = f'; {desc} ({elem.data.size} bytes)'
-                lines.append([margin, ('class:ugb.data.header', desc)])
+                    arg = elem.value
 
-            lines.append([
-                *addr_items, *bin_items, *flag_items, *render_row(elem)
-            ])
+            items.append(('', ', ' if pos > 0 else ' '))
+            items.extend(self.render_value(elem, arg, op_type))
+
+        inline_xrefs = self.render_inline_xrefs(elem)
+        if inline_xrefs:
+            line_len = sum(len(s) for _, s in items)
+            items.append(spc(max(22 - line_len, 2)))
+            items.extend(inline_xrefs)
+
+        if elem.comment:
+            line_len = sum(len(s) for _, s in items)
+            items.append(spc(max(22 - line_len, 1)))
+            items.append(('class:ugb.comment', f"; {elem.comment}"))
+
+        return items
+
+    def render_data(self, elem: Union[DataBlock, DataRow]) -> FormattedText:
+        if elem.data.description:
+            desc = elem.data.description
+        else:
+            desc = elem.data.__class__.__name__
+        desc = f'; {desc} ({elem.data.size} bytes)'
+
+        lines = []
+        cls = 'class:ugb.data.header'
+        margin = self.margin_at(elem.address)
+
+        if isinstance(elem, DataRow):
+            if elem.row == 0:
+                lines.append([margin, (cls, desc)])
+
+            line = [
+                *self.render_address(elem),
+                *self.render_bytes(elem),
+                *self.render_flags(elem),
+            ]
+            for item in elem.values:
+                line.extend(self.render_value(elem, item))
+                line.append(('', ', '))
+            line.pop()
+            lines.append(line)
 
         elif isinstance(elem, DataBlock):
-            if elem.data.description:
-                desc = elem.data.description
-            else:
-                desc = elem.data.__class__.__name__
-            desc = f'; {desc} ({elem.data.size} bytes)'
-
             if isinstance(elem.data, EmptyData):
                 cls = 'class:ugb.data.empty'
-            else:
-                cls = 'class:ugb.data.header'
-            if cursor_in(control, elem):
+            if self.cursor_in(elem):
                 cls += HIGHLIGHT
-            lines.append([*addr_items, (cls, desc)])
+            lines.append([*self.render_address(elem), (cls, desc)])
 
-            for items in render_data_block(elem):
+            if isinstance(elem.data, CartridgeHeader):
+                block_content = self.render_cartridge_header(elem.data)
+            else:
+                block_content = []
+            for items in block_content:
                 lines.append([margin, ('', '    '), *items])
 
-    return lines
+        return lines
+
+    def render(self, address: Address) -> FormattedText:
+        elem = self.asm[address]
+        lines = [
+            *self.render_labels(elem),
+            *self.render_block_xrefs(elem),
+        ]
+
+        if isinstance(elem, Instruction):
+            lines.append(self.render_instruction(elem))
+        elif isinstance(elem, (DataBlock, DataRow)):
+            lines.extend(self.render_data(elem))
+
+        return lines

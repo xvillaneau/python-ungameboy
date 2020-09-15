@@ -5,22 +5,24 @@ from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
-from .lexer import render_element
+from .lexer import AssemblyRender
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
 from ..dis import BinaryData, CartridgeHeader, Disassembler, EmptyData, RomElement
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
+    from .application import DisassemblyEditor
 
 
 class AsmControl(UIControl):
     _ZONES: Dict[Tuple[MemoryType, int], "AsmRegionView"] = {}
 
-    def __init__(self, asm: Disassembler):
+    def __init__(self, app: 'DisassemblyEditor'):
         from .key_bindings import create_asm_control_bindings
 
-        self.asm = asm
+        self.app = app
+        self.asm = app.disassembler
         self.key_bindings = create_asm_control_bindings(self)
 
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
@@ -31,6 +33,8 @@ class AsmControl(UIControl):
 
         self._stack: StateStack[Address] = StateStack()
         self._stack.push(Address(ROM, 0, 0))
+
+        self.renderer = AssemblyRender(self)
 
         self.load_zone(self.current_zone)
 
@@ -50,7 +54,7 @@ class AsmControl(UIControl):
             addr, offset = self.current_view.get_line_info(line)
         except IndexError:
             return []
-        return render_element(addr, self)[offset]
+        return self.renderer.render(addr)[offset]
 
     def is_focusable(self) -> bool:
         return True
