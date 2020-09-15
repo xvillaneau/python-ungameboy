@@ -306,12 +306,13 @@ class AssemblyRender:
         inline_xrefs = self.render_inline_xrefs(elem)
         if inline_xrefs:
             line_len = sum(len(s) for _, s in items)
-            items.append(spc(max(22 - line_len, 2)))
+            items.append(spc(max(60 - line_len, 2)))
             items.extend(inline_xrefs)
 
         if elem.comment:
             line_len = sum(len(s) for _, s in items)
-            items.append(spc(max(22 - line_len, 1)))
+
+            items.append(spc(max(60 - line_len, 2)))
             items.append(('class:ugb.comment', f"; {elem.comment}"))
 
         return items
