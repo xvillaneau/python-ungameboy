@@ -1,8 +1,10 @@
+import re
 from typing import TYPE_CHECKING, List
 
 import click
 
 from .manager_base import AsmManager
+from ..address import Address
 from ..commands import AddressOrLabel
 from ..data_structures import AddressMapping
 
@@ -44,3 +46,11 @@ class CommentsManager(AsmManager):
     def save_items(self):
         for addr, comment in self.inline.items():
             yield ('comment', 'inline', addr, comment)
+
+    def set_inline(self, address: Address, comment: str):
+        # Get rid of any exotic whitespace or line break
+        comment = re.sub(r'\s', ' ', comment).rstrip()
+        if comment:
+            self.inline[address] = comment
+        elif address in self.inline:
+            del self.inline[address]

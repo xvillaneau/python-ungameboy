@@ -321,7 +321,7 @@ class AssemblyRender:
             line_len = sum(len(s) for _, s in line)
             line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
 
-            comment, pos = elem.comment, self.ctrl.sub_cursor_x
+            comment, pos = self.ctrl.comment_buffer, self.ctrl.sub_cursor_x
             pre, post = '; ' + comment[:pos], comment[pos + 1:]
             cursor = comment[pos] if pos < len(comment) else ' '
 

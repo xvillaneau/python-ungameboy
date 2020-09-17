@@ -37,6 +37,8 @@ class AsmControl(UIControl):
 
         self.mode = ControlMode.Default
         self._reset_scroll = False
+
+        self.comment_buffer = ''
         self.sub_cursor_x = 0
 
         self._stack: StateStack[Address] = StateStack()
@@ -99,6 +101,9 @@ class AsmControl(UIControl):
 
     @cursor.setter
     def cursor(self, value: Address):
+        if self.comment_mode:
+            self.asm.comments.set_inline(self.cursor, self.comment_buffer)
+            self.comment_buffer = self.asm.comments.inline.get(value, "")
         self._stack.head = value
 
     @property
@@ -183,39 +188,39 @@ class AsmControl(UIControl):
         if move <= 0:
             return
         if self.comment_mode:
-            com = self.asm.comments.inline.get(self.cursor, "")
-            self.sub_cursor_x = min(len(com), self.sub_cursor_x + 1)
+            self.sub_cursor_x = min(
+                len(self.comment_buffer), self.sub_cursor_x + 1
+            )
 
     # Commenting
 
     def enter_comment_mode(self):
+        self.comment_buffer = self.asm.comments.inline.get(self.cursor, '')
         self.mode = ControlMode.Comment
 
     def exit_comment_mode(self):
+        self.asm.comments.set_inline(self.cursor, self.comment_buffer)
         self.mode = ControlMode.Cursor
 
     def insert_str(self, data: str):
-        cur_comment = self.asm.comments.inline.get(self.cursor, "")
-        pos = max(self.sub_cursor_x, 0)
-        new_comment = cur_comment[:pos] + data + cur_comment[pos:]
+        comment, x = self.comment_buffer, self.sub_cursor_x
 
-        self.asm.comments.inline[self.cursor] = new_comment
+        pos = max(x, 0)
+        self.comment_buffer = comment[:pos] + data + comment[pos:]
         self.sub_cursor_x += len(data)
 
     def delete_before(self, count=1):
-        cur_comment = self.asm.comments.inline.get(self.cursor, "")
-        pos = max(self.sub_cursor_x - count, 0)
-        new_comment = cur_comment[:pos] + cur_comment[self.sub_cursor_x:]
+        comment, x = self.comment_buffer, self.sub_cursor_x
 
-        self.asm.comments.inline[self.cursor] = new_comment
+        pos = max(x - count, 0)
+        self.comment_buffer = comment[:pos] + comment[x:]
         self.sub_cursor_x = pos
 
     def delete_after(self, count=1):
-        cur_comment = self.asm.comments.inline.get(self.cursor, "")
-        pos = min(self.sub_cursor_x + count, len(cur_comment))
-        new_comment = cur_comment[:self.sub_cursor_x] + cur_comment[pos:]
+        comment, x = self.comment_buffer, self.sub_cursor_x
 
-        self.asm.comments.inline[self.cursor] = new_comment
+        pos = min(x + count, len(comment))
+        self.comment_buffer = comment[:x] + comment[pos:]
 
 
 class AsmRegionView:
