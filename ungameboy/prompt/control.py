@@ -1,4 +1,5 @@
 from bisect import bisect_right
+from enum import Enum, auto
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from prompt_toolkit.application import get_app
@@ -15,6 +16,12 @@ if TYPE_CHECKING:
     from .application import DisassemblyEditor
 
 
+class ControlMode(Enum):
+    Default = auto()
+    Cursor = auto()
+    Comment = auto()
+
+
 class AsmControl(UIControl):
     _ZONES: Dict[Tuple[MemoryType, int], "AsmRegionView"] = {}
 
@@ -28,8 +35,9 @@ class AsmControl(UIControl):
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
         self.current_view = AsmRegionView(self.asm, ROM, 0)
 
-        self.cursor_mode = False
+        self.mode = ControlMode.Default
         self._reset_scroll = False
+        self.sub_cursor_x = 0
 
         self._stack: StateStack[Address] = StateStack()
         self._stack.push(Address(ROM, 0, 0))
@@ -74,6 +82,18 @@ class AsmControl(UIControl):
         self.current_view.build_names_map()
 
     @property
+    def default_mode(self) -> bool:
+        return self.mode is ControlMode.Default
+
+    @property
+    def cursor_mode(self) -> bool:
+        return self.mode is ControlMode.Cursor
+
+    @property
+    def comment_mode(self) -> bool:
+        return self.mode is ControlMode.Comment
+
+    @property
     def cursor(self) -> Address:
         return self._stack.head
 
@@ -94,11 +114,10 @@ class AsmControl(UIControl):
             return None
 
     def get_vertical_scroll(self, window: "Window") -> int:
-        if self.cursor_mode and not self._reset_scroll:
-            return window.vertical_scroll
-        else:
+        if self.default_mode or self._reset_scroll:
             self._reset_scroll = False
             return self.cursor_position
+        return window.vertical_scroll
 
     def toggle_cursor_mode(self):
         if self.cursor_mode:
@@ -108,8 +127,10 @@ class AsmControl(UIControl):
             if window.content is self:
                 scroll = window.vertical_scroll
                 self.cursor = self.current_view.find_address(scroll)
+            self.mode = ControlMode.Default
 
-        self.cursor_mode = not self.cursor_mode
+        else:
+            self.mode = ControlMode.Cursor
 
     def _seek(self, address: Address):
         zone = (address.type, address.bank)
@@ -151,6 +172,50 @@ class AsmControl(UIControl):
             return
         view = self.current_view
         self.cursor = view.get_relative_address(self.cursor, lines)
+
+    def move_left(self, move: int):
+        if move <= 0:
+            return
+        if self.comment_mode:
+            self.sub_cursor_x = max(0, self.sub_cursor_x - 1)
+
+    def move_right(self, move: int):
+        if move <= 0:
+            return
+        if self.comment_mode:
+            com = self.asm.comments.inline.get(self.cursor, "")
+            self.sub_cursor_x = min(len(com), self.sub_cursor_x + 1)
+
+    # Commenting
+
+    def enter_comment_mode(self):
+        self.mode = ControlMode.Comment
+
+    def exit_comment_mode(self):
+        self.mode = ControlMode.Cursor
+
+    def insert_str(self, data: str):
+        cur_comment = self.asm.comments.inline.get(self.cursor, "")
+        pos = max(self.sub_cursor_x, 0)
+        new_comment = cur_comment[:pos] + data + cur_comment[pos:]
+
+        self.asm.comments.inline[self.cursor] = new_comment
+        self.sub_cursor_x += len(data)
+
+    def delete_before(self, count=1):
+        cur_comment = self.asm.comments.inline.get(self.cursor, "")
+        pos = max(self.sub_cursor_x - count, 0)
+        new_comment = cur_comment[:pos] + cur_comment[self.sub_cursor_x:]
+
+        self.asm.comments.inline[self.cursor] = new_comment
+        self.sub_cursor_x = pos
+
+    def delete_after(self, count=1):
+        cur_comment = self.asm.comments.inline.get(self.cursor, "")
+        pos = min(self.sub_cursor_x + count, len(cur_comment))
+        new_comment = cur_comment[:self.sub_cursor_x] + cur_comment[pos:]
+
+        self.asm.comments.inline[self.cursor] = new_comment
 
 
 class AsmRegionView:

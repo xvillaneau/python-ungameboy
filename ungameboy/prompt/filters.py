@@ -17,10 +17,17 @@ class UGBFilters:
         self.gfx_visible = Condition(self._gfx_visible)
         self.editor_active = Condition(self._editor_active)
         self.cursor_active = Condition(self._cursor_active)
+        self.commenting = Condition(self._comment_mode_active)
+
+        self.browsing = ~(self.prompt_active | self.commenting)
 
     def _editor_active(self):
         ctrl = self.app.layout.layout.current_control
-        return isinstance(ctrl, AsmControl)
+        return isinstance(ctrl, AsmControl) and not ctrl.comment_mode
+
+    def _comment_mode_active(self):
+        ctrl = self.app.layout.layout.current_control
+        return isinstance(ctrl, AsmControl) and ctrl.comment_mode
 
     def _cursor_active(self):
         ctrl = self.app.layout.layout.current_control

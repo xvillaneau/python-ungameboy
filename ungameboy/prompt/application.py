@@ -38,6 +38,7 @@ UGB_STYLE = {
     'ugb.hl ugb.address': 'bg:#10b020',
     'ugb.hl ugb.address.data': 'bg:#10a080',
     'ugb.hl ugb.bin': 'bg:#aaaaaa',
+    'ugb.hl ugb.comment': 'bg:#bbbbbb',
     # Sections
     'ugb.section': 'fg:#aa0000 bold',
     # Labels

@@ -40,6 +40,7 @@ S1, S2, S4 = spc(1), spc(2), spc(4)
 class AssemblyRender:
     MARGIN = 4
     LOC_MARGIN = 2
+    COMMENT_LINE = 60
 
     XREF_TYPES = {
         "call": ("calls", "called_by", "Calls", "Call from", "Calls from"),
@@ -248,11 +249,12 @@ class AssemblyRender:
             *self._render_ref_lines(elem, "jump"),
         ]
 
-    def render_inline_xrefs(self, elem: RomElement) -> FormattedLine:
+    def render_inline_xrefs(self, elem: AsmElement) -> FormattedLine:
         reads = elem.xrefs.reads
-        reads = reads if reads != elem.dest_address else None
         writes = elem.xrefs.writes_to
-        writes = writes if writes != elem.dest_address else None
+        if isinstance(elem, RomElement):
+            reads = reads if reads != elem.dest_address else None
+            writes = writes if writes != elem.dest_address else None
 
         line = []
         if reads or writes:
@@ -303,19 +305,33 @@ class AssemblyRender:
             items.append(('', ', ' if pos > 0 else ' '))
             items.extend(self.render_value(elem, arg, op_type))
 
+        return items
+
+    def add_inline_xrefs(self, elem: AsmElement, line: FormattedLine):
         inline_xrefs = self.render_inline_xrefs(elem)
         if inline_xrefs:
-            line_len = sum(len(s) for _, s in items)
-            items.append(spc(max(60 - line_len, 2)))
-            items.extend(inline_xrefs)
+            line_len = sum(len(s) for _, s in line)
+            line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
+            line.extend(inline_xrefs)
 
-        if elem.comment:
-            line_len = sum(len(s) for _, s in items)
+    def add_inline_comment(self, elem: AsmElement, line: FormattedLine):
+        cls = 'class:ugb.comment'
 
-            items.append(spc(max(60 - line_len, 2)))
-            items.append(('class:ugb.comment', f"; {elem.comment}"))
+        if self.ctrl.comment_mode and elem.address == self.ctrl.cursor:
+            line_len = sum(len(s) for _, s in line)
+            line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
 
-        return items
+            comment, pos = elem.comment, self.ctrl.sub_cursor_x
+            pre, post = '; ' + comment[:pos], comment[pos + 1:]
+            cursor = comment[pos] if pos < len(comment) else ' '
+
+            line.extend([(cls, pre), (cls + HIGHLIGHT, cursor), (cls, post)])
+
+        elif elem.comment:
+            line_len = sum(len(s) for _, s in line)
+            line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
+
+            line.append((cls, f"; {elem.comment}"))
 
     def render_data(self, elem: Union[DataBlock, DataRow]) -> FormattedText:
         if elem.data.description:
@@ -367,7 +383,11 @@ class AssemblyRender:
         ]
 
         if isinstance(elem, Instruction):
-            lines.append(self.render_instruction(elem))
+            line = self.render_instruction(elem)
+            self.add_inline_xrefs(elem, line)
+            self.add_inline_comment(elem, line)
+            lines.append(line)
+
         elif isinstance(elem, (DataBlock, DataRow)):
             lines.extend(self.render_data(elem))
 

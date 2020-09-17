@@ -1,6 +1,7 @@
 from functools import wraps
 from typing import TYPE_CHECKING
 
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.keys import Keys
 
@@ -25,11 +26,11 @@ def create_layout_bindings(editor: 'DisassemblyEditor'):
     def _exit(event):
         event.app.exit()
 
-    @bindings.add(":", filter=~editor.filters.prompt_active)
+    @bindings.add(":", filter=editor.filters.browsing)
     def _focus_prompt(_):
         editor.layout.focus_prompt()
 
-    @bindings.add('tab', filter=~editor.filters.prompt_active)
+    @bindings.add('tab', filter=editor.filters.browsing)
     def _rotate_focus(event):
         event.app.layout.focus_next()
 
@@ -264,21 +265,11 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
 def create_asm_control_bindings(control: AsmControl):
     bindings = KeyBindings()
 
-    @bindings.add("c")
-    def toggle_cursor(_):
-        control.toggle_cursor_mode()
+    @Condition
+    def commenting():
+        return control.comment_mode
 
-    @bindings.add("u")
-    def undo_seek(_):
-        control.undo_seek()
-
-    @bindings.add("U")
-    def redo_seek(_):
-        control.redo_seek()
-
-    @bindings.add("enter")
-    def follow_jump(_):
-        control.follow_jump()
+    # Movement bindings, always active
 
     @bindings.add("up")
     def handle_up(_):
@@ -287,6 +278,14 @@ def create_asm_control_bindings(control: AsmControl):
     @bindings.add("down")
     def handle_down(_):
         control.move_down(1)
+
+    @bindings.add("left")
+    def handle_left(_):
+        control.move_left(1)
+
+    @bindings.add("right")
+    def handle_right(_):
+        control.move_right(1)
 
     @bindings.add("pageup")
     def handle_page_up(event: 'KeyPressEvent'):
@@ -303,5 +302,53 @@ def create_asm_control_bindings(control: AsmControl):
             return
         if window.content is control:
             control.move_down(window.render_info.window_height)
+
+    # Browsing mode bindings
+
+    @bindings.add("c", filter=~commenting)
+    def toggle_cursor(_):
+        control.toggle_cursor_mode()
+
+    @bindings.add("u", filter=~commenting)
+    def undo_seek(_):
+        control.undo_seek()
+
+    @bindings.add("U", filter=~commenting)
+    def redo_seek(_):
+        control.redo_seek()
+
+    @bindings.add("enter", filter=~commenting)
+    def follow_jump(_):
+        control.follow_jump()
+
+    @bindings.add(';', filter=~commenting)
+    def enter_comment(_):
+        control.enter_comment_mode()
+
+    # Commenting bindings
+
+    @bindings.add('escape', filter=commenting)
+    @bindings.add('c-c', filter=commenting)
+    def handle_quit_comment(_):
+        control.exit_comment_mode()
+
+    @bindings.add('delete', filter=commenting)
+    def handle_delete(event: 'KeyPressEvent'):
+        control.delete_after(event.arg)
+
+    @bindings.add('backspace', filter=commenting)
+    def handle_backspace(event: 'KeyPressEvent'):
+        if event.arg < 0:
+            control.delete_after(-event.arg)
+        else:
+            control.delete_before(event.arg)
+
+    @bindings.add('enter', filter=commenting)
+    def handle_comment_enter(_):
+        control.move_down(1)
+
+    @bindings.add('<any>', filter=commenting)
+    def handle_insert(event: 'KeyPressEvent'):
+        control.insert_str(event.data * event.arg)
 
     return bindings
