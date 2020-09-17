@@ -104,6 +104,7 @@ class AsmControl(UIControl):
         if self.comment_mode:
             self.asm.comments.set_inline(self.cursor, self.comment_buffer)
             self.comment_buffer = self.asm.comments.inline.get(value, "")
+            self.sub_cursor_x = min(self.sub_cursor_x, len(self.comment_buffer))
         self._stack.head = value
 
     @property
@@ -196,6 +197,7 @@ class AsmControl(UIControl):
 
     def enter_comment_mode(self):
         self.comment_buffer = self.asm.comments.inline.get(self.cursor, '')
+        self.sub_cursor_x = min(self.sub_cursor_x, len(self.comment_buffer))
         self.mode = ControlMode.Comment
 
     def exit_comment_mode(self):
