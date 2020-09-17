@@ -86,7 +86,7 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
     # Navigation shortcuts
     bind_shortcut('g', 'seek', filter=editor.filters.editor_active)
     bind_shortcut(
-        'X', ('inspect', cursor), run=True,
+        'X', ('inspect', cursor_dest), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
