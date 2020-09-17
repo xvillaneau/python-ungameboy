@@ -328,6 +328,7 @@ def create_asm_control_bindings(control: AsmControl):
     # Commenting bindings
 
     @bindings.add('escape', filter=commenting)
+    @bindings.add('enter', filter=commenting)
     @bindings.add('c-c', filter=commenting)
     def handle_quit_comment(_):
         control.exit_comment_mode()
@@ -342,10 +343,6 @@ def create_asm_control_bindings(control: AsmControl):
             control.delete_after(-event.arg)
         else:
             control.delete_before(event.arg)
-
-    @bindings.add('enter', filter=commenting)
-    def handle_comment_enter(_):
-        control.move_down(1)
 
     @bindings.add('<any>', filter=commenting)
     def handle_insert(event: 'KeyPressEvent'):
