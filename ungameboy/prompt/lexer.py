@@ -54,18 +54,18 @@ class AssemblyRender:
         self.asm = control.asm
 
     def cursor_at(self, elem: AsmElement):
-        return self.ctrl.cursor_mode and elem.address == self.ctrl.cursor
+        return self.ctrl.cursor_mode and elem.address == self.ctrl.address
 
     def cursor_at_dest(self, elem: AsmElement):
         return (
             self.ctrl.cursor_mode and
-            elem.address == self.ctrl.cursor_destination
+            elem.address == self.ctrl.destination_address
         )
 
     def cursor_in(self, elem: AsmElement):
         return (
-            self.ctrl.cursor_mode and
-            elem.address <= self.ctrl.cursor < elem.next_address
+                self.ctrl.cursor_mode and
+                elem.address <= self.ctrl.address < elem.next_address
         )
 
     def margin_at(self, address: Address) -> FormatToken:
@@ -204,7 +204,7 @@ class AssemblyRender:
 
         line = []
         if self.cursor_in(elem):
-            pos = (self.ctrl.cursor.offset - elem.address.offset) * 2
+            pos = (self.ctrl.address.offset - elem.address.offset) * 2
             if pos != 0:
                 line.append((bin_cls, bin_hex[:pos]))
             line.append((bin_cls + HIGHLIGHT, bin_hex[pos:pos + 2]))
@@ -327,11 +327,11 @@ class AssemblyRender:
     def add_inline_comment(self, elem: AsmElement, line: FormattedLine):
         cls = 'class:ugb.comment'
 
-        if self.ctrl.comment_mode and elem.address == self.ctrl.cursor:
+        if self.ctrl.comment_mode and elem.address == self.ctrl.address:
             line_len = sum(len(s) for _, s in line)
             line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
 
-            comment, pos = self.ctrl.comment_buffer, self.ctrl.sub_cursor_x
+            comment, pos = self.ctrl.comment_buffer, self.ctrl.cursor_x
             pre, post = '; ' + comment[:pos], comment[pos + 1:]
             cursor = comment[pos] if pos < len(comment) else ' '
 

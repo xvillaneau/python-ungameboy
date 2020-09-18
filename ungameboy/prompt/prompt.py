@@ -40,7 +40,7 @@ def create_ui_cli(ugb_app: "DisassemblyEditor"):
     @click.argument("address", type=address_arg)
     def inspect(address: Address):
         ugb_app.xrefs.address = address
-        ugb_app.xrefs.cursor = 0
+        ugb_app.xrefs.address = 0
         ugb_app.prompt_active = False
         ugb_app.layout.layout.focus(ugb_app.layout.xrefs_control)
         return False
@@ -72,8 +72,8 @@ class LabelCompleter(Completer):
             if not isinstance(control, AsmControl):
                 return
 
-            addr = control.cursor
-            dest = control.cursor_destination
+            addr = control.address
+            dest = control.destination_address
             yield from (
                 Completion(lb.name)
                 for lb in self.asm.labels.get_labels(addr)

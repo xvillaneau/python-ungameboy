@@ -38,7 +38,7 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
 
         def display_xref(_addr):
             tokens.append(('', '  '))
-            sel = ',ugb.hl' * (line_index == app.xrefs.cursor)
+            sel = ',ugb.hl' * (line_index == app.xrefs.address)
             tokens.append(('class:ugb.address' + sel, str(_addr)))
 
             name = app.disassembler.context.address_context(

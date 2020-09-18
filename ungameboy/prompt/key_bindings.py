@@ -51,9 +51,9 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
 
     def replace_arg(control: AsmControl, arg):
         if arg is cursor:
-            return control.cursor
+            return control.address
         if arg is cursor_dest:
-            dest = control.cursor_destination
+            dest = control.destination_address
             if dest is None:
                 raise ValueError()
             return dest
@@ -169,7 +169,7 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
         )
 
     def get_selected_xref():
-        index = app.xrefs.cursor
+        index = app.xrefs.address
         if index < 0:
             raise IndexError(index)
 
@@ -179,15 +179,15 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
                 return list(sorted(col))[index]
             index -= len(col)
 
-        raise IndexError(app.xrefs.cursor)
+        raise IndexError(app.xrefs.address)
 
     @bindings.add('up')
     def move_up(_):
-        app.xrefs.cursor = max(app.xrefs.cursor - 1, 0)
+        app.xrefs.address = max(app.xrefs.address - 1, 0)
 
     @bindings.add('down')
     def move_down(_):
-        app.xrefs.cursor = min(app.xrefs.cursor + 1, count_refs() - 1)
+        app.xrefs.address = min(app.xrefs.address + 1, count_refs() - 1)
 
     @bindings.add('enter')
     def go_to_ref(event):

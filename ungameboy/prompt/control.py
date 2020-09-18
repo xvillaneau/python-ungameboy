@@ -39,7 +39,8 @@ class AsmControl(UIControl):
         self._reset_scroll = False
 
         self.comment_buffer = ''
-        self.sub_cursor_x = 0
+        self.cursor_y = 0
+        self.cursor_x = 0
 
         self._stack: StateStack[Address] = StateStack()
         self._stack.push(Address(ROM, 0, 0))
@@ -96,24 +97,24 @@ class AsmControl(UIControl):
         return self.mode is ControlMode.Comment
 
     @property
-    def cursor(self) -> Address:
+    def address(self) -> Address:
         return self._stack.head
 
-    @cursor.setter
-    def cursor(self, value: Address):
+    @address.setter
+    def address(self, value: Address):
         if self.comment_mode:
-            self.asm.comments.set_inline(self.cursor, self.comment_buffer)
+            self.asm.comments.set_inline(self.address, self.comment_buffer)
             self.comment_buffer = self.asm.comments.inline.get(value, "")
-            self.sub_cursor_x = min(self.sub_cursor_x, len(self.comment_buffer))
+            self.cursor_x = min(self.cursor_x, len(self.comment_buffer))
         self._stack.head = value
 
     @property
     def cursor_position(self) -> int:
-        return self.current_view.find_line(self.cursor)
+        return self.current_view.find_line(self.address)
 
     @property
-    def cursor_destination(self) -> Optional[Address]:
-        item = self.asm[self.cursor]
+    def destination_address(self) -> Optional[Address]:
+        item = self.asm[self.address]
         if isinstance(item, RomElement):
             return item.dest_address
         else:
@@ -132,7 +133,7 @@ class AsmControl(UIControl):
             window = get_app().layout.current_window
             if window.content is self:
                 scroll = window.vertical_scroll
-                self.cursor = self.current_view.find_address(scroll)
+                self.address = self.current_view.find_address(scroll)
             self.mode = ControlMode.Default
 
         else:
@@ -143,7 +144,7 @@ class AsmControl(UIControl):
         if self.current_zone != zone:
             self.load_zone(zone)
         self._reset_scroll = True
-        self.cursor = address
+        self.address = address
 
     def seek(self, address: Address):
         if address.bank < 0:
@@ -164,62 +165,62 @@ class AsmControl(UIControl):
         self._seek(self._stack.redo())
 
     def follow_jump(self):
-        if self.cursor_destination is not None:
-            self.seek(self.cursor_destination)
+        if self.destination_address is not None:
+            self.seek(self.destination_address)
 
     def move_up(self, lines: int):
         if lines <= 0:
             return
         view = self.current_view
-        self.cursor = view.get_relative_address(self.cursor, -lines)
+        self.address = view.get_relative_address(self.address, -lines)
 
     def move_down(self, lines: int):
         if lines <= 0:
             return
         view = self.current_view
-        self.cursor = view.get_relative_address(self.cursor, lines)
+        self.address = view.get_relative_address(self.address, lines)
 
     def move_left(self, move: int):
         if move <= 0:
             return
         if self.comment_mode:
-            self.sub_cursor_x = max(0, self.sub_cursor_x - 1)
+            self.cursor_x = max(0, self.cursor_x - 1)
 
     def move_right(self, move: int):
         if move <= 0:
             return
         if self.comment_mode:
-            self.sub_cursor_x = min(
-                len(self.comment_buffer), self.sub_cursor_x + 1
+            self.cursor_x = min(
+                len(self.comment_buffer), self.cursor_x + 1
             )
 
     # Commenting
 
     def enter_comment_mode(self):
-        self.comment_buffer = self.asm.comments.inline.get(self.cursor, '')
-        self.sub_cursor_x = min(self.sub_cursor_x, len(self.comment_buffer))
+        self.comment_buffer = self.asm.comments.inline.get(self.address, '')
+        self.cursor_x = min(self.cursor_x, len(self.comment_buffer))
         self.mode = ControlMode.Comment
 
     def exit_comment_mode(self):
-        self.asm.comments.set_inline(self.cursor, self.comment_buffer)
+        self.asm.comments.set_inline(self.address, self.comment_buffer)
         self.mode = ControlMode.Cursor
 
     def insert_str(self, data: str):
-        comment, x = self.comment_buffer, self.sub_cursor_x
+        comment, x = self.comment_buffer, self.cursor_x
 
         pos = max(x, 0)
         self.comment_buffer = comment[:pos] + data + comment[pos:]
-        self.sub_cursor_x += len(data)
+        self.cursor_x += len(data)
 
     def delete_before(self, count=1):
-        comment, x = self.comment_buffer, self.sub_cursor_x
+        comment, x = self.comment_buffer, self.cursor_x
 
         pos = max(x - count, 0)
         self.comment_buffer = comment[:pos] + comment[x:]
-        self.sub_cursor_x = pos
+        self.cursor_x = pos
 
     def delete_after(self, count=1):
-        comment, x = self.comment_buffer, self.sub_cursor_x
+        comment, x = self.comment_buffer, self.cursor_x
 
         pos = min(x + count, len(comment))
         self.comment_buffer = comment[:x] + comment[pos:]
