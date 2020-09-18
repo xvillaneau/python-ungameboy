@@ -28,6 +28,7 @@ class AsmElement:
     section: Optional['Section']
     xrefs: 'XRefs'
     comment: str
+    block_comment: List[str]
 
     @property
     def next_address(self):

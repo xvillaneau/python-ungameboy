@@ -63,6 +63,7 @@ class Disassembler:
             "xrefs": self.xrefs.get_xrefs(addr),
             "scope": scope[-1] if scope else None,
             "comment": self.comments.inline.get(addr, ""),
+            "block_comment": self.comments.blocks.get(addr, []),
         }
 
         data = self.data.get_data(addr)

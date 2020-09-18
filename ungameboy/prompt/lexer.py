@@ -41,6 +41,7 @@ class AssemblyRender:
     MARGIN = 4
     LOC_MARGIN = 2
     COMMENT_LINE = 60
+    SHOW_BLOCK_COMMENTS = True
 
     XREF_TYPES = {
         "call": ("calls", "called_by", "Calls", "Call from", "Calls from"),
@@ -249,6 +250,15 @@ class AssemblyRender:
             *self._render_ref_lines(elem, "jump"),
         ]
 
+    def render_block_comment(self, elem: AsmElement) -> FormattedText:
+        if not self.SHOW_BLOCK_COMMENTS:
+            return []
+        margin = self.margin_at(elem.address)
+        return [
+            [margin, ('class:ugb.comment', f'; {line}')]
+            for line in elem.block_comment
+        ]
+
     def render_inline_xrefs(self, elem: AsmElement) -> FormattedLine:
         reads = elem.xrefs.reads
         writes = elem.xrefs.writes_to
@@ -380,6 +390,7 @@ class AssemblyRender:
         lines = [
             *self.render_labels(elem),
             *self.render_block_xrefs(elem),
+            *self.render_block_comment(elem),
         ]
 
         if isinstance(elem, Instruction):

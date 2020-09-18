@@ -266,10 +266,10 @@ class AsmRegionView:
             n_lines += jumps if jumps <= 3 else 1
 
             n_lines += len(asm.labels.get_labels(address))
+            n_lines += len(asm.comments.blocks.get(address, ()))
 
             if address >= next_data_addr and next_data is not None:
                 address = next_data.address
-                self._addr[-1] = address
 
                 if isinstance(next_data, BinaryData):
                     n_lines += 2
@@ -277,6 +277,7 @@ class AsmRegionView:
                         address = address + next_data.row_size
                         self._lines.append(n_lines)
                         self._addr.append(address)
+                        n_lines += len(asm.comments.blocks.get(address, ()))
                         n_lines += 1
                 elif isinstance(next_data, EmptyData):
                     n_lines += 1
