@@ -124,12 +124,10 @@ class AsmControl(UIControl):
 
         if self._reset_scroll:
             self._reset_scroll = False
-            scroll = self.cursor
-        else:
-            scroll = window.vertical_scroll
+            _, ref_line = self.current_view.get_line_info(self.cursor)
+            return ref_line
 
-        _, ref_line = self.current_view.get_line_info(scroll)
-        return ref_line
+        return window.vertical_scroll
 
     def toggle_cursor_mode(self):
         if self.cursor_mode:
@@ -193,6 +191,7 @@ class AsmControl(UIControl):
                 cursor = ref_line - len(valid_lines)
                 if cursor < 0:
                     self.move_down(0)
+                    self._reset_scroll = True
                     return  # At start, can't move
 
         self.cursor = cursor
@@ -281,7 +280,10 @@ class AsmControl(UIControl):
             offset = -1
         self.asm.comments.add_block_line(addr, offset, "")
 
-        self.refresh()
+        # Cursor is now on the new line but with the old value. We need
+        # to not move when refreshing to avoid writing that value to the
+        # new line we've just added.
+        self.refresh(poke_cursor=False)
         self.load_comment()
 
     def add_line_below(self):
@@ -301,7 +303,10 @@ class AsmControl(UIControl):
             return
         self.asm.comments.pop_block_line(addr, offset)
 
-        self.refresh()
+        # Cursor is now on the line that was below the one that we just
+        # deleted. Moving would save (and maybe overwrite) the comment
+        # on that line, so let's not do that.
+        self.refresh(poke_cursor=False)
         self.load_comment()
         self.move_down(0)
 
