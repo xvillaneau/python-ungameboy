@@ -1,5 +1,6 @@
-from typing import TYPE_CHECKING, List, Tuple, Union
+from typing import List, Tuple, Union
 
+from .control import AsmControl, ControlMode
 from ..address import Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
@@ -15,9 +16,6 @@ from ..dis import (
     SpecialLabel,
 )
 from ..enums import Condition, DoubleRegister, Register, C
-
-if TYPE_CHECKING:
-    from .control import AsmControl
 
 __all__ = ['AssemblyRender']
 
@@ -403,3 +401,65 @@ class AssemblyRender:
             lines.extend(self.render_data(elem))
 
         return lines
+
+    def get_lines_count(self, address: Address):
+        """
+        For pre-rendering purposes. Count how many lines the element at
+        the given address will occupy, and what's the next address.
+        """
+        # TODO: Optimize me! Too slow as of now.
+        elem = self.asm[address]
+        lines = 0
+
+        lines += len(elem.labels)
+        calls = len(elem.xrefs.called_by)
+        lines += calls if calls <= 3 else 1
+        jumps = len(elem.xrefs.jumps_from)
+        lines += jumps if jumps <= 3 else 1
+        lines += len(elem.block_comment)
+
+        if isinstance(elem, Instruction):
+            lines += 1
+        elif isinstance(elem, DataRow):
+            lines += 1 + (elem.row == 0)
+        elif isinstance(elem, DataBlock):
+            lines += 1
+            if isinstance(elem.data, CartridgeHeader):
+                lines += 4
+
+        return lines, elem.next_address
+
+    def get_valid_lines(self, address: Address, mode: ControlMode):
+        """
+        For navigation purposes. Given an address and a mode, returns a
+        map of where the cursor is allowed to land.
+        """
+        bin_only = mode is ControlMode.Cursor
+
+        elem = self.asm[address]
+
+        labels = len(elem.labels)
+        calls = len(elem.xrefs.called_by)
+        calls = calls if calls <= 3 else 1
+        jumps = len(elem.xrefs.jumps_from)
+        jumps = jumps if jumps <= 3 else 1
+        static = labels + calls + jumps
+        comm = len(elem.block_comment)
+
+        valid: List[bool] = [False] * (static + comm)
+
+        if isinstance(elem, Instruction):
+            valid.append(True)
+        elif isinstance(elem, DataRow):
+            if elem.row == 0:
+                valid.append(False)
+            valid.append(bin_only)
+        elif isinstance(elem, DataBlock):
+            valid.append(bin_only)
+            if isinstance(elem.data, CartridgeHeader):
+                valid.extend([False] * 4)
+
+        if mode is ControlMode.Default:
+            valid = [True] * len(valid)
+
+        return valid

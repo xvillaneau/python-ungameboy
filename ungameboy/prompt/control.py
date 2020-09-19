@@ -6,7 +6,6 @@ from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
-from .lexer import AssemblyRender
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
 from ..dis import BinaryData, CartridgeHeader, Disassembler, EmptyData, RomElement
@@ -27,6 +26,7 @@ class AsmControl(UIControl):
 
     def __init__(self, app: 'DisassemblyEditor'):
         from .key_bindings import create_asm_control_bindings
+        from .lexer import AssemblyRender
 
         self.app = app
         self.asm = app.disassembler
@@ -55,17 +55,17 @@ class AsmControl(UIControl):
     def create_content(self, width: int, height: int) -> UIContent:
         return UIContent(
             self.get_line,
-            self.current_view.lines_count,
-            cursor_position=Point(0, self.cursor_position),
+            self.current_view.lines,
+            cursor_position=Point(0, self.cursor),
             show_cursor=False,
         )
 
     def get_line(self, line: int):
         try:
-            addr, offset = self.current_view.get_line_info(line)
+            addr, ref_line = self.current_view.get_line_info(line)
         except IndexError:
             return []
-        return self.renderer.render(addr)[offset]
+        return self.renderer.render(addr)[line - ref_line]
 
     def is_focusable(self) -> bool:
         return True
@@ -100,17 +100,21 @@ class AsmControl(UIControl):
     def address(self) -> Address:
         return self._stack.head
 
-    @address.setter
-    def address(self, value: Address):
+    @property
+    def cursor(self) -> int:
+        return self.cursor_y
+
+    @cursor.setter
+    def cursor(self, value: int):
+        new_address = self.current_view.find_address(value)
+
         if self.comment_mode:
             self.asm.comments.set_inline(self.address, self.comment_buffer)
-            self.comment_buffer = self.asm.comments.inline.get(value, "")
+            self.comment_buffer = self.asm.comments.inline.get(new_address, "")
             self.cursor_x = min(self.cursor_x, len(self.comment_buffer))
-        self._stack.head = value
 
-    @property
-    def cursor_position(self) -> int:
-        return self.current_view.find_line(self.address)
+        self._stack.head = new_address
+        self.cursor_y = value
 
     @property
     def destination_address(self) -> Optional[Address]:
@@ -123,7 +127,7 @@ class AsmControl(UIControl):
     def get_vertical_scroll(self, window: "Window") -> int:
         if self.default_mode or self._reset_scroll:
             self._reset_scroll = False
-            return self.cursor_position
+            return self.cursor
         return window.vertical_scroll
 
     def toggle_cursor_mode(self):
@@ -132,8 +136,7 @@ class AsmControl(UIControl):
             # the cursor to the position at the top of the screen
             window = get_app().layout.current_window
             if window.content is self:
-                scroll = window.vertical_scroll
-                self.address = self.current_view.find_address(scroll)
+                self.cursor = window.vertical_scroll
             self.mode = ControlMode.Default
 
         else:
@@ -144,7 +147,7 @@ class AsmControl(UIControl):
         if self.current_zone != zone:
             self.load_zone(zone)
         self._reset_scroll = True
-        self.address = address
+        self.cursor = self.current_view.find_line(address)
 
     def seek(self, address: Address):
         if address.bank < 0:
@@ -169,16 +172,46 @@ class AsmControl(UIControl):
             self.seek(self.destination_address)
 
     def move_up(self, lines: int):
-        if lines <= 0:
+        cursor = max(0, self.cursor - lines)
+        if cursor == self.cursor or lines <= 0:
             return
-        view = self.current_view
-        self.address = view.get_relative_address(self.address, -lines)
+
+        found_line = self.mode is ControlMode.Default
+        while not found_line:
+            address, ref_line = self.current_view.get_line_info(cursor)
+            valid_lines = self.renderer.get_valid_lines(address, self.mode)
+
+            ref_line += len(valid_lines) - 1
+            valid_lines.reverse()
+            try:
+                cursor -= valid_lines.index(True, ref_line - cursor)
+                found_line = True
+            except ValueError:
+                cursor = ref_line - len(valid_lines)
+                if cursor < 0:
+                    return  # At start, can't move
+
+        self.cursor = cursor
 
     def move_down(self, lines: int):
-        if lines <= 0:
+        cursor = min(self.current_view.lines - 1, self.cursor + lines)
+        if cursor == self.cursor or lines <= 0:
             return
-        view = self.current_view
-        self.address = view.get_relative_address(self.address, lines)
+
+        found_line = self.mode is ControlMode.Default
+        while not found_line:
+            address, ref_line = self.current_view.get_line_info(cursor)
+            valid_lines = self.renderer.get_valid_lines(address, self.mode)
+
+            try:
+                cursor += valid_lines.index(True, cursor - ref_line)
+                found_line = True
+            except ValueError:
+                cursor = ref_line + len(valid_lines)
+                if cursor >= self.current_view.lines:
+                    return  # At end, can't move
+
+        self.cursor = cursor
 
     def move_left(self, move: int):
         if move <= 0:
@@ -234,7 +267,7 @@ class AsmRegionView:
 
         self._lines: List[int] = []
         self._addr: List[Address] = []
-        self.lines_count: int = 0
+        self.lines: int = 0
 
         self.build_names_map()
 
@@ -300,25 +333,38 @@ class AsmRegionView:
                 n_lines += 1
                 address += 1
 
-        self.lines_count = n_lines
+        self.lines = n_lines
+
+    def build_lines_map(self, control: AsmControl):
+        # TODO: Optimize me! I want this to replace build_names_map but
+        #       it's way too slow, likely because of disassembly.
+        self._lines.clear()
+        self._addr.clear()
+
+        lines = 0
+        address = Address(self.mem_type, self.mem_bank, 0)
+        end_addr = address.zone_end + 1
+        count_lines = control.renderer.get_lines_count
+
+        while address < end_addr:
+            self._lines.append(lines)
+            self._addr.append(address)
+
+            lines, address = count_lines(address)
+            lines += self._lines[-1]
+
+        self.lines = lines
 
     def get_line_info(self, line: int) -> Tuple[Address, int]:
         """
         Given a line number in the resulting document, get the address
-        to query and which line of the result to use.
+        to query and at while line that block is referenced.
         """
         pos = bisect_right(self._lines, line)
         if pos == 0:
             raise IndexError(line)
 
-        addr = self._addr[pos - 1]
-        ref_line = self._lines[pos - 1]
-        return addr, line - ref_line
-
-    def get_relative_address(self, address: Address, offset: int) -> Address:
-        pos = bisect_right(self._addr, address)
-        pos += offset - 1
-        return self._addr[max(0, min(pos, len(self._addr) - 1))]
+        return self._addr[pos - 1], self._lines[pos - 1]
 
     def find_address(self, line: int) -> Address:
         pos = bisect_right(self._lines, line)
