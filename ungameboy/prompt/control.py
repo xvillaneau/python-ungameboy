@@ -80,6 +80,14 @@ class AsmControl(UIControl):
         return self.mode is ControlMode.Comment
 
     @property
+    def comment_index(self) -> Tuple[Address, Optional[int]]:
+        addr, ref_line = self.current_view.get_line_info(self.cursor)
+        if not self.comment_mode:
+            return addr, None
+        index = self.renderer.get_comment_index(addr, self.cursor - ref_line)
+        return addr, index
+
+    @property
     def address(self) -> Address:
         return self._stack.head
 
@@ -92,12 +100,13 @@ class AsmControl(UIControl):
         new_address = self.current_view.find_address(value)
 
         if self.comment_mode:
-            self.asm.comments.set_inline(self.address, self.comment_buffer)
-            self.comment_buffer = self.asm.comments.inline.get(new_address, "")
-            self.cursor_x = min(self.cursor_x, len(self.comment_buffer))
+            self.save_comment()
 
         self._stack.head = new_address
         self.cursor_y = value
+
+        if self.comment_mode:
+            self.load_comment()
 
     @property
     def destination_address(self) -> Optional[Address]:
@@ -213,13 +222,34 @@ class AsmControl(UIControl):
     # Commenting
 
     def enter_comment_mode(self):
-        self.comment_buffer = self.asm.comments.inline.get(self.address, '')
-        self.cursor_x = min(self.cursor_x, len(self.comment_buffer))
+        self.load_comment()
         self.mode = ControlMode.Comment
 
     def exit_comment_mode(self):
-        self.asm.comments.set_inline(self.address, self.comment_buffer)
+        self.save_comment()
         self.mode = ControlMode.Cursor
+
+    def load_comment(self):
+        addr, index = self.comment_index
+        if index is None:
+            comment = ''
+        elif index < 0:
+            comment = self.asm.comments.inline.get(addr, '')
+        else:
+            block = self.asm.comments.blocks.get(addr, [])
+            comment = block[index] if index < len(block) else ''
+
+        self.comment_buffer = comment
+        self.cursor_x = min(self.cursor_x, len(comment))
+
+    def save_comment(self):
+        addr, index = self.comment_index
+        if index is None:
+            return
+        elif index < 0:
+            self.asm.comments.set_inline(addr, self.comment_buffer)
+        else:
+            self.asm.comments.set_block_line(addr, index, self.comment_buffer)
 
     def insert_str(self, data: str):
         comment, x = self.comment_buffer, self.cursor_x

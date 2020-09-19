@@ -36,11 +36,19 @@ class CommentsManager(AsmManager):
         elif address in self.inline:
             del self.inline[address]
 
+    def set_block_line(self, address: Address, index: int, comment: str):
+        if index < 0:
+            return
+        comment = re.sub(r'\s', ' ', comment)
+        block = self.blocks.setdefault(address, [])
+        if index >= len(block):
+            block.extend([''] * (index - len(block) + 1))
+        block[index] = comment
+
     def append_block_line(self, address: Address, comment: str):
         comment = re.sub(r'\s', ' ', comment).rstrip()
         block = self.blocks.setdefault(address, [])
-        if comment or block:
-            block.append(comment)
+        block.append(comment)
 
     def build_cli(self) -> 'click.Command':
         comments_cli = click.Group('comment')

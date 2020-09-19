@@ -44,7 +44,6 @@ class AssemblyRender:
     MARGIN = 4
     LOC_MARGIN = 2
     COMMENT_LINE = 60
-    SHOW_BLOCK_COMMENTS = True
 
     XREF_TYPES = {
         "call": ("calls", "called_by", "Calls", "Call from", "Calls from"),
@@ -252,14 +251,29 @@ class AssemblyRender:
             *self._render_ref_lines(elem, "jump"),
         ]
 
+    def render_comment_at_cursor(self):
+        cls = 'class:ugb.comment'
+        comment, pos = self.ctrl.comment_buffer, self.ctrl.cursor_x
+        pre, post = '; ' + comment[:pos], comment[pos + 1:]
+        cursor = comment[pos] if pos < len(comment) else ' '
+        return [(cls, pre), (cls + HIGHLIGHT, cursor), (cls, post)]
+
     def render_block_comment(self, elem: AsmElement) -> FormattedText:
-        if not self.SHOW_BLOCK_COMMENTS:
-            return []
+        addr, index = self.ctrl.comment_index
+        if index is None or elem.address != addr:
+            cursor_pos = -1
+        else:
+            cursor_pos = index
+
         margin = self.margin_at(elem.address)
-        return [
-            [margin, ('class:ugb.comment', f'; {line}')]
-            for line in elem.block_comment
-        ]
+        lines = []
+        for i, line in enumerate(elem.block_comment):
+            if i == cursor_pos:
+                tokens = self.render_comment_at_cursor()
+            else:
+                tokens = [('class:ugb.comment', '; ' + line)]
+            lines.append([margin, *tokens])
+        return lines
 
     def render_inline_xrefs(self, elem: AsmElement) -> FormattedLine:
         reads = elem.xrefs.reads
@@ -327,23 +341,17 @@ class AssemblyRender:
             line.extend(inline_xrefs)
 
     def add_inline_comment(self, elem: AsmElement, line: FormattedLine):
-        cls = 'class:ugb.comment'
+        addr, index = self.ctrl.comment_index
+        in_comment = index is not None and index < 0 and elem.address == addr
 
-        if self.ctrl.comment_mode and elem.address == self.ctrl.address:
+        if in_comment or elem.comment:
             line_len = sum(len(s) for _, s in line)
             line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
 
-            comment, pos = self.ctrl.comment_buffer, self.ctrl.cursor_x
-            pre, post = '; ' + comment[:pos], comment[pos + 1:]
-            cursor = comment[pos] if pos < len(comment) else ' '
-
-            line.extend([(cls, pre), (cls + HIGHLIGHT, cursor), (cls, post)])
-
-        elif elem.comment:
-            line_len = sum(len(s) for _, s in line)
-            line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
-
-            line.append((cls, f"; {elem.comment}"))
+            if in_comment:
+                line.extend(self.render_comment_at_cursor())
+            else:
+                line.append(('class:ugb.comment', '; ' + elem.comment))
 
     def render_data(self, elem: Union[DataBlock, DataRow]) -> FormattedText:
         if elem.data.description:
@@ -447,6 +455,7 @@ class AssemblyRender:
         map of where the cursor is allowed to land.
         """
         bin_only = mode is ControlMode.Cursor
+        com_only = mode is ControlMode.Comment
         valid: List[bool] = []
 
         labels = len(self.asm.labels.get_labels(address))
@@ -459,7 +468,7 @@ class AssemblyRender:
         valid.extend([False] * (jumps if jumps <= 3 else 1))
 
         comm = len(self.asm.comments.blocks.get(address, ()))
-        valid.extend([False] * comm)
+        valid.extend([com_only] * comm)
 
         data = self.asm.data.get_data(address)
         if data is not None:
@@ -476,3 +485,11 @@ class AssemblyRender:
             valid = [True] * len(valid)
 
         return valid
+
+    def get_comment_index(self, address: Address, offset: int):
+        lines = self.get_valid_lines(address, ControlMode.Comment)
+        if not 0 <= offset < len(lines) or not lines[offset]:
+            return None
+        offset -= lines.index(True)
+        block = len(self.asm.comments.blocks.get(address, ()))
+        return offset if offset < block else -1
