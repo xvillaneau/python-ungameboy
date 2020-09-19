@@ -294,13 +294,12 @@ class AsmControl(UIControl):
 
     def delete_before(self, count=1):
         comment, x = self.comment_buffer, self.cursor_x
-
-        pos = max(x - count, 0)
-        self.comment_buffer = comment[:pos] + comment[x:]
-        self.cursor_x = pos
-
-        if not self.comment_buffer:
+        if not comment:
             self.delete_line()
+        else:
+            pos = max(x - count, 0)
+            self.comment_buffer = comment[:pos] + comment[x:]
+            self.cursor_x = pos
 
     def delete_after(self, count=1):
         comment, x = self.comment_buffer, self.cursor_x
