@@ -64,8 +64,10 @@ class AsmControl(UIControl):
         self.current_zone = zone
         self.current_view = AsmRegionView(self, *zone)
 
-    def refresh(self):
+    def refresh(self, poke_cursor=True):
         self.current_view.refresh()
+        if poke_cursor:
+            self.move_down(0)
 
     @property
     def default_mode(self) -> bool:
@@ -190,6 +192,7 @@ class AsmControl(UIControl):
             except ValueError:
                 cursor = ref_line - len(valid_lines)
                 if cursor < 0:
+                    self.move_down(0)
                     return  # At start, can't move
 
         self.cursor = cursor
@@ -210,6 +213,7 @@ class AsmControl(UIControl):
             except ValueError:
                 cursor = ref_line + len(valid_lines)
                 if cursor >= self.current_view.lines:
+                    self.move_up(0)
                     return  # At end, can't move
 
         self.cursor = cursor
