@@ -167,7 +167,7 @@ class AsmControl(UIControl):
             ref_line += len(valid_lines) - 1
             valid_lines.reverse()
             try:
-                cursor -= valid_lines.index(True, ref_line - cursor)
+                cursor = ref_line - valid_lines.index(True, ref_line - cursor)
                 found_line = True
             except ValueError:
                 cursor = ref_line - len(valid_lines)
@@ -187,7 +187,7 @@ class AsmControl(UIControl):
             valid_lines = self.renderer.get_valid_lines(address, self.mode)
 
             try:
-                cursor += valid_lines.index(True, cursor - ref_line)
+                cursor = ref_line + valid_lines.index(True, cursor - ref_line)
                 found_line = True
             except ValueError:
                 cursor = ref_line + len(valid_lines)

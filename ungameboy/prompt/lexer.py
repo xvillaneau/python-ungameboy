@@ -431,6 +431,7 @@ class AssemblyRender:
             next_addr = data.end_address
             if isinstance(data, BinaryData):
                 lines += (data.address == address)
+                next_addr = min(next_addr, address + data.row_size)
             elif isinstance(data, CartridgeHeader):
                 lines += 4
 
