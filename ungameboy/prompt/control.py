@@ -133,7 +133,7 @@ class AsmControl(UIControl):
 
         else:
             self.mode = ControlMode.Cursor
-            self.move_up(0)
+            self.move_down(0)
 
     def _seek(self, address: Address):
         zone = (address.type, address.bank)
