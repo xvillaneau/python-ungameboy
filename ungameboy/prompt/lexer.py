@@ -1,10 +1,11 @@
-from typing import List, Tuple, Union
+from typing import TYPE_CHECKING, List, Tuple, Union
 
-from .control import AsmControl, ControlMode
+from .common import ControlMode
 from ..address import Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
     AsmElement,
+    BinaryData,
     CartridgeHeader,
     DataBlock,
     DataRow,
@@ -16,6 +17,10 @@ from ..dis import (
     SpecialLabel,
 )
 from ..enums import Condition, DoubleRegister, Register, C
+
+if TYPE_CHECKING:
+    from .control import AsmControl
+
 
 __all__ = ['AssemblyRender']
 
@@ -48,7 +53,6 @@ class AssemblyRender:
 
     def __init__(self, control: 'AsmControl'):
         self.ctrl = control
-        self.app = control.app
         self.asm = control.asm
 
     def cursor_at(self, elem: AsmElement):
@@ -406,28 +410,35 @@ class AssemblyRender:
         """
         For pre-rendering purposes. Count how many lines the element at
         the given address will occupy, and what's the next address.
+        Does not use the disassembler's element query, because it is way
+        too slow for what we need.
         """
-        # TODO: Optimize me! Too slow as of now.
-        elem = self.asm[address]
         lines = 0
 
-        lines += len(elem.labels)
-        calls = len(elem.xrefs.called_by)
-        lines += calls if calls <= 3 else 1
-        jumps = len(elem.xrefs.jumps_from)
-        lines += jumps if jumps <= 3 else 1
-        lines += len(elem.block_comment)
+        lines += len(self.asm.labels.get_labels(address))
 
-        if isinstance(elem, Instruction):
+        calls = self.asm.xrefs.count_incoming('call', address)
+        lines += calls if calls <= 3 else 1
+
+        jumps = self.asm.xrefs.count_incoming('jump', address)
+        lines += jumps if jumps <= 3 else 1
+
+        lines += len(self.asm.comments.blocks.get(address, ()))
+
+        data = self.asm.data.get_data(address)
+        if data is not None:
             lines += 1
-        elif isinstance(elem, DataRow):
-            lines += 1 + (elem.row == 0)
-        elif isinstance(elem, DataBlock):
-            lines += 1
-            if isinstance(elem.data, CartridgeHeader):
+            next_addr = data.end_address
+            if isinstance(data, BinaryData):
+                lines += (data.address == address)
+            elif isinstance(data, CartridgeHeader):
                 lines += 4
 
-        return lines, elem.next_address
+        else:  # Instruction
+            lines += 1
+            next_addr = address + self.asm.rom.size_of(address.rom_file_offset)
+
+        return lines, next_addr
 
     def get_valid_lines(self, address: Address, mode: ControlMode):
         """
@@ -435,29 +446,30 @@ class AssemblyRender:
         map of where the cursor is allowed to land.
         """
         bin_only = mode is ControlMode.Cursor
+        valid: List[bool] = []
 
-        elem = self.asm[address]
+        labels = len(self.asm.labels.get_labels(address))
+        valid.extend([False] * labels)
 
-        labels = len(elem.labels)
-        calls = len(elem.xrefs.called_by)
-        calls = calls if calls <= 3 else 1
-        jumps = len(elem.xrefs.jumps_from)
-        jumps = jumps if jumps <= 3 else 1
-        static = labels + calls + jumps
-        comm = len(elem.block_comment)
+        calls = self.asm.xrefs.count_incoming('call', address)
+        valid.extend([False] * (calls if calls <= 3 else 1))
 
-        valid: List[bool] = [False] * (static + comm)
+        jumps = self.asm.xrefs.count_incoming('jump', address)
+        valid.extend([False] * (jumps if jumps <= 3 else 1))
 
-        if isinstance(elem, Instruction):
-            valid.append(True)
-        elif isinstance(elem, DataRow):
-            if elem.row == 0:
+        comm = len(self.asm.comments.blocks.get(address, ()))
+        valid.extend([False] * comm)
+
+        data = self.asm.data.get_data(address)
+        if data is not None:
+            if isinstance(data, BinaryData) and data.address == address:
                 valid.append(False)
             valid.append(bin_only)
-        elif isinstance(elem, DataBlock):
-            valid.append(bin_only)
-            if isinstance(elem.data, CartridgeHeader):
+            if isinstance(data, CartridgeHeader):
                 valid.extend([False] * 4)
+
+        else:  # Instruction
+            valid.append(True)
 
         if mode is ControlMode.Default:
             valid = [True] * len(valid)

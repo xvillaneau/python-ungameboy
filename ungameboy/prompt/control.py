@@ -1,39 +1,31 @@
 from bisect import bisect_right
-from enum import Enum, auto
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import UIContent, UIControl
 
+from .common import ControlMode
+from .lexer import AssemblyRender
 from ..address import ROM, Address, MemoryType
 from ..data_structures import StateStack
-from ..dis import BinaryData, CartridgeHeader, Disassembler, EmptyData, RomElement
+from ..dis import Disassembler, RomElement
 
 if TYPE_CHECKING:
     from prompt_toolkit.layout import Window
-    from .application import DisassemblyEditor
-
-
-class ControlMode(Enum):
-    Default = auto()
-    Cursor = auto()
-    Comment = auto()
 
 
 class AsmControl(UIControl):
-    _ZONES: Dict[Tuple[MemoryType, int], "AsmRegionView"] = {}
 
-    def __init__(self, app: 'DisassemblyEditor'):
+    def __init__(self, asm: 'Disassembler'):
         from .key_bindings import create_asm_control_bindings
-        from .lexer import AssemblyRender
 
-        self.app = app
-        self.asm = app.disassembler
+        self.asm = asm
+        self.renderer = AssemblyRender(self)
         self.key_bindings = create_asm_control_bindings(self)
 
         self.current_zone: Tuple[MemoryType, int] = (ROM, 0)
-        self.current_view = AsmRegionView(self.asm, ROM, 0)
+        self.current_view = AsmRegionView(self, ROM, 0)
 
         self.mode = ControlMode.Default
         self._reset_scroll = False
@@ -44,8 +36,6 @@ class AsmControl(UIControl):
 
         self._stack: StateStack[Address] = StateStack()
         self._stack.push(Address(ROM, 0, 0))
-
-        self.renderer = AssemblyRender(self)
 
         self.load_zone(self.current_zone)
 
@@ -70,19 +60,12 @@ class AsmControl(UIControl):
     def is_focusable(self) -> bool:
         return True
 
-    @classmethod
-    def _get_zone(cls, asm: Disassembler, zone: Tuple[MemoryType, int]):
-        if zone not in cls._ZONES:
-            cls._ZONES[zone] = AsmRegionView(asm, *zone)
-        return cls._ZONES[zone]
-
     def load_zone(self, zone: Tuple[MemoryType, int]):
         self.current_zone = zone
-        self.current_view = self._get_zone(self.asm, zone)
-        self.refresh()
+        self.current_view = AsmRegionView(self, *zone)
 
     def refresh(self):
-        self.current_view.build_names_map()
+        self.current_view.refresh()
 
     @property
     def default_mode(self) -> bool:
@@ -260,8 +243,8 @@ class AsmControl(UIControl):
 
 
 class AsmRegionView:
-    def __init__(self, asm: Disassembler, m_type: MemoryType, m_bank: int):
-        self.asm = asm
+    def __init__(self, control: AsmControl, m_type: MemoryType, m_bank: int):
+        self.control = control
         self.mem_type = m_type
         self.mem_bank = m_bank
 
@@ -269,82 +252,19 @@ class AsmRegionView:
         self._addr: List[Address] = []
         self.lines: int = 0
 
-        self.build_names_map()
+        self.refresh()
 
-    def build_names_map(self):
-        self._lines.clear()
-        self._addr.clear()
+    def refresh(self):
+        self.build_lines_map()
 
-        address = Address(self.mem_type, self.mem_bank, 0)
-        end_addr = address.zone_end + 1
-
-        n_lines = 0
-        asm = self.asm
-        next_data = asm.data.next_block(address)
-        next_data_addr = (
-            end_addr if next_data is None else next_data.address
-        )
-        _is_rom = self.mem_type is ROM
-        _size_of = asm.rom.size_of
-
-        while address < end_addr:
-            self._lines.append(n_lines)
-            self._addr.append(address)
-
-            if asm.sections.get_section(address) is not None:
-                n_lines += 1
-
-            calls = asm.xrefs.count_incoming('call', address)
-            n_lines += calls if calls <= 3 else 1
-            jumps = asm.xrefs.count_incoming('jump', address)
-            n_lines += jumps if jumps <= 3 else 1
-
-            n_lines += len(asm.labels.get_labels(address))
-            n_lines += len(asm.comments.blocks.get(address, ()))
-
-            if address >= next_data_addr and next_data is not None:
-                address = next_data.address
-
-                if isinstance(next_data, BinaryData):
-                    n_lines += 2
-                    for row in range(1, next_data.rows):
-                        address = address + next_data.row_size
-                        self._lines.append(n_lines)
-                        self._addr.append(address)
-                        n_lines += len(asm.comments.blocks.get(address, ()))
-                        n_lines += 1
-                elif isinstance(next_data, EmptyData):
-                    n_lines += 1
-                elif isinstance(next_data, CartridgeHeader):
-                    n_lines += 5
-
-                address = next_data.address + next_data.size
-
-                next_data = asm.data.next_block(address)
-                next_data_addr = (
-                    end_addr if next_data is None else next_data.address
-                )
-
-            elif _is_rom:
-                n_lines += 1
-                address += _size_of(address.rom_file_offset)
-
-            else:
-                n_lines += 1
-                address += 1
-
-        self.lines = n_lines
-
-    def build_lines_map(self, control: AsmControl):
-        # TODO: Optimize me! I want this to replace build_names_map but
-        #       it's way too slow, likely because of disassembly.
+    def build_lines_map(self):
         self._lines.clear()
         self._addr.clear()
 
         lines = 0
         address = Address(self.mem_type, self.mem_bank, 0)
         end_addr = address.zone_end + 1
-        count_lines = control.renderer.get_lines_count
+        count_lines = self.control.renderer.get_lines_count
 
         while address < end_addr:
             self._lines.append(lines)

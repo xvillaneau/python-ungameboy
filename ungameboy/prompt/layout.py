@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class UGBLayout:
     def __init__(self, app: "DisassemblyEditor"):
         self.app = app
-        self.main_control = AsmControl(app)
+        self.main_control = AsmControl(app.disassembler)
         self.gfx_control = GraphicsControl(app)
         self.xrefs_control = make_xrefs_control(app)
 
