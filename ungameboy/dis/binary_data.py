@@ -215,6 +215,59 @@ class InterlacedRLEDataBlock(RLEDataBlock):
         )
 
 
+class SGBPacket(BinaryData):
+    COMMANDS = [
+        ('PAL01', 'Set SGB Palette 0,1 Data'),
+        ('PAL23', 'Set SGB Palette 2,3 Data'),
+        ('PAL03', 'Set SGB Palette 0,3 Data'),
+        ('PAL12', 'Set SGB Palette 1,2 Data'),
+        ('ATTR_BLK', '"Block" Area Designation Mode'),
+        ('ATTR_LIN', '"Line" Area Designation Mode'),
+        ('ATTR_DIV', '"Divide" Area Designation Mode'),
+        ('ATTR_CHR', '"1CHR" Area Designation Mode'),
+        ('SOUND', 'Sound On/Off'),
+        ('SOU_TRN', 'Transfer Sound PRG/DATA'),
+        ('PAL_SET', 'Set SGB Palette Indirect'),
+        ('PAL_TRN', 'Set System Color Palette Data'),
+        ('ATRC_EN', 'Enable/disable Attraction Mode'),
+        ('TEST_EN', 'Speed Function'),
+        ('ICON_EN', 'SGB Function'),
+        ('DATA_SND', 'SUPER NES WRAM Transfer 1'),
+        ('DATA_TRN', 'SUPER NES WRAM Transfer 2'),
+        ('MLT_REG', 'Controller 2 Request'),
+        ('JUMP', 'Set SNES Program Counter'),
+        ('CHR_TRN', 'Transfer Character Font Data'),
+        ('PCT_TRN', 'Set Screen Data Color Data'),
+        ('ATTR_TRN', 'Set Attribute from ATF'),
+        ('ATTR_SET', 'Set Data to ATF'),
+        ('MASK_EN', 'Game Boy Window Mask'),
+        ('OBJ_TRN', 'Super NES OBJ Mode'),
+    ]
+
+    def __init__(self, address: Address):
+        super().__init__(address, 16)
+        self.command_code = -1
+        self.packets = 1
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        start = self.address.rom_file_offset
+        command_byte = rom[start]
+        self.command_code, self.packets = divmod(command_byte, 8)
+        self.size = 16 * self.packets
+        self.bytes = rom[start: start + self.size]
+
+    @property
+    def description(self):
+        if not 0 <= self.command_code < len(self.COMMANDS):
+            return "Unknown"
+        name, explanation = self.COMMANDS[self.command_code]
+        return f"${self.command_code:02x} {name} ({explanation})"
+
+    @property
+    def create_cmd(self):
+        return ('data', 'create', 'sgb', self.address)
+
+
 class CartridgeHeader(BaseData):
     description = "Cartridge Header"
 
@@ -289,6 +342,9 @@ class DataManager(AsmManager):
 
     def create_header(self):
         self._insert(CartridgeHeader())
+
+    def create_sgb(self, address: Address):
+        self._insert(SGBPacket(address))
 
     def delete(self, address: Address):
         if address not in self.inventory:
@@ -365,6 +421,11 @@ class DataManager(AsmManager):
         @click.argument('size', type=ExtendedInt())
         def data_create_interlaced_rle(address: Address, size: int):
             self.create_interlaced_rle(address, size)
+
+        @data_create.command('sgb')
+        @click.argument('address', type=address_arg)
+        def data_create_sgb(address: Address):
+            self.create_sgb(address)
 
         @data_create.command('empty')
         @click.argument('address', type=address_arg)
