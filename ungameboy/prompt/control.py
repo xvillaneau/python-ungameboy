@@ -117,10 +117,17 @@ class AsmControl(UIControl):
             return None
 
     def get_vertical_scroll(self, window: "Window") -> int:
-        if self.default_mode or self._reset_scroll:
-            self._reset_scroll = False
+        if self.default_mode:
             return self.cursor
-        return window.vertical_scroll
+
+        if self._reset_scroll:
+            self._reset_scroll = False
+            scroll = self.cursor
+        else:
+            scroll = window.vertical_scroll
+
+        _, ref_line = self.current_view.get_line_info(scroll)
+        return ref_line
 
     def toggle_cursor_mode(self):
         if self.cursor_mode:
@@ -141,6 +148,7 @@ class AsmControl(UIControl):
             self.load_zone(zone)
         self._reset_scroll = True
         self.cursor = self.current_view.find_line(address)
+        self.move_down(0)
 
     def seek(self, address: Address):
         if address.bank < 0:
