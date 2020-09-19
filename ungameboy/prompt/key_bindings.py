@@ -265,9 +265,8 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
 def create_asm_control_bindings(control: AsmControl):
     bindings = KeyBindings()
 
-    @Condition
-    def commenting():
-        return control.comment_mode
+    commenting = Condition(lambda: control.comment_mode)
+    cursor_mode = Condition(lambda: control.cursor_mode)
 
     # Movement bindings, always active
 
@@ -343,6 +342,25 @@ def create_asm_control_bindings(control: AsmControl):
             control.delete_after(-event.arg)
         else:
             control.delete_before(event.arg)
+
+    @bindings.add('c-up', filter=commenting | cursor_mode)
+    @bindings.add('c-left', filter=commenting | cursor_mode)
+    def handle_add_line_above(_):
+        if not control.comment_mode:
+            control.enter_comment_mode()
+        control.add_line_above()
+
+    @bindings.add('c-down', filter=commenting | cursor_mode)
+    @bindings.add('c-right', filter=commenting | cursor_mode)
+    def handle_add_line_above(_):
+        if not control.comment_mode:
+            control.enter_comment_mode()
+        control.add_line_below()
+
+    @bindings.add('c-x', filter=commenting)
+    @bindings.add('c-delete', filter=commenting)
+    def handle_add_line_above(_):
+        control.delete_line()
 
     @bindings.add('<any>', filter=commenting)
     def handle_insert(event: 'KeyPressEvent'):

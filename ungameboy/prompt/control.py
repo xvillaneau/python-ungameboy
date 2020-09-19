@@ -133,6 +133,7 @@ class AsmControl(UIControl):
 
         else:
             self.mode = ControlMode.Cursor
+            self.move_up(0)
 
     def _seek(self, address: Address):
         zone = (address.type, address.bank)
@@ -165,7 +166,7 @@ class AsmControl(UIControl):
 
     def move_up(self, lines: int):
         cursor = max(0, self.cursor - lines)
-        if cursor == self.cursor or lines <= 0:
+        if lines < 0:
             return
 
         found_line = self.mode is ControlMode.Default
@@ -187,7 +188,7 @@ class AsmControl(UIControl):
 
     def move_down(self, lines: int):
         cursor = min(self.current_view.lines - 1, self.cursor + lines)
-        if cursor == self.cursor or lines <= 0:
+        if lines < 0:
             return
 
         found_line = self.mode is ControlMode.Default
@@ -224,10 +225,12 @@ class AsmControl(UIControl):
     def enter_comment_mode(self):
         self.load_comment()
         self.mode = ControlMode.Comment
+        self.move_down(0)
 
     def exit_comment_mode(self):
         self.save_comment()
         self.mode = ControlMode.Cursor
+        self.move_down(0)
 
     def load_comment(self):
         addr, index = self.comment_index
@@ -251,6 +254,37 @@ class AsmControl(UIControl):
         else:
             self.asm.comments.set_block_line(addr, index, self.comment_buffer)
 
+    def add_line_above(self):
+        self.save_comment()
+        addr, offset = self.comment_index
+        if offset is None or offset < 0:
+            offset = -1
+        self.asm.comments.add_block_line(addr, offset, "")
+
+        self.refresh()
+        self.load_comment()
+
+    def add_line_below(self):
+        addr, offset = self.comment_index
+        if offset is None or offset < 0:
+            addr = self.current_view.find_address(self.cursor + 1)
+            self.asm.comments.add_block_line(addr, 0, "")
+        else:
+            self.asm.comments.add_block_line(addr, offset + 1, "")
+
+        self.refresh()
+        self.move_down(1)
+
+    def delete_line(self):
+        addr, offset = self.comment_index
+        if offset is None or offset < 0:
+            return
+        self.asm.comments.pop_block_line(addr, offset)
+
+        self.refresh()
+        self.load_comment()
+        self.move_down(0)
+
     def insert_str(self, data: str):
         comment, x = self.comment_buffer, self.cursor_x
 
@@ -264,6 +298,9 @@ class AsmControl(UIControl):
         pos = max(x - count, 0)
         self.comment_buffer = comment[:pos] + comment[x:]
         self.cursor_x = pos
+
+        if not self.comment_buffer:
+            self.delete_line()
 
     def delete_after(self, count=1):
         comment, x = self.comment_buffer, self.cursor_x
