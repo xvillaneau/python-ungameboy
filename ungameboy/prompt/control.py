@@ -220,6 +220,14 @@ class AsmControl(UIControl):
                 len(self.comment_buffer), self.cursor_x + 1
             )
 
+    def move_end(self):
+        if self.comment_mode:
+            self.cursor_x = len(self.comment_buffer)
+
+    def move_home(self):
+        if self.comment_mode:
+            self.cursor_x = 0
+
     # Commenting
 
     def enter_comment_mode(self):

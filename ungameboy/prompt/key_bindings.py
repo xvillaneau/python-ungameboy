@@ -286,6 +286,14 @@ def create_asm_control_bindings(control: AsmControl):
     def handle_right(_):
         control.move_right(1)
 
+    @bindings.add("home")
+    def handle_home(_):
+        control.move_home()
+
+    @bindings.add("end")
+    def handle_end(_):
+        control.move_end()
+
     @bindings.add("pageup")
     def handle_page_up(event: 'KeyPressEvent'):
         window = event.app.layout.current_window
@@ -352,14 +360,14 @@ def create_asm_control_bindings(control: AsmControl):
 
     @bindings.add('c-down', filter=commenting | cursor_mode)
     @bindings.add('c-right', filter=commenting | cursor_mode)
-    def handle_add_line_above(_):
+    def handle_add_line_below(_):
         if not control.comment_mode:
             control.enter_comment_mode()
         control.add_line_below()
 
     @bindings.add('c-x', filter=commenting)
     @bindings.add('c-delete', filter=commenting)
-    def handle_add_line_above(_):
+    def handle_delete_line(_):
         control.delete_line()
 
     @bindings.add('<any>', filter=commenting)
