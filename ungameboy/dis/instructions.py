@@ -95,6 +95,27 @@ class CodePoint:
         )
 
 
+class VectorOps(CodePoint):
+    def __init__(self, code_point: int, destination: int):
+        super().__init__(code_point, Op.Vector, destination)
+        self.length = 1
+        self.param_type = None
+        self.value_pos = 1
+
+    def make_instance(self, address: Address, parameters) -> RawInstruction:
+        if parameters:
+            raise ValueError("RST operation takes no argument")
+
+        return RawInstruction(
+            type=Op.Vector,
+            args=(Word(self.visual_args[0]),),
+            address=address,
+            length=1,
+            bytes=bytes([self.code_point]),
+            value_pos=1,
+        )
+
+
 class BitwiseOps(CodePoint):
 
     def __init__(self, code_point):
@@ -383,7 +404,7 @@ META_INSTRUCTIONS = [
     (Op.Call, NZ, Word),
     (Op.Push, BC),
     (Op.Add, A, Byte),
-    (Op.Vector, 0x00),
+    (VectorOps, 0x00),
     # 0xC8
     (Op.Return, Z),
     Op.Return,
@@ -392,7 +413,7 @@ META_INSTRUCTIONS = [
     (Op.Call, Z, Word),
     (Op.Call, Word),
     (Op.AddWCarry, A, Byte),
-    (Op.Vector, 0x08),
+    (VectorOps, 0x08),
 
     # 0xD0
     (Op.Return, NC),
@@ -402,7 +423,7 @@ META_INSTRUCTIONS = [
     (Op.Call, NC, Word),
     (Op.Push, DE),
     (Op.Subtract, A, Byte),
-    (Op.Vector, 0x10),
+    (VectorOps, 0x10),
     # 0xD8
     (Op.Return, CY),
     Op.ReturnIntEnable,
@@ -411,7 +432,7 @@ META_INSTRUCTIONS = [
     (Op.Call, CY, Word),
     Op.Invalid,
     (Op.SubtractWCarry, A, Byte),
-    (Op.Vector, 0x18),
+    (VectorOps, 0x18),
 
     # 0xE0
     (Op.LoadFast, IORef(Byte), A),
@@ -421,7 +442,7 @@ META_INSTRUCTIONS = [
     Op.Invalid,
     (Op.Push, HL),
     (Op.And, A, Byte),
-    (Op.Vector, 0x20),
+    (VectorOps, 0x20),
     # 0xE8
     (Op.Add, SP, Byte),
     (Op.AbsJump, HL),
@@ -430,7 +451,7 @@ META_INSTRUCTIONS = [
     Op.Invalid,
     Op.Invalid,
     (Op.Xor, A, Byte),
-    (Op.Vector, 0x28),
+    (VectorOps, 0x28),
 
     # 0xF0
     (Op.LoadFast, A, IORef(Byte)),
@@ -440,7 +461,7 @@ META_INSTRUCTIONS = [
     Op.Invalid,
     (Op.Push, AF),
     (Op.Or, A, Byte),
-    (Op.Vector, 0x30),
+    (VectorOps, 0x30),
     # 0xF8
     (Op.Load, HL, SPOffset),
     (Op.Load, SP, HL),
@@ -449,7 +470,7 @@ META_INSTRUCTIONS = [
     Op.Invalid,
     Op.Invalid,
     (Op.Compare, A, Byte),
-    (Op.Vector, 0x38),
+    (VectorOps, 0x38),
 ]
 
 
@@ -467,7 +488,10 @@ def _make_code_points():
         elif isinstance(_data, tuple):
             _type, *_args = _data
 
-        code_points.append(CodePoint(_pos, _type, *_args))
+        if _type is VectorOps:
+            code_points.append(VectorOps(_pos, *_args))
+        else:
+            code_points.append(CodePoint(_pos, _type, *_args))
     return code_points
 
 
