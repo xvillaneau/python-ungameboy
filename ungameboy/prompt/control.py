@@ -190,6 +190,7 @@ class AsmControl(UIControl):
             except ValueError:
                 cursor = ref_line - len(valid_lines)
                 if cursor < 0:
+                    self.cursor = 0
                     self.move_down(0)
                     self._reset_scroll = True
                     return  # At start, can't move
@@ -212,6 +213,7 @@ class AsmControl(UIControl):
             except ValueError:
                 cursor = ref_line + len(valid_lines)
                 if cursor >= self.current_view.lines:
+                    self.cursor = self.current_view.lines - 1
                     self.move_up(0)
                     return  # At end, can't move
 
