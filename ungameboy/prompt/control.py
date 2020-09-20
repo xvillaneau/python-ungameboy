@@ -242,8 +242,8 @@ class AsmControl(UIControl):
     # Commenting
 
     def enter_comment_mode(self):
-        self.load_comment()
         self.mode = ControlMode.Comment
+        self.load_comment()
         self.move_down(0)
 
     def exit_comment_mode(self):
