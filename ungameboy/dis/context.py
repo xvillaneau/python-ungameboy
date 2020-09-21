@@ -151,7 +151,7 @@ class ContextManager(AsmManager):
         @context_cli.command('clear')
         @click.argument('address', type=address_arg)
         def context_clear(address):
-            self.set_context(address, force_scalar=True, bank=-1)
+            self.set_context(address, force_scalar=False, bank=-1)
             return False
 
         return context_cli
