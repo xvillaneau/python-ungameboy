@@ -6,6 +6,7 @@ from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.keys import Keys
 
 from .control import AsmControl
+from ..address import ROM
 
 if TYPE_CHECKING:
     from prompt_toolkit.key_binding import KeyBindingsBase, KeyPressEvent
@@ -48,15 +49,25 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
 
     cursor = object()
     cursor_dest = object()
+    cursor_dest_rom = object()
 
     def replace_arg(control: AsmControl, arg):
-        if arg is cursor:
-            return control.address
-        if arg is cursor_dest:
-            dest = control.destination_address
+        addr = control.address
+        dest = control.destination_address
+
+        use_addr = arg is cursor
+        use_dest = arg is cursor_dest
+        if arg is cursor_dest_rom:
+            use_dest = addr.type is ROM
+            use_addr = not use_dest
+
+        if use_addr:
+            return addr
+        if use_dest:
             if dest is None:
                 raise ValueError()
             return dest
+
         return arg
 
     def bind_shortcut(keys, args, filter=None, run=False):
@@ -86,7 +97,7 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
     # Navigation shortcuts
     bind_shortcut('g', 'seek', filter=editor.filters.editor_active)
     bind_shortcut(
-        'X', ('inspect', cursor_dest), run=True,
+        'X', ('inspect', cursor_dest_rom), run=True,
         filter=editor.filters.cursor_active,
     )
     bind_shortcut(
