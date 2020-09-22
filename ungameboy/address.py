@@ -80,7 +80,7 @@ ROM, VRAM, SRAM, WRAM, _, OAM, _, IOR, HRAM = MemoryType
 BANKS = {
     ROM: 0x4000,
     VRAM: 0,
-    # SRAM: (0, 16),
+    SRAM: 0,
     WRAM: 0x1000,
 }
 
