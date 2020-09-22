@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from .xrefs import XRefs
 
 __all__ = [
-    'AsmElement', 'RomElement', 'DataBlock', 'DataRow', 'Instruction', 'Value'
+    'AsmElement', 'RamElement', 'RomElement', 'DataBlock', 'DataRow',
+    'Instruction', 'Value'
 ]
 
 Value = Union[int, Address, Label, LabelOffset, SpecialLabel]
@@ -57,3 +58,8 @@ class DataRow(RomElement):
 @dataclass
 class DataBlock(RomElement):
     data: 'BaseData'
+
+
+@dataclass
+class RamElement(AsmElement):
+    pass

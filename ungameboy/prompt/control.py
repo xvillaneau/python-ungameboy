@@ -153,8 +153,6 @@ class AsmControl(UIControl):
     def seek(self, address: Address):
         if address.bank < 0:
             raise ValueError("Cannot seek address with missing ROM bank")
-        if address.type is not ROM:
-            raise NotImplementedError()
         self._stack.push(address)
         self._seek(address)
 

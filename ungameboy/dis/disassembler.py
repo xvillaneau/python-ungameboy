@@ -7,7 +7,7 @@ from .context import ContextManager
 from .decoder import ROMBytes
 from .labels import LabelManager
 from .manager_base import AsmManager
-from .models import AsmElement, Instruction, DataBlock, DataRow
+from .models import AsmElement, Instruction, DataBlock, DataRow, RamElement
 from .sections import SectionManager
 from .xrefs import XRefManager
 from ..address import Address, ROM
@@ -110,4 +110,9 @@ class Disassembler:
                 value=value,
             )
 
-        raise ValueError()
+        # VRAM/SRAM/WRAM/HRAM
+        return RamElement(
+            address=addr,
+            size=1,
+            **common_args,
+        )

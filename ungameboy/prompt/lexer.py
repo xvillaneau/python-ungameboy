@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, List, Tuple, Union
 
 from .common import ControlMode
-from ..address import Address
+from ..address import ROM, Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
     AsmElement,
@@ -13,6 +13,7 @@ from ..dis import (
     Instruction,
     Label,
     LabelOffset,
+    RamElement,
     RomElement,
     SpecialLabel,
 )
@@ -187,7 +188,9 @@ class AssemblyRender:
     def render_address(self, elem: AsmElement) -> FormattedLine:
         addr_cls = 'class:ugb.address'
         addr_cls += '.data' if isinstance(elem, (DataRow, DataBlock)) else ''
-        if self.cursor_at_dest(elem):
+        if elem.address.type is ROM and self.cursor_at_dest(elem):
+            addr_cls += HIGHLIGHT
+        elif elem.address.type is not ROM and self.cursor_at(elem):
             addr_cls += HIGHLIGHT
 
         addr = elem.address
@@ -395,6 +398,10 @@ class AssemblyRender:
 
         return lines
 
+    def render_ram(self, elem: RamElement) -> FormattedLine:
+        var_byte = ('class:ugb.ram.byte', 'db')
+        return [*self.render_address(elem), S4, var_byte]
+
     def render(self, address: Address) -> FormattedText:
         elem = self.asm[address]
         lines = [
@@ -411,6 +418,12 @@ class AssemblyRender:
 
         elif isinstance(elem, (DataBlock, DataRow)):
             lines.extend(self.render_data(elem))
+
+        elif isinstance(elem, RamElement):
+            line = self.render_ram(elem)
+            self.add_inline_xrefs(elem, line)
+            self.add_inline_comment(elem, line)
+            lines.append(line)
 
         return lines
 
@@ -443,9 +456,13 @@ class AssemblyRender:
             elif isinstance(data, CartridgeHeader):
                 lines += 4
 
-        else:  # Instruction
+        elif address.type is ROM:  # Instruction
             lines += 1
             next_addr = address + self.asm.rom.size_of(address.rom_file_offset)
+
+        else:  # RAM
+            lines += 1
+            next_addr = address + 1
 
         return lines, next_addr
 
@@ -478,7 +495,7 @@ class AssemblyRender:
             if isinstance(data, CartridgeHeader):
                 valid.extend([False] * 4)
 
-        else:  # Instruction
+        else:  # Instruction or RAM
             valid.append(True)
 
         if mode is ControlMode.Default:
