@@ -28,13 +28,19 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
         jumps = list(sorted(xrefs.jumps_from))
         reads = list(sorted(xrefs.read_by))
         writes = list(sorted(xrefs.written_by))
+        comment = app.disassembler.comments.blocks.get(app.xrefs.address, [])
 
-        if not any([calls, jumps, reads, writes]):
+        if not any([calls, jumps, reads, writes, comment]):
             return [('', 'No references found')]
 
         nl = ('', '\n')
         line_index = 0
         tokens = []
+
+        if comment:
+            for line in comment:
+                tokens.extend([('class:ugb.comment', f'; {line}'), nl])
+            tokens.append(nl)
 
         def display_xref(_addr):
             tokens.append(('', '  '))
