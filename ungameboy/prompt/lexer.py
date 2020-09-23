@@ -375,6 +375,7 @@ class AssemblyRender:
                 *self.render_address(elem),
                 *self.render_bytes(elem),
                 *self.render_flags(elem),
+                ('class:ugb.bin', f'{elem.row:02x}.'), S2
             ]
             for item in elem.values:
                 line.extend(self.render_value(elem, item))
