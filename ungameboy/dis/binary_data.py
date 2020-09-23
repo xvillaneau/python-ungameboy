@@ -124,6 +124,39 @@ class DataTable(BinaryData):
         return ('data', 'create', 'table', self.address, self.rows, row)
 
 
+class JumpTable(DataTable):
+    def __init__(self, address: Address, rows: int = 0):
+        super().__init__(address, rows, [TYPES_BY_NAME['addr']])
+
+    def load_from_rom(self, rom: 'ROMBytes'):
+        if self.rows <= 0:
+            # Auto-detect the table length, assuming it contains the
+            # address right after the end of the table.
+            self._rows = 0
+            start = self.address.rom_file_offset
+            min_pos = 0xffff
+
+            while (start + self.rows * 2) < min_pos:
+                pos = start + self.rows * 2
+                self._rows += 1
+                row_bin = rom[pos:pos + 2]
+                row_pos = int.from_bytes(row_bin, 'little')
+                if pos < row_pos < min_pos:
+                    min_pos = row_pos
+
+            self.size = self.rows * 2
+
+        super().load_from_rom(rom)
+
+    @property
+    def description(self) -> str:
+        return f"Jump table, {self.rows} addresses"
+
+    @property
+    def create_cmd(self):
+        return ("data", "create", "jumptable", self.address, self.rows)
+
+
 class PaletteData(DataTable):
     def __init__(self, address: Address, rows: int = 8):
         color_type = TYPES_BY_NAME['color']
@@ -337,6 +370,9 @@ class DataManager(AsmManager):
     def create_interlaced_rle(self, address: Address, size: int):
         self._insert(InterlacedRLEDataBlock(address, size))
 
+    def create_jumptable(self, address: Address, rows: int = 0):
+        self._insert(JumpTable(address, rows))
+
     def create_empty(self, address: Address, size: int = 0):
         self._insert(EmptyData(address, size))
 
@@ -421,6 +457,12 @@ class DataManager(AsmManager):
         @click.argument('size', type=ExtendedInt())
         def data_create_interlaced_rle(address: Address, size: int):
             self.create_interlaced_rle(address, size)
+
+        @data_create.command('jumptable')
+        @click.argument('address', type=address_arg)
+        @click.argument('rows', type=ExtendedInt(), default=0)
+        def data_create_jumptable(address: Address, rows: int = 0):
+            self.create_jumptable(address, rows)
 
         @data_create.command('sgb')
         @click.argument('address', type=address_arg)
