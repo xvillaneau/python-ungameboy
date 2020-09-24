@@ -133,16 +133,19 @@ class JumpTable(DataTable):
             # Auto-detect the table length, assuming it contains the
             # address right after the end of the table.
             self._rows = 0
-            start = self.address.rom_file_offset
+            start = self.address.memory_address
             min_pos = 0xffff
 
             while (start + self.rows * 2) < min_pos:
-                pos = start + self.rows * 2
+                pos = (self.address + self.rows * 2).rom_file_offset
                 self._rows += 1
                 row_bin = rom[pos:pos + 2]
                 row_pos = int.from_bytes(row_bin, 'little')
-                if pos < row_pos < min_pos:
+                if start < row_pos < min_pos:
                     min_pos = row_pos
+
+            if not self.rows:
+                raise ValueError("Failed to detect jump table")
 
             self.size = self.rows * 2
 
