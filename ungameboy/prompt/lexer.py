@@ -9,6 +9,7 @@ from ..dis import (
     CartridgeHeader,
     DataBlock,
     DataRow,
+    DataTable,
     EmptyData,
     Instruction,
     Label,
@@ -73,9 +74,8 @@ class AssemblyRender:
     def margin_at(self, address: Address) -> FormatToken:
         return spc(self.MARGIN + 12 - len(str(address)))
 
-    @classmethod
     def render_reference(
-            cls, elem: AsmElement, reference: Reference
+            self, elem: AsmElement, reference: Reference
     ) -> FormatToken:
         if isinstance(reference, Label):
             scope_name = elem.scope.name if elem.scope else ''
@@ -84,16 +84,26 @@ class AssemblyRender:
             else:
                 out = reference.name
             value_type = 'label'
+
         elif isinstance(reference, LabelOffset):
-            out = (
-                f"{reference.label.name} "
-                f"{'-' if reference.offset < 0 else '+'}"
-                f"${reference.offset:x}"
-            )
+            out = reference.label.name
+            offset = reference.offset
+
+            data = self.asm.data.get_data(reference.address)
+            if isinstance(data, DataTable) and offset >= 0:
+                rows, rem = divmod(offset, data.row_size)
+                out += f" @{rows:02x}"
+                if rem:
+                    out += f" +${rem:x}"
+            elif offset:
+                out += f" {'-' if offset < 0 else '+'}${offset:x}"
+
             value_type = 'label'
+
         else:  # Address
             out = str(reference)
             value_type = 'addr'
+
         return out, value_type
 
     def render_value(self, elem: AsmElement, value, suffix=''):

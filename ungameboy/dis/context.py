@@ -119,8 +119,8 @@ class ContextManager(AsmManager):
 
         # Detect labels
         target_labels = self.asm.labels.get_labels(address)
-        if relative and not target_labels:
-            scope = self.asm.labels.scope_at(address)
+        if relative:
+            scope = target_labels or self.asm.labels.scope_at(address)
             if scope:
                 label = scope[-1]
                 offset = address.offset - label.address.offset

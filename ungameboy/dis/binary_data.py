@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .disassembler import Disassembler
 
 __all__ = [
-    'BaseData', 'BinaryData', 'CartridgeHeader',
+    'BaseData', 'BinaryData', 'CartridgeHeader', 'DataTable',
     'DataManager', 'EmptyData', 'RLEDataBlock', 'RowItem',
 ]
 

@@ -1,4 +1,4 @@
-from .binary_data import BinaryData, CartridgeHeader, EmptyData
+from .binary_data import BinaryData, CartridgeHeader, DataTable, EmptyData
 from .disassembler import Disassembler
 from .labels import Label, LabelOffset
 from .models import (
