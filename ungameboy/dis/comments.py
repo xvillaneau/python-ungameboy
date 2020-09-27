@@ -72,6 +72,8 @@ class CommentsManager(AsmManager):
         address_arg = AddressOrLabel(self.asm)
 
         def process_comment(comment, b64=False):
+            if not comment:
+                return ''
             if b64:
                 if len(comment) != 1:
                     raise ValueError()
@@ -86,14 +88,14 @@ class CommentsManager(AsmManager):
 
         @comments_cli.command()
         @click.argument('address', type=address_arg)
-        @click.argument('comment', required=True, nargs=-1)
+        @click.argument('comment', nargs=-1)
         @click.option('--b64', is_flag=True)
         def inline(address, comment, b64=False):
             self.set_inline(address, process_comment(comment, b64))
 
         @comments_cli.command()
         @click.argument('address', type=address_arg)
-        @click.argument('comment', required=True, nargs=-1)
+        @click.argument('comment', nargs=-1)
         @click.option('--b64', is_flag=True)
         def append(address, comment, b64=False):
             self.append_block_line(address, process_comment(comment, b64))
@@ -102,10 +104,11 @@ class CommentsManager(AsmManager):
 
     def save_items(self):
         def encode(comm):
-            return b64encode(comm.encode("utf8")).decode("ascii")
+            out = b64encode(comm.encode("utf8")).decode("ascii")
+            return (out, "--b64") if out else ()
 
         for addr, comment in self.inline.items():
-            yield ('comment', 'inline', addr, encode(comment), "--b64")
+            yield ('comment', 'inline', addr, *encode(comment))
         for addr, lines in self.blocks.items():
             for comment in lines:
-                yield ('comment', 'append', addr, encode(comment), "--b64")
+                yield ('comment', 'append', addr, *encode(comment))
