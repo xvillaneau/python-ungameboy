@@ -1,3 +1,4 @@
+from base64 import b64decode, b64encode
 import re
 from typing import TYPE_CHECKING, List
 
@@ -70,6 +71,14 @@ class CommentsManager(AsmManager):
         comments_cli = click.Group('comment')
         address_arg = AddressOrLabel(self.asm)
 
+        def process_comment(comment, b64=False):
+            if b64:
+                if len(comment) != 1:
+                    raise ValueError()
+                return b64decode(comment[0]).decode("utf-8")
+            else:
+                return ' '.join(comment)
+
         @comments_cli.command()
         @click.argument('address', type=address_arg)
         def clear(address):
@@ -78,20 +87,25 @@ class CommentsManager(AsmManager):
         @comments_cli.command()
         @click.argument('address', type=address_arg)
         @click.argument('comment', required=True, nargs=-1)
-        def inline(address, comment):
-            self.set_inline(address, ' '.join(comment))
+        @click.option('--b64', is_flag=True)
+        def inline(address, comment, b64=False):
+            self.set_inline(address, process_comment(comment, b64))
 
         @comments_cli.command()
         @click.argument('address', type=address_arg)
         @click.argument('comment', required=True, nargs=-1)
-        def append(address, comment):
-            self.append_block_line(address, ' '.join(comment))
+        @click.option('--b64', is_flag=True)
+        def append(address, comment, b64=False):
+            self.append_block_line(address, process_comment(comment, b64))
 
         return comments_cli
 
     def save_items(self):
+        def encode(comm):
+            return b64encode(comm.encode("utf8")).decode("ascii")
+
         for addr, comment in self.inline.items():
-            yield ('comment', 'inline', addr, comment)
+            yield ('comment', 'inline', addr, encode(comment), "--b64")
         for addr, lines in self.blocks.items():
             for comment in lines:
-                yield ('comment', 'append', addr, comment)
+                yield ('comment', 'append', addr, encode(comment), "--b64")
