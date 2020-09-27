@@ -30,7 +30,7 @@ class AsmControl(UIControl):
         self.mode = ControlMode.Default
         self._reset_scroll = False
 
-        self.comment_buffer = ''
+        self.comment_buffer: Optional[str] = None
         self.cursor_y = 0
         self.cursor_x = 0
 
@@ -64,9 +64,11 @@ class AsmControl(UIControl):
         self.current_zone = zone
         self.current_view = AsmRegionView(self, *zone)
 
-    def refresh(self, poke_cursor=True):
+    def refresh(self, bump_up=False):
         self.current_view.refresh()
-        if poke_cursor:
+        if bump_up:
+            self.move_up(0)
+        else:
             self.move_down(0)
 
     @property
@@ -266,7 +268,7 @@ class AsmControl(UIControl):
 
     def save_comment(self):
         addr, index = self.comment_index
-        if index is None:
+        if index is None or self.comment_buffer is None:
             return
         elif index < 0:
             self.asm.comments.set_inline(addr, self.comment_buffer)
@@ -280,11 +282,10 @@ class AsmControl(UIControl):
             offset = -1
         self.asm.comments.add_block_line(addr, offset, "")
 
-        # Cursor is now on the new line but with the old value. We need
-        # to not move when refreshing to avoid writing that value to the
-        # new line we've just added.
-        self.refresh(poke_cursor=False)
-        self.load_comment()
+        # Cursor is now on the new line but with the old value. Setting
+        # the buffer to None will prevent writing on move.
+        self.comment_buffer = None
+        self.refresh(bump_up=True)
 
     def add_line_below(self):
         addr, offset = self.comment_index
@@ -304,11 +305,9 @@ class AsmControl(UIControl):
         self.asm.comments.pop_block_line(addr, offset)
 
         # Cursor is now on the line that was below the one that we just
-        # deleted. Moving would save (and maybe overwrite) the comment
-        # on that line, so let's not do that.
-        self.refresh(poke_cursor=False)
-        self.load_comment()
-        self.move_down(0)
+        # deleted. Set buffer to None to avoid unwanted write.
+        self.comment_buffer = None
+        self.refresh()
 
     def insert_str(self, data: str):
         comment, x = self.comment_buffer, self.cursor_x

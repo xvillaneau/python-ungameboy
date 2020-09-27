@@ -267,6 +267,7 @@ class AssemblyRender:
     def render_comment_at_cursor(self):
         cls = 'class:ugb.comment'
         comment, pos = self.ctrl.comment_buffer, self.ctrl.cursor_x
+        comment = comment or ''
         pre, post = '; ' + comment[:pos], comment[pos + 1:]
         cursor = comment[pos] if pos < len(comment) else ' '
         return [(cls, pre), (cls + HIGHLIGHT, cursor), (cls, post)]
@@ -391,6 +392,7 @@ class AssemblyRender:
                 line.extend(self.render_value(elem, item))
                 line.append(('', ', '))
             line.pop()
+            self.add_inline_comment(elem, line)
             lines.append(line)
 
         elif isinstance(elem, DataBlock):
@@ -500,11 +502,14 @@ class AssemblyRender:
 
         data = self.asm.data.get_data(address)
         if data is not None:
-            if isinstance(data, BinaryData) and data.address == address:
-                valid.append(False)
-            valid.append(bin_only)
-            if isinstance(data, CartridgeHeader):
-                valid.extend([False] * 4)
+            if isinstance(data, BinaryData):
+                if data.address == address:
+                    valid.append(False)
+                valid.append(True)
+            else:
+                valid.append(bin_only)
+                if isinstance(data, CartridgeHeader):
+                    valid.extend([False] * 4)
 
         else:  # Instruction or RAM
             valid.append(True)
