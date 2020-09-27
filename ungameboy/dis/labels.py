@@ -1,10 +1,8 @@
 from typing import TYPE_CHECKING, List, NamedTuple, Tuple
 
-import click
-
 from .manager_base import AsmManager
 from ..address import Address
-from ..commands import AddressOrLabel, LabelName, UgbCommandGroup
+from ..commands import LabelName, UgbCommandGroup
 from ..data_structures import AddressMapping, SortedStrMapping
 
 if TYPE_CHECKING:
@@ -260,37 +258,6 @@ class LabelManager(AsmManager):
                 globals_here.remove(name)
 
         self._rebuild_all()
-
-    def build_cli(self) -> 'click.Command':
-
-        label_cli = click.Group('label')
-        address_arg = AddressOrLabel(self.asm)
-
-        @label_cli.command("create")
-        @click.argument("address", type=address_arg)
-        @click.argument("name")
-        def label_create(address: Address, name: str):
-            self.create(address, name)
-
-        @label_cli.command("auto")
-        @click.argument("address", type=address_arg)
-        @click.option("--local", "-l", is_flag=True)
-        def label_auto(address: Address, local=False):
-            self.auto_create(address, local)
-
-        @label_cli.command("rename")
-        @click.argument("old_name", type=address_arg)
-        @click.argument("new_name")
-        def label_rename(old_name: str, new_name: str):
-            self.rename(old_name, new_name)
-            return False
-
-        @label_cli.command("delete")
-        @click.argument("name", type=address_arg)
-        def label_delete(name: str):
-            self.delete(name)
-
-        return label_cli
 
     def build_cli_v2(self) -> UgbCommandGroup:
         labels_cli = UgbCommandGroup(self.asm, "label")

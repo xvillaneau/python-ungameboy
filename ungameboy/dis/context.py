@@ -1,12 +1,10 @@
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
-import click
-
 from .special_labels import SpecialLabel
 from .labels import LabelOffset
 from .manager_base import AsmManager
 from ..address import Address, ROM
-from ..commands import AddressOrLabel, ExtendedInt, UgbCommandGroup
+from ..commands import UgbCommandGroup
 from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
@@ -122,35 +120,6 @@ class ContextManager(AsmManager):
                 offset = address.offset - label.address.offset
                 return LabelOffset(label, offset)
         return target_labels[-1] if target_labels else address
-
-    def build_cli(self) -> 'click.Command':
-        context_cli = click.Group('context')
-        address_arg = AddressOrLabel(self.asm)
-
-        @context_cli.group('set')
-        def set_context():
-            pass
-
-        @set_context.command("scalar")
-        @click.argument('address', type=address_arg)
-        def context_force_scalar(address: Address):
-            self.set_force_scalar(address)
-            return False
-
-        @set_context.command("bank")
-        @click.argument('address', type=address_arg)
-        @click.argument("bank", type=ExtendedInt())
-        def context_set_bank(address: Address, bank: int):
-            self.set_bank_number(address, bank)
-            return False
-
-        @context_cli.command('clear')
-        @click.argument('address', type=address_arg)
-        def context_clear(address):
-            self.clear_context(address)
-            return False
-
-        return context_cli
 
     def build_cli_v2(self) -> 'UgbCommandGroup':
         context_set = UgbCommandGroup(self.asm, "set")

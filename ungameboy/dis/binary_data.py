@@ -2,11 +2,9 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-import click
-
 from .decoder import HeaderDecoder
 from .manager_base import AsmManager
-from ..commands import AddressOrLabel, ExtendedInt, UgbCommandGroup
+from ..commands import UgbCommandGroup
 from ..address import Address
 from ..data_structures import AddressMapping
 from ..data_types import Byte, CgbColor, Word
@@ -420,74 +418,6 @@ class DataManager(AsmManager):
         if address >= addr + size:
             return None
         return self.inventory[addr]
-
-    def build_cli(self) -> click.Command:
-
-        data_cli = click.Group('data')
-        address_arg = AddressOrLabel(self.asm)
-
-        @data_cli.group('create')
-        def data_create():
-            pass
-
-        @data_create.command('simple')
-        @click.argument('address', type=address_arg)
-        @click.argument('size', type=ExtendedInt())
-        def data_create_simple(address: Address, size):
-            self.create(address, size)
-
-        @data_create.command('table')
-        @click.argument('address', type=address_arg)
-        @click.argument('rows', type=ExtendedInt())
-        @click.argument('structure', type=str)
-        def data_create_table(address: Address, rows: int, structure: str):
-            struct = [TYPES_BY_NAME[item] for item in structure.split(',')]
-            self.create_table(address, rows, struct)
-
-        @data_create.command('palette')
-        @click.argument('address', type=address_arg)
-        @click.argument('rows', type=int, default=8)
-        def data_create_palette(address, rows):
-            self.create_palette(address, rows)
-
-        @data_create.command('rle')
-        @click.argument('address', type=address_arg)
-        def data_create_rle(address: Address):
-            self.create_rle(address)
-
-        @data_create.command('interlaced_rle')
-        @click.argument('address', type=address_arg)
-        @click.argument('size', type=ExtendedInt())
-        def data_create_interlaced_rle(address: Address, size: int):
-            self.create_interlaced_rle(address, size)
-
-        @data_create.command('jumptable')
-        @click.argument('address', type=address_arg)
-        @click.argument('rows', type=ExtendedInt(), default=0)
-        def data_create_jumptable(address: Address, rows: int = 0):
-            self.create_jumptable(address, rows)
-
-        @data_create.command('sgb')
-        @click.argument('address', type=address_arg)
-        def data_create_sgb(address: Address):
-            self.create_sgb(address)
-
-        @data_create.command('empty')
-        @click.argument('address', type=address_arg)
-        @click.argument('size', type=int, default=0)
-        def data_create_empty(address: Address, size: int):
-            self.create_empty(address, size)
-
-        @data_create.command('header')
-        def data_create_header():
-            self.create_header()
-
-        @data_cli.command('delete')
-        @click.argument('address', type=address_arg)
-        def data_delete(address: Address):
-            self.delete(address)
-
-        return data_cli
 
     def build_cli_v2(self) -> 'UgbCommandGroup':
         data_create = UgbCommandGroup(self.asm, "create")

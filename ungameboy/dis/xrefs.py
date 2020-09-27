@@ -1,11 +1,9 @@
 from typing import TYPE_CHECKING, NamedTuple, Optional, Set, Tuple
 
-import click
-
 from .manager_base import AsmManager
 from .models import DataRow, Instruction
 from ..address import Address
-from ..commands import AddressOrLabel, UgbCommandGroup
+from ..commands import UgbCommandGroup
 from ..data_structures import AddressMapping
 from ..enums import Operation as Op
 
@@ -121,52 +119,6 @@ class XRefManager(AsmManager):
                 for arg in links.get_links(address)
             )
         )
-
-    def build_cli(self) -> 'click.Command':
-        xref_cli = click.Group('xref')
-        address_arg = AddressOrLabel(self.asm)
-
-        @xref_cli.command('auto')
-        @click.argument("address", type=address_arg)
-        def xref_auto_detect(address: Address):
-            self.auto_declare(address)
-
-        @xref_cli.command('clear')
-        @click.argument("address", type=address_arg)
-        def xref_clear(address: Address):
-            self.clear(address)
-
-        @xref_cli.group('declare')
-        def xref_declare():
-            pass
-
-        @xref_declare.command('call')
-        @click.argument("addr_from", type=address_arg)
-        @click.argument("addr_to", type=address_arg)
-        def xref_declare_call(addr_from, addr_to):
-            self.declare('call', addr_from, addr_to)
-
-        @xref_declare.command('jump')
-        @click.argument("addr_from", type=address_arg)
-        @click.argument("addr_to", type=address_arg)
-        def xref_declare_jump(addr_from, addr_to):
-            self.declare('jump', addr_from, addr_to)
-
-        @xref_declare.command('read')
-        @click.argument("addr_from", type=address_arg)
-        @click.argument("addr_to", type=address_arg)
-        def xref_declare_read(addr_from, addr_to):
-            self.declare('read', addr_from, addr_to)
-            return False
-
-        @xref_declare.command('write')
-        @click.argument("addr_from", type=address_arg)
-        @click.argument("addr_to", type=address_arg)
-        def xref_declare_write(addr_from, addr_to):
-            self.declare('write', addr_from, addr_to)
-            return False
-
-        return xref_cli
 
     def build_cli_v2(self) -> 'UgbCommandGroup':
         def make_declare(link_type: str):

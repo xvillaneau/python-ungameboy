@@ -1,10 +1,6 @@
 from inspect import Parameter, signature
 import shlex
-from typing import (
-    TYPE_CHECKING, BinaryIO, Callable, Dict, List, Set, Tuple, Union
-)
-
-import click
+from typing import TYPE_CHECKING, Callable, Dict, List, Set, Tuple, Union
 
 from .address import Address
 from .project_save import save_project, load_project
@@ -12,93 +8,10 @@ from .project_save import save_project, load_project
 if TYPE_CHECKING:
     from .dis.disassembler import Disassembler
 
-# __all__ = ['AddressOrLabel', 'ExtendedInt', 'LabelName', 'create_core_cli']
-
-
-class ExtendedInt(click.ParamType):
-    """Integer parameter that also accepts hexadecimal input"""
-    name = "extended_integer"
-
-    def convert(self, value, param, ctx):
-        if value is None:
-            return value
-        if isinstance(value, str):
-            if value.startswith('0x'):
-                value, base = value[2:], 16
-            elif value.startswith('$'):
-                value, base = value[1:], 16
-            else:
-                base = 10
-            value = int(value, base=base)
-        if not isinstance(value, int):
-            self.fail("Invalid base 10 or 16 integer", param, ctx)
-        return value
-
-
-class AddressOrLabel(click.ParamType):
-    """
-    Parameter type for an address. This address can be either the name
-    of an existing label, or a valid address-like input. In case of the
-    later, the detected bank cannot be unknown.
-    """
-    name = "address_or_label"
-
-    def __init__(self, asm: "Disassembler"):
-        self.asm = asm
-
-    def convert(self, value, param, ctx) -> Address:
-        if isinstance(value, str):
-            if value in self.asm.labels:
-                return self.asm.labels.lookup(value).address
-            try:
-                value = Address.parse(value)
-            except ValueError as err:
-                self.fail(str(err), param, ctx)
-
-        assert isinstance(value, Address)
-        if value.bank < 0:
-            self.fail("Bank required for this range", param, ctx)
-        return value
-
-
-def create_core_cli(asm: "Disassembler") -> click.Group:
-
-    @click.group()
-    def ugb_core_cli():
-        pass
-
-    # Base commands
-    @ugb_core_cli.command()
-    @click.argument("rom_path", type=click.File('rb'))
-    def load_rom(rom_path: BinaryIO):
-        asm.load_rom(rom_path)
-
-    # Project commands
-    @ugb_core_cli.group("project")
-    def project_cli():
-        pass
-
-    @project_cli.command("save")
-    @click.argument("name", default='')
-    def project_save(name: str = ''):
-        if name:
-            asm.project_name = name
-        save_project(asm)
-
-    @project_cli.command("load")
-    @click.argument("name", default='')
-    def project_load(name: str = ''):
-        if asm.is_loaded:
-            raise ValueError("Project already loaded")
-        if name:
-            asm.project_name = name
-        load_project(asm)
-
-    # Manager sub-commands
-    for mgr in asm.managers:
-        ugb_core_cli.add_command(mgr.build_cli())
-
-    return ugb_core_cli
+__all__ = [
+    'LabelName', 'LongString', 'UgbCommand', 'UgbCommandGroup',
+    'create_core_cli_v2',
+]
 
 
 class LongString(str):

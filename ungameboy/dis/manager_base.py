@@ -1,8 +1,7 @@
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import click
     from .disassembler import Disassembler
     from ..commands import UgbCommandGroup
 
@@ -13,10 +12,6 @@ class AsmManager(metaclass=ABCMeta):
 
     @abstractmethod
     def reset(self) -> None:
-        pass
-
-    @abstractmethod
-    def build_cli(self) -> 'click.Command':
         pass
 
     @abstractmethod

@@ -2,11 +2,9 @@ from base64 import b64decode, b64encode
 import re
 from typing import TYPE_CHECKING, List
 
-import click
-
 from .manager_base import AsmManager
 from ..address import Address
-from ..commands import AddressOrLabel, UgbCommandGroup
+from ..commands import UgbCommandGroup
 from ..data_structures import AddressMapping
 
 if TYPE_CHECKING:
@@ -66,41 +64,6 @@ class CommentsManager(AsmManager):
             block.pop(index)
         if not block:  # Remove empty blocks
             del self.blocks[address]
-
-    def build_cli(self) -> 'click.Command':
-        comments_cli = click.Group('comment')
-        address_arg = AddressOrLabel(self.asm)
-
-        def process_comment(comment, b64=False):
-            if not comment:
-                return ''
-            if b64:
-                if len(comment) != 1:
-                    raise ValueError()
-                return b64decode(comment[0]).decode("utf-8")
-            else:
-                return ' '.join(comment)
-
-        @comments_cli.command()
-        @click.argument('address', type=address_arg)
-        def clear(address):
-            self.clear(address)
-
-        @comments_cli.command()
-        @click.argument('address', type=address_arg)
-        @click.argument('comment', nargs=-1)
-        @click.option('--b64', is_flag=True)
-        def inline(address, comment, b64=False):
-            self.set_inline(address, process_comment(comment, b64))
-
-        @comments_cli.command()
-        @click.argument('address', type=address_arg)
-        @click.argument('comment', nargs=-1)
-        @click.option('--b64', is_flag=True)
-        def append(address, comment, b64=False):
-            self.append_block_line(address, process_comment(comment, b64))
-
-        return comments_cli
 
     def build_cli_v2(self) -> 'UgbCommandGroup':
         def wrap_base64(func):
