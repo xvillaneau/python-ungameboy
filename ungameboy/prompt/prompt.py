@@ -15,7 +15,10 @@ from prompt_toolkit.widgets.base import TextArea
 
 from .control import AsmControl
 from ..address import Address
-from ..commands import AddressOrLabel, create_core_cli, create_core_cli_v2
+from ..commands import (
+    AddressOrLabel, create_core_cli, create_core_cli_v2,
+    LabelName, UgbCommand, UgbCommandGroup
+)
 from ..project_save import autosave_project
 
 if TYPE_CHECKING:
@@ -91,6 +94,12 @@ class LabelCompleter(Completer):
     def __init__(self, disassembler: "Disassembler"):
         self.asm = disassembler
 
+    def get_refs_at_address(self, address: Address):
+        yield from (
+            Completion(lb.name)
+            for lb in self.asm.labels.get_labels(address)
+        )
+
     def get_completions(
             self, document: "Document", complete_event: CompleteEvent
     ) -> Iterable[Completion]:
@@ -103,34 +112,32 @@ class LabelCompleter(Completer):
 
             addr = control.address
             dest = control.destination_address
-            yield from (
-                Completion(lb.name)
-                for lb in self.asm.labels.get_labels(addr)
-            )
+            yield from self.get_refs_at_address(addr)
             if dest is not None:
-                yield from (
-                    Completion(lb.name)
-                    for lb in self.asm.labels.get_labels(dest)
-                )
-            yield Completion(str(addr))
-            if dest is not None:
-                yield Completion(str(dest))
+                yield from self.get_refs_at_address(dest)
             return
 
         for name in self.asm.labels.search(name_head):
             yield Completion(name, -len(name_head))
 
 
+class AddressCompleter(LabelCompleter):
+    def get_refs_at_address(self, address: Address):
+        yield from super().get_refs_at_address(address)
+        yield Completion(str(address))
+
+
 class UGBPrompt:
     def __init__(self, editor: "DisassemblyEditor"):
         self.editor = editor
         self.cli = create_ui_cli(editor)
+        self.cli_v2 = create_ui_cli_v2(editor)
 
         self.prompt = TextArea(
             prompt="> ",
             dont_extend_height=True,
             multiline=False,
-            completer=self.create_completer(),
+            completer=self.create_completer_v2(),
             accept_handler=self.accept_handler,
         )
 
@@ -166,9 +173,38 @@ class UGBPrompt:
         cli_dict = _iter_click_groups(self.cli)
         return NestedCompleter.from_nested_dict(cli_dict)
 
+    def create_completer_v2(self):
+        label_complete = LabelCompleter(self.editor.disassembler)
+        addr_complete = AddressCompleter(self.editor.disassembler)
+
+        def _create_cmd_completer(cmd: UgbCommand):
+            if cmd.args:
+                p0 = cmd.args[0].annotation
+                if p0 is Address:
+                    return addr_complete
+                if p0 is LabelName:
+                    return label_complete
+            return None
+
+        def _iter_click_groups(group: UgbCommandGroup):
+            opts = {}
+            for name in sorted(group.commands):
+                cmd = group.commands.get(name)
+                if isinstance(cmd, UgbCommandGroup):
+                    value = _iter_click_groups(cmd)
+                elif isinstance(cmd, UgbCommand):
+                    value = _create_cmd_completer(cmd)
+                else:
+                    value = None
+                opts[name] = value
+            return opts
+
+        cli_dict = _iter_click_groups(self.cli_v2)
+        return NestedCompleter.from_nested_dict(cli_dict)
+
     def accept_handler(self, buffer: Buffer):
         if buffer.text:
-            self.run_command(*shlex.split(buffer.text))
+            self.run_command(buffer.text.strip())
 
         self.editor.layout.exit_prompt()
         return False
@@ -177,8 +213,8 @@ class UGBPrompt:
         line = ' '.join(shlex.quote(arg) for arg in args) + ' '
         self.prompt.buffer.reset(Document(line))
 
-    def run_command(self, *args):
-        res = self.cli.main(args, "ungameboy", standalone_mode=False)
+    def run_command(self, command: str):
+        res = self.cli_v2(command)
         autosave_project(self.editor.disassembler)
         if res is not False:
             self.editor.layout.refresh()

@@ -156,7 +156,7 @@ class LabelManager(AsmManager):
         else:
             self._rebuild_all()
 
-    def create(self, address: Address, name: str):
+    def create(self, address: Address, name: LabelName):
         if "." in name:
             self._add_local(address, name)
         else:
@@ -171,9 +171,9 @@ class LabelManager(AsmManager):
             f"_{address.bank:x}"
             f"_{address.memory_address:04x}"
         )
-        self.create(address, name)
+        self.create(address, LabelName(name))
 
-    def rename(self, old_name: str, new_name: str):
+    def rename(self, old_name: LabelName, new_name: LabelName):
         if old_name not in self._by_name:
             raise KeyError(f"Label {old_name} not found")
         if old_name == new_name:
@@ -211,7 +211,7 @@ class LabelManager(AsmManager):
 
         self._rebuild_all()
 
-    def delete(self, name: str):
+    def delete(self, name: LabelName):
         if name not in self._by_name:
             raise KeyError(f"Label {name} not found")
 

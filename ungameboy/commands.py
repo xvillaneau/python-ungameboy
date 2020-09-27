@@ -15,19 +15,6 @@ if TYPE_CHECKING:
 # __all__ = ['AddressOrLabel', 'ExtendedInt', 'LabelName', 'create_core_cli']
 
 
-class LabelName(click.ParamType):
-    """Parameter type that expects an existing label name."""
-    name = "label_name"
-
-    def __init__(self, asm: "Disassembler"):
-        self.asm = asm
-
-    def convert(self, value, param, ctx):
-        if value not in self.asm.labels:
-            self.fail(f"Label {value} not found", param, ctx)
-        return value
-
-
 class ExtendedInt(click.ParamType):
     """Integer parameter that also accepts hexadecimal input"""
     name = "extended_integer"
@@ -115,6 +102,10 @@ def create_core_cli(asm: "Disassembler") -> click.Group:
 
 
 class LongString(str):
+    pass
+
+
+class LabelName(str):
     pass
 
 

@@ -87,7 +87,7 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
                 return
 
             if run:
-                editor.prompt.run_command(*str_args)
+                editor.prompt.run_command(str_args)
             else:
                 editor.prompt.pre_fill(*str_args)
                 editor.layout.focus_prompt()
