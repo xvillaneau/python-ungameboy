@@ -63,7 +63,7 @@ def save_to_file(asm: "Disassembler", path: Path):
 
 
 def load_project(asm: "Disassembler"):
-    from .commands import create_core_cli
+    from .commands import create_core_cli_v2
 
     if asm.is_loaded:
         raise ValueError("Project already loaded, start from empty state")
@@ -74,9 +74,16 @@ def load_project(asm: "Disassembler"):
     if not project_path.exists():
         raise ValueError(f"Project {asm.project_name} not found")
 
-    cli = create_core_cli(asm)
+    cli = create_core_cli_v2(asm)
     asm.reset()
     with open(project_path, 'r', encoding='utf8') as proj_read:
         for line in proj_read:
-            args = shlex.split(line.strip())
-            cli.main(args, "ungameboy", standalone_mode=False)
+            line = line.strip()
+
+            # Special case for load-rom in case path has spaces
+            # Should be made obsolete at some point
+            cmd, _, rem = line.partition(' ')
+            if cmd == "load-rom":
+                line = shlex.split(line)
+
+            cli(line)

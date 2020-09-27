@@ -6,7 +6,7 @@ from .special_labels import SpecialLabel
 from .labels import LabelOffset
 from .manager_base import AsmManager
 from ..address import Address, ROM
-from ..commands import AddressOrLabel, ExtendedInt
+from ..commands import AddressOrLabel, ExtendedInt, UgbCommandGroup
 from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
@@ -30,23 +30,19 @@ class ContextManager(AsmManager):
         self.force_scalar.clear()
         self.bank_override.clear()
 
-    def set_context(
-            self,
-            addr: Address,
-            force_scalar: Optional[bool] = None,
-            bank: Optional[int] = None,
-    ):
-        if force_scalar is not None:
-            if force_scalar:
-                self.force_scalar.add(addr)
-            else:
-                self.force_scalar.discard(addr)
+    def set_force_scalar(self, address: Address):
+        self.force_scalar.add(address)
 
-        if bank is not None:
-            if bank >= 0:
-                self.bank_override[addr] = bank
-            elif addr in self.bank_override:
-                self.bank_override.pop(addr)
+    def set_bank_number(self, address: Address, bank: int):
+        if bank >= 0:
+            self.bank_override[address] = bank
+        elif address in self.bank_override:
+            self.bank_override.pop(address)
+
+    def clear_context(self, address: Address):
+        self.force_scalar.discard(address)
+        if address in self.bank_override:
+            self.bank_override.pop(address)
 
     def has_context(self, address: Address) -> bool:
         return address in self.force_scalar or address in self.bank_override
@@ -138,22 +134,32 @@ class ContextManager(AsmManager):
         @set_context.command("scalar")
         @click.argument('address', type=address_arg)
         def context_force_scalar(address: Address):
-            self.set_context(address, force_scalar=True)
+            self.set_force_scalar(address)
             return False
 
         @set_context.command("bank")
         @click.argument('address', type=address_arg)
         @click.argument("bank", type=ExtendedInt())
         def context_set_bank(address: Address, bank: int):
-            self.set_context(address, bank=bank)
+            self.set_bank_number(address, bank)
             return False
 
         @context_cli.command('clear')
         @click.argument('address', type=address_arg)
         def context_clear(address):
-            self.set_context(address, force_scalar=False, bank=-1)
+            self.clear_context(address)
             return False
 
+        return context_cli
+
+    def build_cli_v2(self) -> 'UgbCommandGroup':
+        context_set = UgbCommandGroup(self.asm, "set")
+        context_set.add_command("scalar", self.set_force_scalar)
+        context_set.add_command("bank", self.set_bank_number)
+
+        context_cli = UgbCommandGroup(self.asm, "context")
+        context_cli.add_group(context_set)
+        context_cli.add_command("clear", self.clear_context)
         return context_cli
 
     def save_items(self):

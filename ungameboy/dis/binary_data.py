@@ -6,7 +6,7 @@ import click
 
 from .decoder import HeaderDecoder
 from .manager_base import AsmManager
-from ..commands import AddressOrLabel, ExtendedInt
+from ..commands import AddressOrLabel, ExtendedInt, UgbCommandGroup
 from ..address import Address
 from ..data_structures import AddressMapping
 from ..data_types import Byte, CgbColor, Word
@@ -486,6 +486,28 @@ class DataManager(AsmManager):
         @click.argument('address', type=address_arg)
         def data_delete(address: Address):
             self.delete(address)
+
+        return data_cli
+
+    def build_cli_v2(self) -> 'UgbCommandGroup':
+        data_create = UgbCommandGroup(self.asm, "create")
+        data_create.add_command("empty", self.create_empty)
+        data_create.add_command("header", self.create_header)
+        data_create.add_command("interlaced_rle", self.create_interlaced_rle)
+        data_create.add_command("jumptable", self.create_jumptable)
+        data_create.add_command("palette", self.create_palette)
+        data_create.add_command("rle", self.create_rle)
+        data_create.add_command("sgb", self.create_sgb)
+        data_create.add_command("simple", self.create)
+
+        @data_create.add_command("table")
+        def data_create_table(address: Address, rows: int, structure: str):
+            struct = [TYPES_BY_NAME[item] for item in structure.split(',')]
+            self.create_table(address, rows, struct)
+
+        data_cli = UgbCommandGroup(self.asm, "data")
+        data_cli.add_group(data_create)
+        data_cli.add_command("delete", self.delete)
 
         return data_cli
 

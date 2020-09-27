@@ -6,7 +6,7 @@ import click
 
 from .manager_base import AsmManager
 from ..address import Address
-from ..commands import AddressOrLabel
+from ..commands import AddressOrLabel, UgbCommandGroup
 from ..data_structures import AddressMapping
 
 if TYPE_CHECKING:
@@ -100,6 +100,20 @@ class CommentsManager(AsmManager):
         def append(address, comment, b64=False):
             self.append_block_line(address, process_comment(comment, b64))
 
+        return comments_cli
+
+    def build_cli_v2(self) -> 'UgbCommandGroup':
+        def wrap_base64(func):
+            def handler(address: Address, comment: str = '', b64=False):
+                if b64:
+                    comment = b64decode(comment).decode("utf-8")
+                func(address, comment)
+            return handler
+
+        comments_cli = UgbCommandGroup(self.asm, "comment")
+        comments_cli.add_command("clear", self.clear)
+        comments_cli.add_command("inline", wrap_base64(self.set_inline))
+        comments_cli.add_command("append", wrap_base64(self.append_block_line))
         return comments_cli
 
     def save_items(self):

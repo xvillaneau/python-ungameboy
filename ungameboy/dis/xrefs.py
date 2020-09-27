@@ -5,7 +5,7 @@ import click
 from .manager_base import AsmManager
 from .models import DataRow, Instruction
 from ..address import Address
-from ..commands import AddressOrLabel
+from ..commands import AddressOrLabel, UgbCommandGroup
 from ..data_structures import AddressMapping
 from ..enums import Operation as Op
 
@@ -167,6 +167,22 @@ class XRefManager(AsmManager):
             return False
 
         return xref_cli
+
+    def build_cli_v2(self) -> 'UgbCommandGroup':
+        def make_declare(link_type: str):
+            def declare(addr_from: Address, addr_to: Address):
+                self.declare(link_type, addr_from, addr_to)
+            return declare
+
+        declare_cli = UgbCommandGroup(self.asm, "declare")
+        for name in self._mappings:
+            declare_cli.add_command(name, make_declare(name))
+
+        xrefs_cli = UgbCommandGroup(self.asm, "xref")
+        xrefs_cli.add_group(declare_cli)
+        xrefs_cli.add_command("auto", self.auto_declare)
+        xrefs_cli.add_command("clear", self.clear)
+        return xrefs_cli
 
     def save_items(self):
         for _type, _links in self._mappings.items():

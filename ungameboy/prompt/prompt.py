@@ -15,7 +15,7 @@ from prompt_toolkit.widgets.base import TextArea
 
 from .control import AsmControl
 from ..address import Address
-from ..commands import AddressOrLabel, LabelName, create_core_cli
+from ..commands import AddressOrLabel, create_core_cli, create_core_cli_v2
 from ..project_save import autosave_project
 
 if TYPE_CHECKING:
@@ -54,6 +54,35 @@ def create_ui_cli(ugb_app: "DisassemblyEditor"):
         ugb_app.layout.layout.focus(ugb_app.layout.gfx_control)
 
     return ugb_core_cli
+
+
+def create_ui_cli_v2(ugb_app: "DisassemblyEditor"):
+    """Add the the main CLI the UI-specific options"""
+    ugb_cli = create_core_cli_v2(ugb_app.disassembler)
+
+    @ugb_cli.add_command("seek")
+    def seek(address: Address):
+        control = ugb_app.layout.layout.previous_control
+        if isinstance(control, AsmControl):
+            control.seek(address)
+        return False
+
+    @ugb_cli.add_command("inspect")
+    def inspect(address: Address):
+        ugb_app.xrefs.address = address
+        ugb_app.xrefs.cursor = 0
+        ugb_app.prompt_active = False
+        ugb_app.layout.layout.focus(ugb_app.layout.xrefs_control)
+        return False
+
+    @ugb_cli.add_command("display")
+    def display(address: Address):
+        ugb_app.layout.gfx_control.reset()
+        ugb_app.gfx.address = address
+        ugb_app.prompt_active = False
+        ugb_app.layout.layout.focus(ugb_app.layout.gfx_control)
+
+    return ugb_cli
 
 
 class LabelCompleter(Completer):
@@ -117,7 +146,7 @@ class UGBPrompt:
         def _create_cmd_completer(cmd: click.Command):
             if cmd.params:
                 p0 = cmd.params[0].type
-                if isinstance(p0, (AddressOrLabel, LabelName)):
+                if isinstance(p0, AddressOrLabel):
                     return label_complete
             return None
 

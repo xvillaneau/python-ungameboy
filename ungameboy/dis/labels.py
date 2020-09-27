@@ -4,7 +4,7 @@ import click
 
 from .manager_base import AsmManager
 from ..address import Address
-from ..commands import AddressOrLabel, LabelName
+from ..commands import AddressOrLabel, LabelName, UgbCommandGroup
 from ..data_structures import AddressMapping, SortedStrMapping
 
 if TYPE_CHECKING:
@@ -162,11 +162,11 @@ class LabelManager(AsmManager):
         else:
             self._add_global(address, name)
 
-    def auto_create(self, address: Address, is_local=False):
+    def auto_create(self, address: Address, local=False):
         if address.bank < 0:
             raise ValueError("Cannot place label at unknown bank")
         name = (
-            f"{'.' * is_local}"
+            f"{'.' * local}"
             f"auto_{address.type.name}"
             f"_{address.bank:x}"
             f"_{address.memory_address:04x}"
@@ -265,7 +265,6 @@ class LabelManager(AsmManager):
 
         label_cli = click.Group('label')
         address_arg = AddressOrLabel(self.asm)
-        label_arg = LabelName(self.asm)
 
         @label_cli.command("create")
         @click.argument("address", type=address_arg)
@@ -280,18 +279,26 @@ class LabelManager(AsmManager):
             self.auto_create(address, local)
 
         @label_cli.command("rename")
-        @click.argument("old_name", type=label_arg)
+        @click.argument("old_name", type=address_arg)
         @click.argument("new_name")
         def label_rename(old_name: str, new_name: str):
             self.rename(old_name, new_name)
             return False
 
         @label_cli.command("delete")
-        @click.argument("name", type=label_arg)
+        @click.argument("name", type=address_arg)
         def label_delete(name: str):
             self.delete(name)
 
         return label_cli
+
+    def build_cli_v2(self) -> UgbCommandGroup:
+        labels_cli = UgbCommandGroup(self.asm, "label")
+        labels_cli.add_command("create", self.create)
+        labels_cli.add_command("auto", self.auto_create)
+        labels_cli.add_command("rename", self.rename)
+        labels_cli.add_command("delete", self.delete)
+        return labels_cli
 
     def save_items(self):
         for labels in self._all.values():
