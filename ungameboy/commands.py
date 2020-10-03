@@ -13,6 +13,8 @@ __all__ = [
     'create_core_cli_v2',
 ]
 
+Cmd = Union[str, Tuple[str]]
+
 
 class LongString(str):
     pass
@@ -70,7 +72,7 @@ class UgbCommand:
 
         return value
 
-    def __call__(self, command: Union[str, Tuple[str]]):
+    def __call__(self, command: Cmd):
         args_queue = self.args.copy()
         start_cmd = command
         args = {}
@@ -144,7 +146,7 @@ class UgbCommandGroup:
             raise ValueError("A command sub-group must have a name")
         self.commands[group.name] = group
 
-    def __call__(self, command: Union[str, Tuple[str]]):
+    def get_handler(self, command: Cmd) -> Tuple[UgbCommand, Cmd]:
         if isinstance(command, str):
             instruction, _, command = command.strip().partition(' ')
             command.lstrip()
@@ -152,6 +154,13 @@ class UgbCommandGroup:
             instruction, *command = command
 
         handler = self.commands[instruction]
+        if isinstance(handler, UgbCommandGroup):
+            return handler.get_handler(command)
+        else:
+            return handler, command
+
+    def __call__(self, command: Union[str, Tuple[str]]):
+        handler, command = self.get_handler(command)
         return handler(command)
 
 

@@ -357,31 +357,31 @@ class DataManager(AsmManager):
         self._blocks_map.clear()
 
     def create(self, address: Address, size: int):
-        self._insert(BinaryData(address, size))
+        self.insert(BinaryData(address, size))
 
     def create_table(self, address: Address, rows: int, structure: List[RowType]):
-        self._insert(DataTable(address, rows, structure))
+        self.insert(DataTable(address, rows, structure))
 
     def create_palette(self, address: Address, rows: int):
-        self._insert(PaletteData(address, rows))
+        self.insert(PaletteData(address, rows))
 
     def create_rle(self, address: Address):
-        self._insert(RLEDataBlock(address))
+        self.insert(RLEDataBlock(address))
 
     def create_interlaced_rle(self, address: Address, size: int):
-        self._insert(InterlacedRLEDataBlock(address, size))
+        self.insert(InterlacedRLEDataBlock(address, size))
 
     def create_jumptable(self, address: Address, rows: int = 0):
-        self._insert(JumpTable(address, rows))
+        self.insert(JumpTable(address, rows))
 
     def create_empty(self, address: Address, size: int = 0):
-        self._insert(EmptyData(address, size))
+        self.insert(EmptyData(address, size))
 
     def create_header(self):
-        self._insert(CartridgeHeader())
+        self.insert(CartridgeHeader())
 
     def create_sgb(self, address: Address):
-        self._insert(SGBPacket(address))
+        self.insert(SGBPacket(address))
 
     def delete(self, address: Address):
         if address not in self.inventory:
@@ -389,7 +389,7 @@ class DataManager(AsmManager):
         del self.inventory[address]
         del self._blocks_map[address]
 
-    def _insert(self, data: BaseData):
+    def insert(self, data: BaseData):
         data.load_from_rom(self.asm.rom)
 
         prev_blk = self.get_data(data.address)
