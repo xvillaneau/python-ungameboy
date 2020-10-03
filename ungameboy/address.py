@@ -185,7 +185,13 @@ class Address(NamedTuple):
     @property
     def zone_end(self) -> "Address":
         if self.type in BANKS:
-            zone_size = BANKS[self.type]
+            bank_start = BANKS[self.type]
+            if bank_start == 0:
+                zone_size = self.type.size
+            elif self.bank == 0:
+                zone_size = bank_start
+            else:
+                zone_size = self.type.size - bank_start
         else:
             zone_size = self.type.size
         return Address(self.type, self.bank, zone_size - 1)
