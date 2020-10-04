@@ -3,7 +3,7 @@ import shlex
 from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
 
 from .address import Address
-from .project_save import save_project, load_project
+from .project_save import save_project, load_project, import_plugin
 
 if TYPE_CHECKING:
     from .dis.disassembler import Disassembler
@@ -172,6 +172,8 @@ def create_core_cli_v2(asm: 'Disassembler') -> UgbCommandGroup:
     def load_rom(rom_path: str):
         with open(rom_path, 'rb') as rom_file:
             asm.load_rom(rom_file)
+
+    ugb_cli.add_command("import-plugin", import_plugin)
 
     # Project commands
     @project_cli.add_command("save")

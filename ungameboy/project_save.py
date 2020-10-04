@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os
+from importlib import import_module
 from pathlib import Path
 import shlex
 from tempfile import NamedTemporaryFile
@@ -11,11 +12,15 @@ if TYPE_CHECKING:
 PROJECTS_DIR = Path.home() / '.ungameboy' / 'projects'
 AUTOSAVE_PERIOD = timedelta(minutes=5)
 AUTOSAVE_NUM = 3
+PLUGINS = []
 
 
 def get_save_state(asm: "Disassembler"):
     if asm.rom is not None:
         yield ('load-rom', Path(asm.rom_path).resolve())
+
+    for plugin in PLUGINS:
+        yield ('import-plugin', plugin)
 
     for mgr in asm.managers:
         yield from mgr.save_items()
@@ -79,3 +84,8 @@ def load_project(asm: "Disassembler"):
     with open(project_path, 'r', encoding='utf8') as proj_read:
         for line in proj_read:
             cli(line.strip())
+
+
+def import_plugin(name: str):
+    import_module(name)
+    PLUGINS.append(name)
