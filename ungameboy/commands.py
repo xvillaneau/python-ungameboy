@@ -1,6 +1,6 @@
 from inspect import Parameter, signature
 import shlex
-from typing import TYPE_CHECKING, Callable, Dict, List, Set, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
 
 from .address import Address
 from .project_save import save_project, load_project
@@ -9,15 +9,10 @@ if TYPE_CHECKING:
     from .dis.disassembler import Disassembler
 
 __all__ = [
-    'LabelName', 'LongString', 'UgbCommand', 'UgbCommandGroup',
-    'create_core_cli_v2',
+    'LabelName', 'UgbCommand', 'UgbCommandGroup', 'create_core_cli_v2',
 ]
 
 Cmd = Union[str, Tuple[str]]
-
-
-class LongString(str):
-    pass
 
 
 class LabelName(str):
@@ -29,7 +24,7 @@ class UgbCommand:
 
     def __init__(self, asm: 'Disassembler', handler: Callable):
         self.args: List[Parameter] = []
-        self.flags: Set[str] = set()
+        self.options: Dict[str, Parameter] = {}
         self.handler = handler
         self.asm = asm
 
@@ -38,12 +33,18 @@ class UgbCommand:
         # as default will be considered "flags" that can be specified at
         # the end of the call.
         for param in signature(handler).parameters.values():
-            if param.kind is not Parameter.POSITIONAL_OR_KEYWORD:
-                raise TypeError(f"Unsupported command arg type: {param}")
-            if param.default is False:
-                self.flags.add(param.name)
-            else:
+            if param.kind is Parameter.KEYWORD_ONLY:
+                if param.default is Parameter.empty:
+                    raise TypeError("Keyword-only arg must have a default")
+                self.options[param.name] = param
+
+            elif param.kind is Parameter.POSITIONAL_OR_KEYWORD:
+                if param.default is not Parameter.empty:
+                    self.options[param.name] = param
                 self.args.append(param)
+
+            else:
+                raise TypeError(f"Unsupported command arg type: {param}")
 
     def process_arg(self, value, param: Parameter):
         """Apply type conversion to the argument"""
@@ -67,59 +68,57 @@ class UgbCommand:
                 base = 10
             return int(value, base=base)
 
-        if param.annotation is LongString:
-            return LongString(value)
-
         return value
 
     def __call__(self, command: Cmd):
         args_queue = self.args.copy()
-        start_cmd = command
         args = {}
 
         if isinstance(command, str):
             command = command.strip()
 
-        def get_head():
+        def get_head() -> str:
             nonlocal command
             if isinstance(command, str):
-                head, _, command = command.partition(' ')
-                command = command.lstrip()
+                if command.startswith(('"', "'")):
+                    head, *command = shlex.split(command)
+                else:
+                    head, _, command = command.partition(' ')
+                    command = command.lstrip()
             else:
+                if not command:
+                    raise TypeError("Ran out of arguments")
                 head, *command = command
             return head
 
+        def register(value, parameter: Parameter):
+            name = parameter.name
+            if name in args:
+                raise TypeError(f"Argument {name} already defined")
+            args[name] = self.process_arg(value, parameter)
+
         # Go through the positional arguments
-        while args_queue:
-            param = args_queue.pop(0)
-
-            if not command:
-                if param.default is Parameter.empty:
-                    raise TypeError(f"Argument {param} missing in: {start_cmd}")
-                continue
-
-            # Special case if we expect a string with spaces.
-            if param.annotation is LongString:
-                if isinstance(command, str):
-                    arg = command
-                elif len(command) == 1:
-                    arg = command[0]
-                else:
-                    # Reproduce shlex.join, which was introduced in Python 3.8
-                    arg = ' '.join(map(shlex.quote, command)).strip()
-                command = ''
-            else:
-                arg = get_head()
-
-            args[param.name] = self.process_arg(arg, param)
-
-        # Check for flags at the end
         while command:
-            flag = get_head()
-            if flag.startswith('--') and flag[2:] in self.flags:
-                args[flag[2:]] = True
+            arg = get_head()
+
+            if arg.startswith("--"):
+                arg = arg[2:]
+                if arg not in self.options:
+                    raise TypeError(f"Unrecognized argument: --{arg}")
+
+                param = self.options[arg]
+                if param.default is False:
+                    register(True, param)
+                else:
+                    register(get_head(), param)
+
             else:
-                raise TypeError(f"Unrecognized argument: {flag}")
+                if not args_queue:
+                    raise TypeError(f"Extra unused argument: {arg}")
+                register(arg, args_queue.pop(0))
+
+        if any(param.default is Parameter.empty for param in args_queue):
+            raise TypeError("Missing arguments")
 
         return self.handler(**args)
 
@@ -170,7 +169,7 @@ def create_core_cli_v2(asm: 'Disassembler') -> UgbCommandGroup:
     ugb_cli.add_group(project_cli)
 
     @ugb_cli.add_command("load-rom")
-    def load_rom(rom_path: LongString):
+    def load_rom(rom_path: str):
         with open(rom_path, 'rb') as rom_file:
             asm.load_rom(rom_file)
 

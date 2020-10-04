@@ -78,12 +78,4 @@ def load_project(asm: "Disassembler"):
     asm.reset()
     with open(project_path, 'r', encoding='utf8') as proj_read:
         for line in proj_read:
-            line = line.strip()
-
-            # Special case for load-rom in case path has spaces
-            # Should be made obsolete at some point
-            cmd, _, rem = line.partition(' ')
-            if cmd == "load-rom":
-                line = shlex.split(line)
-
-            cli(line)
+            cli(line.strip())
