@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import FormattedTextControl
 
 from .key_bindings import create_xref_inspect_bindings
@@ -18,17 +19,18 @@ class XRefBrowserState:
 
 
 def make_xrefs_control(app: 'DisassemblyEditor'):
+    asm = app.disassembler
 
     def get_xrefs_content():
         if app.xrefs.address is None:
             return []
 
-        xrefs = app.disassembler.xrefs.get_xrefs(app.xrefs.address)
+        xrefs = asm.xrefs.get_xrefs(app.xrefs.address)
         calls = list(sorted(xrefs.called_by))
         jumps = list(sorted(xrefs.jumps_from))
         reads = list(sorted(xrefs.read_by))
         writes = list(sorted(xrefs.written_by))
-        comment = app.disassembler.comments.blocks.get(app.xrefs.address, [])
+        comment = asm.comments.blocks.get(app.xrefs.address, [])
 
         if not any([calls, jumps, reads, writes, comment]):
             return [('', 'No references found')]
@@ -47,9 +49,7 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
             sel = ',ugb.hl' * (line_index == app.xrefs.cursor)
             tokens.append(('class:ugb.address' + sel, str(_addr)))
 
-            name = app.disassembler.context.address_context(
-                _addr, _addr, relative=True
-            )
+            name = asm.context.address_context(_addr, _addr, relative=True)
             if isinstance(name, Label):
                 tokens.extend([
                     ('', ' ('),
@@ -99,11 +99,62 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
 
         return tokens
 
+    def get_cursor_pos():
+        """Used by PT to handle scrolling in the XREF browser"""
+        if app.xrefs.address is None:
+            return None
+
+        line_pos = cursor = app.xrefs.cursor
+        if cursor == 0:
+            # Always return 0 at top of file (even if actual cursor is
+            # lower), otherwise no amount of scrolling up would show it.
+            return Point(0, 0)
+
+        # Handle the offset caused by the comment/docstring
+        doc_size = len(asm.comments.blocks.get(app.xrefs.address, []))
+        line_pos += doc_size + doc_size > 0
+
+        xrefs = asm.xrefs.get_xrefs(app.xrefs.address)
+        n_calls = len(xrefs.called_by)
+        n_jumps = len(xrefs.jumps_from)
+        n_reads = len(xrefs.read_by)
+        n_writes = len(xrefs.written_by)
+
+        # For each section, if it exists:
+        # - add 1 to account for the section name,
+        # - add 1 more if there was any section before,
+        # - if cursor not in that section, decrement and try next.
+
+        line_pos += n_calls > 0
+        if cursor < n_calls:
+            return Point(0, line_pos)
+        multi_section = n_calls > 0
+        cursor -= n_calls
+
+        line_pos += (n_jumps > 0) * (1 + multi_section)
+        if cursor < n_jumps:
+            return Point(0, line_pos)
+        multi_section |= n_jumps > 0
+        cursor -= n_jumps
+
+        line_pos += (n_reads > 0) * (1 + multi_section)
+        if cursor < n_reads:
+            return Point(0, line_pos)
+        multi_section |= n_reads > 0
+        cursor -= n_reads
+
+        line_pos += (n_writes > 0) * (1 + multi_section)
+        if cursor < n_writes:
+            return Point(0, line_pos)
+
+        return None
+
     return FormattedTextControl(
         text=get_xrefs_content,
         show_cursor=False,
         focusable=True,
         key_bindings=create_xref_inspect_bindings(app),
+        get_cursor_position=get_cursor_pos,
     )
 
 
