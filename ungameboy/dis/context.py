@@ -9,7 +9,7 @@ from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
 if TYPE_CHECKING:
-    from .binary_data import RowItem
+    from .data import RowItem
     from .disassembler import Disassembler
     from .instructions import RawInstruction
     from .models import Value

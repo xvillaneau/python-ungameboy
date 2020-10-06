@@ -3,6 +3,7 @@ import shlex
 from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
 
 from .address import Address
+from .dis.data import DataContent, DataProcessor
 from .project_save import save_project, load_project, import_plugin
 
 if TYPE_CHECKING:
@@ -50,8 +51,9 @@ class UgbCommand:
         """Apply type conversion to the argument"""
         if not isinstance(value, str):
             return value
+        arg_type = param.annotation
 
-        if param.annotation is Address:
+        if arg_type is Address:
             if value in self.asm.labels:
                 return self.asm.labels.lookup(value).address
             try:
@@ -59,7 +61,7 @@ class UgbCommand:
             except ValueError:
                 raise TypeError(f"Not a valid address or label: {value}")
 
-        if param.annotation is int:
+        if arg_type is int:
             if value.startswith('0x'):
                 value, base = value[2:], 16
             elif value.startswith('$'):
@@ -67,6 +69,9 @@ class UgbCommand:
             else:
                 base = 10
             return int(value, base=base)
+
+        if arg_type in (DataContent, DataProcessor):
+            return arg_type.parse(value)
 
         return value
 

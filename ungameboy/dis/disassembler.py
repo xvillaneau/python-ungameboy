@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from typing import BinaryIO, List, Optional
 
-from .binary_data import BinaryData, DataManager
 from .comments import CommentsManager
 from .context import ContextManager
+from .data import DataManager, CartridgeHeader, EmptyData
 from .decoder import ROMBytes
 from .labels import LabelManager
 from .manager_base import AsmManager
@@ -67,12 +67,24 @@ class Disassembler:
         }
 
         data = self.data.get_data(addr)
-        if isinstance(data, BinaryData):
+        if data is not None:
+            content = data.content
+
+            if isinstance(content, (CartridgeHeader, EmptyData)):
+                return DataBlock(
+                    address=addr,
+                    size=data.size,
+                    dest_address=None,
+                    **common_args,
+                    bytes=data.rom_bytes,
+                    data=data,
+                )
+
             offset = addr.offset - data.address.offset
-            row_n = offset // data.row_size
-            row_bin = data.get_row_bin(row_n)
-            row_addr = data.address + row_n * data.row_size
-            row = data[row_n]
+            row_n = offset // content.row_size
+            row_bin = content.get_row_bin(data, row_n)
+            row = content.get_row(data, row_n)
+            row_addr = data.address + row_n * content.row_size
             row_values, dest_address = self.context.row_context(row, row_addr)
 
             return DataRow(
@@ -84,16 +96,6 @@ class Disassembler:
                 data=data,
                 values=row_values,
                 row=row_n,
-            )
-
-        elif data is not None:
-            return DataBlock(
-                address=addr,
-                size=data.size,
-                dest_address=None,
-                **common_args,
-                bytes=data.bytes,
-                data=data,
             )
 
         elif addr.type is ROM:

@@ -7,7 +7,7 @@ from prompt_toolkit.data_structures import Point
 
 from .key_bindings import create_gfx_display_bindings
 from ..address import Address
-from ..dis.binary_data import BinaryData, RLEDataBlock
+from ..dis.data import Data
 from ..dis.graphics import read_2bpp_values
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class GraphicsControl(UIControl):
         self.gfx = app.gfx
         self.scroll_pos = 0
 
-        self._loaded_data: Optional[BinaryData] = None
+        self._loaded_data: Optional[Data] = None
         self._bitmap = b''
         self._kb = create_gfx_display_bindings(app)
 
@@ -57,10 +57,7 @@ class GraphicsControl(UIControl):
     def read_bitmap(self):
         if self._loaded_data is None:
             return b''
-        elif isinstance(self._loaded_data, RLEDataBlock):
-            bitmap = self._loaded_data.unpacked_data
-        else:
-            bitmap = self._loaded_data.bytes
+        bitmap = self._loaded_data.data
         return bytes(read_2bpp_values(bitmap))
 
     def reset(self) -> None:
