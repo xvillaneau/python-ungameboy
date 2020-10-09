@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, List, Tuple, Union
 
 from .common import ControlMode
@@ -42,11 +43,20 @@ def spc(n) -> FormatToken:
 S1, S2, S4 = spc(1), spc(2), spc(4)
 
 
-class AssemblyRender:
-    MARGIN = 4
-    LOC_MARGIN = 2
-    COMMENT_LINE = 60
+@dataclass
+class RenderOptions:
+    """Mutable options object for rendering the assembly"""
+    # Margin for anything that's not a label
+    margin: int = 4
+    # Margin to apply before local labels
+    local_margin: int = 2
+    # Minimum position for inline comments
+    comment_pos: int = 60
+    # Pad all opcodes to 4 spaces so that the arguments align
+    align_ops: bool = True
 
+
+class AssemblyRender:
     XREF_TYPES = {
         "call": ("calls", "called_by", "Calls", "Call from", "Calls from"),
         "jump": ("jumps_to", "jumps_from", "Jumps to", "Jump from", "Jumps from"),
@@ -54,6 +64,7 @@ class AssemblyRender:
 
     def __init__(self, control: 'AsmControl'):
         self.ctrl = control
+        self.opts = RenderOptions()
         self.asm = control.asm
 
     def cursor_at(self, elem: AsmElement):
@@ -72,7 +83,7 @@ class AssemblyRender:
         )
 
     def margin_for(self, prefix: Any) -> FormatToken:
-        return spc(self.MARGIN + 12 - len(str(prefix)))
+        return spc(self.opts.margin + 12 - len(str(prefix)))
 
     def render_reference(
             self, elem: AsmElement, reference: Reference
@@ -324,7 +335,7 @@ class AssemblyRender:
         lines = []
         for label in elem.labels:
             if label.local_name:
-                pre = [spc(self.LOC_MARGIN), ('', '.')]
+                pre = [spc(self.opts.local_margin), ('', '.')]
                 line = [*pre, (cls + 'local', label.local_name)]
             else:
                 line = [(cls + 'global', label.name), ('', ':')]
@@ -341,6 +352,8 @@ class AssemblyRender:
             *self.render_flags(elem),
             (f'class:ugb.instr.op.{op_type}', op_type),
         ]
+        if self.opts.align_ops and len(op_type) < 4:
+            items.append(spc(4 - len(op_type)))
 
         for pos, arg in enumerate(instr.args):
             if (pos + 1 == instr.value_pos):
@@ -358,7 +371,7 @@ class AssemblyRender:
         inline_xrefs = self.render_inline_xrefs(elem)
         if inline_xrefs:
             line_len = sum(len(s) for _, s in line)
-            line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
+            line.append(spc(max(self.opts.comment_pos - line_len, 2)))
             line.extend(inline_xrefs)
 
     def add_inline_comment(self, elem: AsmElement, line: FormattedLine):
@@ -367,7 +380,7 @@ class AssemblyRender:
 
         if in_comment or elem.comment:
             line_len = sum(len(s) for _, s in line)
-            line.append(spc(max(self.COMMENT_LINE - line_len, 2)))
+            line.append(spc(max(self.opts.comment_pos - line_len, 2)))
 
             if in_comment:
                 line.extend(self.render_comment_at_cursor())
