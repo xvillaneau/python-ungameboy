@@ -23,6 +23,10 @@ class Label(NamedTuple):
             name += f".{self.local_name}"
         return name
 
+    @property
+    def is_global(self) -> bool:
+        return not self.local_name
+
 
 class LabelOffset(NamedTuple):
     label: Label

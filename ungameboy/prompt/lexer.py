@@ -54,6 +54,8 @@ class RenderOptions:
     comment_pos: int = 60
     # Pad all opcodes to 4 spaces so that the arguments align
     align_ops: bool = True
+    # Number of empty lines to display before any global label
+    label_pad_lines = 1
 
 
 class AssemblyRender:
@@ -333,6 +335,8 @@ class AssemblyRender:
     def render_labels(self, elem: AsmElement) -> FormattedText:
         cls = 'class:ugb.label.'
         lines = []
+        if elem.labels and elem.labels[0].is_global:
+            lines.extend([[] for _ in range(self.opts.label_pad_lines)])
         for label in elem.labels:
             if label.local_name:
                 pre = [spc(self.opts.local_margin), ('', '.')]
@@ -469,7 +473,10 @@ class AssemblyRender:
         """
         lines = 0
 
-        lines += len(self.asm.labels.get_labels(address))
+        labels = self.asm.labels.get_labels(address)
+        if any(label.is_global for label in labels):
+            lines += self.opts.label_pad_lines
+        lines += len(labels)
 
         calls = self.asm.xrefs.count_incoming('call', address)
         lines += calls if calls <= 3 else 1
@@ -510,8 +517,10 @@ class AssemblyRender:
         com_only = mode is ControlMode.Comment
         valid: List[bool] = []
 
-        labels = len(self.asm.labels.get_labels(address))
-        valid.extend([False] * labels)
+        labels = self.asm.labels.get_labels(address)
+        if any(label.is_global for label in labels):
+            valid.extend([False] * self.opts.label_pad_lines)
+        valid.extend([False] * len(labels))
 
         calls = self.asm.xrefs.count_incoming('call', address)
         valid.extend([False] * (calls if calls <= 3 else 1))
