@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Tuple, Union
 
 from .common import ControlMode
 from ..address import ROM, Address
@@ -71,8 +71,8 @@ class AssemblyRender:
                 elem.address <= self.ctrl.address < elem.next_address
         )
 
-    def margin_at(self, address: Address) -> FormatToken:
-        return spc(self.MARGIN + 12 - len(str(address)))
+    def margin_for(self, prefix: Any) -> FormatToken:
+        return spc(self.MARGIN + 12 - len(str(prefix)))
 
     def render_reference(
             self, elem: AsmElement, reference: Reference
@@ -195,16 +195,23 @@ class AssemblyRender:
             sram = f'{header.sram_size_kb // 8} banks ({sram_size})'
         yield [(kc, '; SRAM:'), spc(5), (vc, sram)]
 
-    def render_address(self, elem: AsmElement) -> FormattedLine:
-        addr_cls = 'class:ugb.address'
-        addr_cls += '.data' if isinstance(elem, (DataRow, DataBlock)) else ''
-        if elem.address.type is ROM and self.cursor_at_dest(elem):
-            addr_cls += HIGHLIGHT
-        elif elem.address.type is not ROM and self.cursor_at(elem):
-            addr_cls += HIGHLIGHT
+    def render_prefix(self, prefix, *cls):
+        cls = f"class:{','.join(cls)}" if cls else ""
+        return [self.margin_for(prefix), (cls, str(prefix)), S2]
 
-        addr = elem.address
-        return [self.margin_at(addr), (addr_cls, str(addr)), S2]
+    def render_address(self, elem: AsmElement, extra_cls="") -> FormattedLine:
+        addr_cls = ['ugb.address']
+        if extra_cls:
+            addr_cls.append(extra_cls)
+
+        highlight = (
+            elem.address.type is ROM and self.cursor_at_dest(elem) or
+            elem.address.type is not ROM and self.cursor_at(elem)
+        )
+        if highlight:
+            addr_cls.append('ugb.hl')
+
+        return self.render_prefix(elem.address, *addr_cls)
 
     def render_bytes(self, elem: RomElement) -> FormattedLine:
         bin_cls = 'class:ugb.bin'
@@ -255,7 +262,7 @@ class AssemblyRender:
                 ref, _ = self.render_reference(elem, ref)
                 lines.append(f"; {name} from {ref}")
 
-        margin = self.margin_at(elem.address)
+        margin = self.margin_for(elem.address)
         return [[margin, ('class:ugb.xrefs', line)] for line in lines]
 
     def render_block_xrefs(self, elem: AsmElement) -> FormattedText:
@@ -279,7 +286,7 @@ class AssemblyRender:
         else:
             cursor_pos = index
 
-        margin = self.margin_at(elem.address)
+        margin = self.margin_for(elem.address)
         lines = []
         for i, line in enumerate(elem.block_comment):
             if i == cursor_pos:
@@ -372,15 +379,15 @@ class AssemblyRender:
         desc = f'; {desc} ({elem.data.size} bytes)'
 
         lines = []
-        cls = 'class:ugb.data.header'
-        margin = self.margin_at(elem.address)
+        desc_cls, addr_cls = 'class:ugb.data.header', 'ugb.data'
+        margin = self.margin_for(elem.address)
 
         if isinstance(elem, DataRow):
             if elem.row == 0:
-                lines.append([margin, (cls, desc)])
+                lines.append([margin, (desc_cls, desc)])
 
             line = [
-                *self.render_address(elem),
+                *self.render_address(elem, addr_cls),
                 *self.render_bytes(elem),
                 *self.render_flags(elem),
                 ('class:ugb.bin', f'{elem.row:02x}.'), S2
@@ -394,10 +401,13 @@ class AssemblyRender:
 
         elif isinstance(elem, DataBlock):
             if isinstance(elem.data.content, EmptyData):
-                cls = 'class:ugb.data.empty'
+                desc_cls = 'class:ugb.data.empty'
+                addr_cls = 'ugb.data.empty'
             if self.cursor_in(elem):
-                cls += HIGHLIGHT
-            lines.append([*self.render_address(elem), (cls, desc)])
+                desc_cls += HIGHLIGHT
+            lines.append(
+                [*self.render_address(elem, addr_cls), (desc_cls, desc)]
+            )
 
             if isinstance(elem.data.content, CartridgeHeader):
                 block_content = self.render_cartridge_header(elem.data)

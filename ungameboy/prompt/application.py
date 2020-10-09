@@ -14,8 +14,6 @@ from ..dis import Disassembler
 
 
 UGB_STYLE = {
-    'ugb.address': 'fg:#10b020',
-    'ugb.address.data': 'fg:#10a080',
     'ugb.bin': 'fg:#aaaaaa',
     'ugb.comment': 'fg:#bbbbbb',
     'ugb.data': 'fg:#55cccc',
@@ -30,15 +28,20 @@ UGB_STYLE = {
     'ugb.gfx.pixel.2': 'bg:#555555 fg:#ffffff bold',
     'ugb.gfx.pixel.3': 'bg:#000000 fg:#aaaaaa bold',
     'ugb.sidebar.title': 'bold',
-    'ugb.hl ugb.sidebar.title': 'bg:white',
+    # Address classes
+    'ugb.address': 'fg:#10b020',
+    'ugb.address ugb.data': 'fg:#10a080',
+    'ugb.address ugb.data.empty': 'fg:#888888',
     # Highlight
     'ugb.hl': 'fg:black',
     'ugb.hl ugb.data': 'bg:#55cccc',
     'ugb.hl ugb.data.empty': 'bg:#888888',
     'ugb.hl ugb.address': 'bg:#10b020',
     'ugb.hl ugb.address.data': 'bg:#10a080',
+    'ugb.hl ugb.address.data.empty': 'bg:#888888',
     'ugb.hl ugb.bin': 'bg:#aaaaaa',
     'ugb.hl ugb.comment': 'bg:#bbbbbb',
+    'ugb.hl ugb.sidebar.title': 'bg:white',
     # Sections
     'ugb.section': 'fg:#aa0000 bold',
     # Labels
