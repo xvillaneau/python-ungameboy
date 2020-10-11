@@ -9,3 +9,5 @@ if __name__ == '__main__':
     asm.project_name = sys.argv[1]
     load_project(asm)
     ctrl = AsmControl(asm)
+    for bank in range(asm.rom.n_banks):
+        asm.xrefs.index(bank)

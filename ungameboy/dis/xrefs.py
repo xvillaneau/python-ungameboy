@@ -78,6 +78,45 @@ class XRefManager(AsmManager):
         for collection in self._mappings.values():
             collection.reset()
 
+    def index_all(self):
+        pass
+
+    def index(self, bank: int):
+        if self.asm.rom is None:
+            return
+
+        get_data = self.asm.data.get_data
+        get_instr = self.asm.rom.decode_instruction
+        get_value = self.asm.context.instruction_value
+
+        address = Address(ROM, bank, 0)
+        while address.bank == bank and address.is_valid:
+            data = get_data(address)
+            if data is not None:
+                address = data.next_address
+                continue
+
+            instr = get_instr(address.rom_file_offset)
+            target = get_value(instr)
+            if not isinstance(target, Address):
+                address = instr.next_address
+                continue
+
+            op = instr.type
+            ref_type = ''
+            if op in (Op.Call, Op.Vector):
+                ref_type = 'call'
+            elif op is Op.AbsJump:  # Ignore relative jumps
+                ref_type = 'jump'
+            elif op in (Op.Load, Op.LoadFast):
+                arg = instr.args[instr.value_pos - 1]
+                if isinstance(arg, Ref):
+                    ref_type = ('', 'write', 'read')[instr.value_pos]
+
+            if ref_type:
+                self._mappings[ref_type].create_link(instr.address, target)
+            address = instr.next_address
+
     def auto_declare(self, address: Address):
         elem = self.asm[address]
         if isinstance(elem, Instruction):
@@ -135,6 +174,7 @@ class XRefManager(AsmManager):
         xrefs_cli.add_group(declare_cli)
         xrefs_cli.add_command("auto", self.auto_declare)
         xrefs_cli.add_command("clear", self.clear)
+        xrefs_cli.add_command("index", self.index)
         return xrefs_cli
 
     def save_items(self):

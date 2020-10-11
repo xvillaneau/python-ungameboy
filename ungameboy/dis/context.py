@@ -45,15 +45,13 @@ class ContextManager(AsmManager):
     def has_context(self, address: Address) -> bool:
         return address in self.force_scalar or address in self.bank_override
 
-    def instruction_context(
-            self, instr: "RawInstruction"
-    ) -> Tuple["Value", Optional[Address]]:
+    def instruction_value(self, instr: "RawInstruction") -> "Value":
         if instr.value_pos <= 0:
-            return 0, None
+            return 0
 
         arg = instr.args[instr.value_pos - 1]
         if instr.address in self.force_scalar:
-            return arg, None
+            return arg
         elif isinstance(arg, Word):
             target = Address.from_memory_address(arg)
         elif instr.type is Op.RelJump:
@@ -63,17 +61,23 @@ class ContextManager(AsmManager):
         elif isinstance(arg, Ref) and isinstance(arg.target, Word):
             target = Address.from_memory_address(arg.target)
         else:
-            return arg, None
+            return arg
 
         if instr.type is Op.Load and instr.value_pos == 1:
             special = SpecialLabel.detect(target)
             if special is not None:
-                return special, None
+                return special
 
-        return (
-            self.address_context(instr.address, target),
-            self.detect_addr_bank(instr.address, target),
-        )
+        return self.detect_addr_bank(instr.address, target)
+
+    def instruction_context(
+            self, instr: "RawInstruction"
+    ) -> Tuple["Value", Optional[Address]]:
+        value = self.instruction_value(instr)
+        if isinstance(value, Address):
+            return self.address_context(instr.address, value), value
+        else:
+            return value, None
 
     def row_context(
             self, row: List['RowItem'], address: Address

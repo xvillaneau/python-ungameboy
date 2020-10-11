@@ -198,8 +198,16 @@ class Address(NamedTuple):
 
     @property
     def is_valid(self) -> bool:
-        # TODO: Check banks
-        return 0 <= self.offset < self.type.size
+        if self.bank < 0:
+            return False
+        size = self.type.size
+        if BANKS.get(self.type, 0) > 0:
+            bank_start = BANKS[self.type]
+            if self.bank > 0:
+                size -= bank_start
+            else:
+                size = bank_start
+        return 0 <= self.offset < size
 
     def __repr__(self):
         if self.type not in BANKS:
