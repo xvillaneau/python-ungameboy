@@ -1,10 +1,11 @@
-from typing import TYPE_CHECKING, NamedTuple, Optional, Set, Tuple
+from typing import TYPE_CHECKING, NamedTuple, Set, Tuple
 
 from .manager_base import AsmManager
 from .models import DataRow, Instruction
-from ..address import Address
+from ..address import ROM, Address
 from ..commands import UgbCommandGroup
 from ..data_structures import AddressMapping
+from ..data_types import Ref
 from ..enums import Operation as Op
 
 if TYPE_CHECKING:
@@ -13,53 +14,53 @@ if TYPE_CHECKING:
 
 class XRefs(NamedTuple):
     address: Address
-    calls: Optional[Address]
+    calls: Set[Address]
     called_by: Set[Address]
-    jumps_to: Optional[Address]
+    jumps_to: Set[Address]
     jumps_from: Set[Address]
-    reads: Optional[Address]
+    reads: Set[Address]
     read_by: Set[Address]
-    writes_to: Optional[Address]
+    writes_to: Set[Address]
     written_by: Set[Address]
 
 
 class LinksCollection:
     def __init__(self):
-        self.links_to: AddressMapping[Address] = AddressMapping()
-        self.links_from: AddressMapping[Set[Address]] = AddressMapping()
+        self.refs_out: AddressMapping[Set[Address]] = AddressMapping()
+        self.refs_in: AddressMapping[Set[Address]] = AddressMapping()
 
     def reset(self):
-        self.links_to.clear()
-        self.links_from.clear()
+        self.refs_out.clear()
+        self.refs_in.clear()
 
     def items(self):
-        return self.links_to.items()
+        return self.refs_out.items()
 
     def create_link(self, addr_from: Address, addr_to: Address):
-        if addr_from in self.links_to:
-            current_to = self.links_to[addr_from]
-            self.remove_link(addr_from, current_to)
-
-        self.links_to[addr_from] = addr_to
-        self.links_from.setdefault(addr_to, set()).add(addr_from)
+        self.refs_out.setdefault(addr_from, set()).add(addr_to)
+        self.refs_in.setdefault(addr_to, set()).add(addr_from)
 
     def remove_link(self, addr_from: Address, addr_to: Address):
-        if addr_from in self.links_from.get(addr_to, ()):
-            self.links_from[addr_to].remove(addr_from)
-            if not self.links_from[addr_to]:
-                del self.links_from[addr_to]
-        if addr_from in self.links_to:
-            self.links_to.pop(addr_from)
+        if addr_from in self.refs_in.get(addr_to, ()):
+            self.refs_in[addr_to].remove(addr_from)
+            if not self.refs_in[addr_to]:
+                del self.refs_in[addr_to]
+        if addr_to in self.refs_out.get(addr_from, ()):
+            self.refs_out[addr_from].remove(addr_to)
+            if not self.refs_out[addr_from]:
+                del self.refs_out[addr_from]
 
     def clear(self, address: Address):
-        if address in self.links_to:
-            self.remove_link(address, self.links_to[address])
-        if address in self.links_from:
-            for origin in list(self.links_from[address]):
-                self.remove_link(origin, address)
+        refs_out = list(self.refs_out.get(address, ()))
+        for addr_to in refs_out:
+            self.remove_link(address, addr_to)
+        refs_in = list(self.refs_in.get(address, ()))
+        for addr_from in refs_in:
+            self.remove_link(addr_from, address)
 
-    def get_links(self, address: Address) -> Tuple[Optional[Address], Set[Address]]:
-        return self.links_to.get(address), self.links_from.get(address, set())
+    def get_links(self, address: Address) -> Tuple[Set[Address], Set[Address]]:
+        _in, _out = self.refs_in.get(address), self.refs_out.get(address)
+        return _out or set(), _in or set()
 
 
 class XRefManager(AsmManager):
@@ -107,7 +108,7 @@ class XRefManager(AsmManager):
             links.clear(address)
 
     def count_incoming(self, link_type: str, address: Address):
-        links = self._mappings[link_type].links_from
+        links = self._mappings[link_type].refs_in
         return len(links.get(address, ()))
 
     def get_xrefs(self, address: Address) -> XRefs:
@@ -138,5 +139,6 @@ class XRefManager(AsmManager):
 
     def save_items(self):
         for _type, _links in self._mappings.items():
-            for _from, _to in _links.items():
-                yield ('xref', 'declare', _type, _from, _to)
+            for _from, _tos in _links.items():
+                for _to in _tos:
+                    yield ('xref', 'declare', _type, _from, _to)

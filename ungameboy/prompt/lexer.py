@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Set, Tuple, Union
 
 from .common import ControlMode
 from ..address import ROM, Address
@@ -263,7 +263,7 @@ class AssemblyRender:
 
     def _render_ref_lines(self, elem: AsmElement, name: str) -> FormattedText:
         _, attr, _, single, plural = self.XREF_TYPES[name]
-        refs = getattr(elem.xrefs, attr)
+        refs: Set[Address] = getattr(elem.xrefs, attr)
 
         lines = []
         if len(refs) > 3:
@@ -310,25 +310,25 @@ class AssemblyRender:
         return lines
 
     def render_inline_xrefs(self, elem: AsmElement) -> FormattedLine:
-        reads = elem.xrefs.reads
-        writes = elem.xrefs.writes_to
-        if isinstance(elem, RomElement):
-            reads = reads if reads != elem.dest_address else None
-            writes = writes if writes != elem.dest_address else None
+        reads = elem.xrefs.reads.copy()
+        writes = elem.xrefs.writes_to.copy()
+        if isinstance(elem, RomElement) and elem.dest_address is not None:
+            reads.discard(elem.dest_address)
+            writes.discard(elem.dest_address)
 
         line = []
         if reads or writes:
             line.append(('class:ugb.xrefs', ';'))
 
-        if reads is not None:
-            reads = self.asm.context.address_context(elem.address, reads)
-            reads = 'Reads: ' + self.render_reference(elem, reads)[0]
-            line.extend([S1, ('class:ugb.xrefs', reads)])
+        for addr in reads:
+            value = self.asm.context.address_context(elem.address, addr)
+            ref = 'Reads: ' + self.render_reference(elem, value)[0]
+            line.extend([S1, ('class:ugb.xrefs', ref)])
 
-        if writes is not None:
-            writes = self.asm.context.address_context(elem.address, writes)
-            writes = 'Writes: ' + self.render_reference(elem, writes)[0]
-            line.extend([S1, ('class:ugb.xrefs', writes)])
+        for addr in writes:
+            value = self.asm.context.address_context(elem.address, addr)
+            ref = 'Writes: ' + self.render_reference(elem, value)[0]
+            line.extend([S1, ('class:ugb.xrefs', ref)])
 
         return line
 
