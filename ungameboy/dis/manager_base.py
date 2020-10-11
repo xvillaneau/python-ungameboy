@@ -7,8 +7,8 @@ if TYPE_CHECKING:
 
 
 class AsmManager(metaclass=ABCMeta):
-    def __init__(self, disassembler: 'Disassembler'):
-        self.asm = disassembler
+    def __init__(self, asm: 'Disassembler'):
+        self.asm = asm
 
     @abstractmethod
     def reset(self) -> None:

@@ -20,35 +20,35 @@ from ..commands import (
 from ..project_save import autosave_project
 
 if TYPE_CHECKING:
-    from .application import DisassemblyEditor
+    from .application import UGBApplication
     from ..dis import Disassembler
 
 
-def create_ui_cli_v2(ugb_app: "DisassemblyEditor"):
+def create_ui_cli_v2(ugb: "UGBApplication"):
     """Add the the main CLI the UI-specific options"""
-    ugb_cli = create_core_cli_v2(ugb_app.disassembler)
+    ugb_cli = create_core_cli_v2(ugb.asm)
 
     @ugb_cli.add_command("seek")
     def seek(address: Address):
-        control = ugb_app.layout.layout.previous_control
+        control = ugb.layout.layout.previous_control
         if isinstance(control, AsmControl):
             control.seek(address)
         return False
 
     @ugb_cli.add_command("inspect")
     def inspect(address: Address):
-        ugb_app.xrefs.address = address
-        ugb_app.xrefs.cursor = 0
-        ugb_app.prompt_active = False
-        ugb_app.layout.layout.focus(ugb_app.layout.xrefs_control)
+        ugb.xrefs.address = address
+        ugb.xrefs.cursor = 0
+        ugb.prompt_active = False
+        ugb.layout.layout.focus(ugb.layout.xrefs_control)
         return False
 
     @ugb_cli.add_command("display")
     def display(address: Address):
-        ugb_app.layout.gfx_control.reset()
-        ugb_app.gfx.address = address
-        ugb_app.prompt_active = False
-        ugb_app.layout.layout.focus(ugb_app.layout.gfx_control)
+        ugb.layout.gfx_control.reset()
+        ugb.gfx.address = address
+        ugb.prompt_active = False
+        ugb.layout.layout.focus(ugb.layout.gfx_control)
 
     return ugb_cli
 
@@ -56,8 +56,8 @@ def create_ui_cli_v2(ugb_app: "DisassemblyEditor"):
 class LabelCompleter(Completer):
     RE_LABEL = re.compile(r'([a-zA-Z0-9_]+(\.[a-zA-Z0-9_-]+)?)')
 
-    def __init__(self, disassembler: "Disassembler"):
-        self.asm = disassembler
+    def __init__(self, asm: "Disassembler"):
+        self.asm = asm
 
     def get_refs_at_address(self, address: Address):
         yield from (
@@ -93,9 +93,9 @@ class AddressCompleter(LabelCompleter):
 
 
 class UGBPrompt:
-    def __init__(self, editor: "DisassemblyEditor"):
-        self.editor = editor
-        self.cli_v2 = create_ui_cli_v2(editor)
+    def __init__(self, ugb: "UGBApplication"):
+        self.ugb = ugb
+        self.cli_v2 = create_ui_cli_v2(ugb)
 
         self.prompt = TextArea(
             prompt="> ",
@@ -108,12 +108,12 @@ class UGBPrompt:
         # noinspection PyTypeChecker
         self.container = ConditionalContainer(
             self.prompt,
-            Condition(lambda: editor.prompt_active)
+            Condition(lambda: ugb.prompt_active)
         )
 
     def create_completer_v2(self):
-        label_complete = LabelCompleter(self.editor.disassembler)
-        addr_complete = AddressCompleter(self.editor.disassembler)
+        label_complete = LabelCompleter(self.ugb.asm)
+        addr_complete = AddressCompleter(self.ugb.asm)
 
         def _create_cmd_completer(cmd: UgbCommand):
             if cmd.args:
@@ -144,7 +144,7 @@ class UGBPrompt:
         if buffer.text:
             self.run_command(buffer.text.strip())
 
-        self.editor.layout.exit_prompt()
+        self.ugb.layout.exit_prompt()
         return False
 
     def pre_fill(self, *args: str):
@@ -153,9 +153,9 @@ class UGBPrompt:
 
     def run_command(self, command: str):
         res = self.cli_v2(command)
-        autosave_project(self.editor.disassembler)
+        autosave_project(self.ugb.asm)
         if res is not False:
-            self.editor.layout.refresh()
+            self.ugb.layout.refresh()
         return res
 
     def reset(self) -> None:

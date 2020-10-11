@@ -10,41 +10,41 @@ from ..address import ROM
 
 if TYPE_CHECKING:
     from prompt_toolkit.key_binding import KeyBindingsBase, KeyPressEvent
-    from .application import DisassemblyEditor
+    from .application import UGBApplication
 
 
-def create_global_bindings(app: 'DisassemblyEditor') -> 'KeyBindingsBase':
+def create_global_bindings(ugb: 'UGBApplication') -> 'KeyBindingsBase':
     return merge_key_bindings([
-        create_layout_bindings(app),
-        create_editor_shortcuts(app),
+        create_layout_bindings(ugb),
+        create_editor_shortcuts(ugb),
     ])
 
 
-def create_layout_bindings(editor: 'DisassemblyEditor'):
+def create_layout_bindings(ugb: 'UGBApplication'):
     bindings = KeyBindings()
 
     @bindings.add("c-d")
     def _exit(event):
         event.app.exit()
 
-    @bindings.add(":", filter=editor.filters.browsing)
+    @bindings.add(":", filter=ugb.filters.browsing)
     def _focus_prompt(_):
-        editor.layout.focus_prompt()
+        ugb.layout.focus_prompt()
 
-    @bindings.add('tab', filter=editor.filters.browsing)
+    @bindings.add('tab', filter=ugb.filters.browsing)
     def _rotate_focus(event):
         event.app.layout.focus_next()
 
-    @bindings.add("c-c", filter=editor.filters.prompt_active)
-    @bindings.add(Keys.Escape, filter=editor.filters.prompt_active)
+    @bindings.add("c-c", filter=ugb.filters.prompt_active)
+    @bindings.add(Keys.Escape, filter=ugb.filters.prompt_active)
     def _quit_prompt(_):
-        editor.layout.exit_prompt()
-        editor.prompt.reset()
+        ugb.layout.exit_prompt()
+        ugb.prompt.reset()
 
     return bindings
 
 
-def create_editor_shortcuts(editor: 'DisassemblyEditor'):
+def create_editor_shortcuts(ugb: 'UGBApplication'):
     bindings = KeyBindings()
 
     cursor = object()
@@ -87,73 +87,73 @@ def create_editor_shortcuts(editor: 'DisassemblyEditor'):
                 return
 
             if run:
-                editor.prompt.run_command(str_args)
+                ugb.prompt.run_command(str_args)
             else:
-                editor.prompt.pre_fill(*str_args)
-                editor.layout.focus_prompt()
+                ugb.prompt.pre_fill(*str_args)
+                ugb.layout.focus_prompt()
 
         bindings.add(*keys, filter=filter)(handler)
 
     # Navigation shortcuts
-    bind_shortcut('g', 'seek', filter=editor.filters.editor_active)
+    bind_shortcut('g', 'seek', filter=ugb.filters.editor_active)
     bind_shortcut(
         'X', ('inspect', cursor_dest_rom), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'V', ('display', cursor), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         ('c-s',), ('project', 'save'), run=True,
-        filter=~editor.filters.prompt_active,
+        filter=~ugb.filters.prompt_active,
     )
 
     # Label shortcuts
     bind_shortcut(
         'aa', ('label', 'auto', cursor), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'ax', ('label', 'auto', cursor_dest), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'Aa', ('label', 'auto', cursor, '--local'), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'Ax', ('label', 'auto', cursor_dest, '--local'), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
 
     # XREF shortcuts
     bind_shortcut(
         'xx', ('xref', 'auto', cursor), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'xr', ('xref', 'declare', 'read', cursor),
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'xw', ('xref', 'declare', 'write', cursor),
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
 
     # Context shortcuts
     bind_shortcut(
         'Cs', ('context', 'set', 'scalar', cursor), run=True,
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
         'Cb', ('context', 'set', 'bank', cursor),
-        filter=editor.filters.cursor_active,
+        filter=ugb.filters.cursor_active,
     )
     return bindings
 
 
-def quit_sidebar(app: 'DisassemblyEditor'):
+def quit_sidebar(ugb: 'UGBApplication'):
     def decorator(func):
         @wraps(func)
         def wrapper(event):
@@ -161,17 +161,17 @@ def quit_sidebar(app: 'DisassemblyEditor'):
 
             control = event.app.layout.previous_control
             if not isinstance(control, AsmControl):
-                control = app.layout.main_control
+                control = ugb.layout.main_control
             event.app.layout.focus(control)
         return wrapper
     return decorator
 
 
-def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
+def create_xref_inspect_bindings(ugb: 'UGBApplication'):
     bindings = KeyBindings()
 
     def count_refs():
-        xr = app.disassembler.xrefs.get_xrefs(app.xrefs.address)
+        xr = ugb.asm.xrefs.get_xrefs(ugb.xrefs.address)
         return (
             len(xr.called_by) +
             len(xr.jumps_from) +
@@ -180,84 +180,84 @@ def create_xref_inspect_bindings(app: 'DisassemblyEditor'):
         )
 
     def get_selected_xref():
-        index = app.xrefs.cursor
+        index = ugb.xrefs.cursor
         if index < 0:
             raise IndexError(index)
 
-        xr = app.disassembler.xrefs.get_xrefs(app.xrefs.address)
+        xr = ugb.asm.xrefs.get_xrefs(ugb.xrefs.address)
         for col in (xr.called_by, xr.jumps_from, xr.read_by, xr.written_by):
             if index < len(col):
                 return list(sorted(col))[index]
             index -= len(col)
 
-        raise IndexError(app.xrefs.cursor)
+        raise IndexError(ugb.xrefs.cursor)
 
     @bindings.add('up')
     def move_up(_):
-        app.xrefs.cursor = max(app.xrefs.cursor - 1, 0)
+        ugb.xrefs.cursor = max(ugb.xrefs.cursor - 1, 0)
 
     @bindings.add('down')
     def move_down(_):
-        app.xrefs.cursor = min(app.xrefs.cursor + 1, count_refs() - 1)
+        ugb.xrefs.cursor = min(ugb.xrefs.cursor + 1, count_refs() - 1)
 
     @bindings.add('enter')
     def go_to_ref(event):
         show_ref(event)
-        event.app.layout.focus(app.layout.main_control)
+        event.app.layout.focus(ugb.layout.main_control)
 
     @bindings.add('space')
     def show_ref(_):
-        app.layout.main_control.seek(get_selected_xref())
+        ugb.layout.main_control.seek(get_selected_xref())
 
     @bindings.add("q")
     @bindings.add("c-c")
-    @quit_sidebar(app)
+    @quit_sidebar(ugb)
     def quit_inspector(_):
-        app.xrefs.address = None
+        ugb.xrefs.address = None
 
     return bindings
 
 
-def create_gfx_display_bindings(app: 'DisassemblyEditor'):
+def create_gfx_display_bindings(ugb: 'UGBApplication'):
     bindings = KeyBindings()
 
     @bindings.add("q")
     @bindings.add("c-c")
-    @quit_sidebar(app)
+    @quit_sidebar(ugb)
     def quit_display(_):
-        app.gfx.address = None
+        ugb.gfx.address = None
 
     @bindings.add('[')
     def more_columns(_):
-        app.gfx.columns += 1
+        ugb.gfx.columns += 1
 
     @bindings.add(']')
     def fewer_columns(_):
-        app.gfx.columns = max(1, app.gfx.columns - 1)
+        ugb.gfx.columns = max(1, ugb.gfx.columns - 1)
 
     @bindings.add('p')
     def toggle_tall_sprites(_):
         # Toggle between 8 and 16
-        app.gfx.tile_height = 8 * (3 - app.gfx.tile_height // 8)
+        ugb.gfx.tile_height = 8 * (3 - ugb.gfx.tile_height // 8)
 
     @bindings.add('n')
     def show_ids(_):
-        app.gfx.show_ids = not app.gfx.show_ids
+        ugb.gfx.show_ids = not ugb.gfx.show_ids
 
     @bindings.add("down")
     def move_down(_):
-        app.layout.gfx_control.move_down(1)
+        ugb.layout.gfx_control.move_down(1)
 
     @bindings.add("up")
     def move_up(_):
-        app.layout.gfx_control.move_up(1)
+        ugb.layout.gfx_control.move_up(1)
 
     @bindings.add("pageup")
     def handle_page_up(event: 'KeyPressEvent'):
         window = event.app.layout.current_window
         if not (window and window.render_info):
             return
-        control = app.layout.gfx_control
+        control = ugb.layout.gfx_control
         if window.content is control:
             control.move_up(window.render_info.window_height // 2)
 
@@ -266,7 +266,7 @@ def create_gfx_display_bindings(app: 'DisassemblyEditor'):
         window = event.app.layout.current_window
         if not (window and window.render_info):
             return
-        control = app.layout.gfx_control
+        control = ugb.layout.gfx_control
         if window.content is control:
             control.move_down(window.render_info.window_height // 2)
 

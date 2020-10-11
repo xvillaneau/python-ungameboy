@@ -18,8 +18,8 @@ __all__ = ['ContextManager']
 
 
 class ContextManager(AsmManager):
-    def __init__(self, disassembler: "Disassembler"):
-        super().__init__(disassembler)
+    def __init__(self, asm: "Disassembler"):
+        super().__init__(asm)
 
         self.force_scalar: Set[Address] = set()
         self.bank_override: Dict[Address, int] = {}

@@ -9,7 +9,7 @@ from ..address import Address
 from ..dis import Label, LabelOffset
 
 if TYPE_CHECKING:
-    from .application import DisassemblyEditor
+    from .application import UGBApplication
 
 
 @dataclass
@@ -18,19 +18,19 @@ class XRefBrowserState:
     cursor: int = 0
 
 
-def make_xrefs_control(app: 'DisassemblyEditor'):
-    asm = app.disassembler
+def make_xrefs_control(ugb: 'UGBApplication'):
+    asm = ugb.asm
 
     def get_xrefs_content():
-        if app.xrefs.address is None:
+        if ugb.xrefs.address is None:
             return []
 
-        xrefs = asm.xrefs.get_xrefs(app.xrefs.address)
+        xrefs = asm.xrefs.get_xrefs(ugb.xrefs.address)
         calls = list(sorted(xrefs.called_by))
         jumps = list(sorted(xrefs.jumps_from))
         reads = list(sorted(xrefs.read_by))
         writes = list(sorted(xrefs.written_by))
-        comment = asm.comments.blocks.get(app.xrefs.address, [])
+        comment = asm.comments.blocks.get(ugb.xrefs.address, [])
 
         if not any([calls, jumps, reads, writes, comment]):
             return [('', 'No references found')]
@@ -46,7 +46,7 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
 
         def display_xref(_addr):
             tokens.append(('', '  '))
-            sel = ',ugb.hl' * (line_index == app.xrefs.cursor)
+            sel = ',ugb.hl' * (line_index == ugb.xrefs.cursor)
             tokens.append(('class:ugb.address' + sel, str(_addr)))
 
             name = asm.context.address_context(_addr, _addr, relative=True)
@@ -101,20 +101,20 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
 
     def get_cursor_pos():
         """Used by PT to handle scrolling in the XREF browser"""
-        if app.xrefs.address is None:
+        if ugb.xrefs.address is None:
             return None
 
-        line_pos = cursor = app.xrefs.cursor
+        line_pos = cursor = ugb.xrefs.cursor
         if cursor == 0:
             # Always return 0 at top of file (even if actual cursor is
             # lower), otherwise no amount of scrolling up would show it.
             return Point(0, 0)
 
         # Handle the offset caused by the comment/docstring
-        doc_size = len(asm.comments.blocks.get(app.xrefs.address, []))
+        doc_size = len(asm.comments.blocks.get(ugb.xrefs.address, []))
         line_pos += doc_size + doc_size > 0
 
-        xrefs = asm.xrefs.get_xrefs(app.xrefs.address)
+        xrefs = asm.xrefs.get_xrefs(ugb.xrefs.address)
         n_calls = len(xrefs.called_by)
         n_jumps = len(xrefs.jumps_from)
         n_reads = len(xrefs.read_by)
@@ -153,19 +153,19 @@ def make_xrefs_control(app: 'DisassemblyEditor'):
         text=get_xrefs_content,
         show_cursor=False,
         focusable=True,
-        key_bindings=create_xref_inspect_bindings(app),
+        key_bindings=create_xref_inspect_bindings(ugb),
         get_cursor_position=get_cursor_pos,
     )
 
 
-def make_xrefs_title_function(app: 'DisassemblyEditor'):
+def make_xrefs_title_function(ugb: 'UGBApplication'):
 
     def get_xrefs_title():
-        address = app.xrefs.address
+        address = ugb.xrefs.address
         if address is None:
             return 'No address selected'
 
-        labels = app.disassembler.labels.get_labels(address)
+        labels = ugb.asm.labels.get_labels(address)
         if labels:
             target = f'{labels[-1].name} ({address})'
         else:

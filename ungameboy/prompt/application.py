@@ -76,10 +76,10 @@ for _op, _type in product(['call', 'jp', 'jr'], ['addr', 'label']):
     UGB_STYLE[f'ugb.value.{_type}.{_op}'] = UGB_STYLE[f'ugb.instr.op.{_op}']
 
 
-class DisassemblyEditor:
+class UGBApplication:
 
     def __init__(self, asm: Disassembler):
-        self.disassembler = asm
+        self.asm = asm
         self.prompt_active = False
 
         self.xrefs = XRefBrowserState()
@@ -115,4 +115,4 @@ def run():
         with open(sys.argv[1], 'rb') as rom_file:
             asm.load_rom(rom_file)
 
-    DisassemblyEditor(asm).run()
+    UGBApplication(asm).run()

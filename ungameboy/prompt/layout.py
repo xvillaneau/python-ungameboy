@@ -10,15 +10,15 @@ from .gfx_display import GraphicsControl
 from .xref_browser import make_xrefs_control, make_xrefs_title_function
 
 if TYPE_CHECKING:
-    from .application import DisassemblyEditor
+    from .application import UGBApplication
 
 
 class UGBLayout:
-    def __init__(self, app: "DisassemblyEditor"):
-        self.app = app
-        self.main_control = AsmControl(app.disassembler)
-        self.gfx_control = GraphicsControl(app)
-        self.xrefs_control = make_xrefs_control(app)
+    def __init__(self, ugb: "UGBApplication"):
+        self.ugb = ugb
+        self.main_control = AsmControl(ugb.asm)
+        self.gfx_control = GraphicsControl(ugb)
+        self.xrefs_control = make_xrefs_control(ugb)
 
         main_window = Window(
             content=self.main_control,
@@ -30,7 +30,7 @@ class UGBLayout:
         # noinspection PyTypeChecker
         body = HSplit([
             VSplit([main_window, self.build_sidebar()]),
-            app.prompt.container,
+            ugb.prompt.container,
         ])
 
         self.layout = Layout(body, focused_element=main_window)
@@ -40,13 +40,13 @@ class UGBLayout:
         views = [
             (
                 Window(self.xrefs_control),
-                make_xrefs_title_function(self.app),
-                self.app.filters.xrefs_visible
+                make_xrefs_title_function(self.ugb),
+                self.ugb.filters.xrefs_visible
             ),
             (
                 self.gfx_control.make_window(),
                 "Bitmap preview",
-                self.app.filters.gfx_visible
+                self.ugb.filters.gfx_visible
             ),
         ]
 
@@ -59,12 +59,12 @@ class UGBLayout:
         self.main_control.refresh()
 
     def focus_prompt(self):
-        self.app.prompt_active = True
-        self.layout.focus(self.app.prompt.container)
+        self.ugb.prompt_active = True
+        self.layout.focus(self.ugb.prompt.container)
 
     def exit_prompt(self):
-        if self.app.prompt_active:
-            self.app.prompt_active = False
+        if self.ugb.prompt_active:
+            self.ugb.prompt_active = False
             self.layout.focus_last()
 
 

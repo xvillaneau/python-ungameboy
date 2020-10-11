@@ -38,8 +38,8 @@ class LabelOffset(NamedTuple):
 
 
 class LabelManager(AsmManager):
-    def __init__(self, disassembler: 'Disassembler'):
-        super().__init__(disassembler)
+    def __init__(self, asm: 'Disassembler'):
+        super().__init__(asm)
 
         self._globals: AddressMapping[List[str]] = AddressMapping()
         self._locals: AddressMapping[List[str]] = AddressMapping()

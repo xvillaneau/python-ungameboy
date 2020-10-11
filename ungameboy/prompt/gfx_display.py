@@ -11,7 +11,7 @@ from ..dis.data import Data
 from ..dis.graphics import read_2bpp_values
 
 if TYPE_CHECKING:
-    from .application import DisassemblyEditor
+    from .application import UGBApplication
 
 
 @dataclass
@@ -23,14 +23,14 @@ class GraphicsDisplayState:
 
 
 class GraphicsControl(UIControl):
-    def __init__(self, app: 'DisassemblyEditor'):
-        self.app = app
-        self.gfx = app.gfx
+    def __init__(self, ugb: 'UGBApplication'):
+        self.ugb = ugb
+        self.gfx = ugb.gfx
         self.scroll_pos = 0
 
         self._loaded_data: Optional[Data] = None
         self._bitmap = b''
-        self._kb = create_gfx_display_bindings(app)
+        self._kb = create_gfx_display_bindings(ugb)
 
     def make_window(self):
         return Window(
@@ -47,7 +47,7 @@ class GraphicsControl(UIControl):
         if self.gfx.address is None:
             return b''
 
-        latest_data = self.app.disassembler.data.get_data(self.gfx.address)
+        latest_data = self.ugb.asm.data.get_data(self.gfx.address)
         if latest_data is not self._loaded_data:
             self._loaded_data = latest_data
             self._bitmap = self.read_bitmap()

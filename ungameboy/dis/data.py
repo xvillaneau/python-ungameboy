@@ -322,8 +322,8 @@ class Data:
 
 class DataManager(AsmManager):
 
-    def __init__(self, disassembler: 'Disassembler'):
-        super().__init__(disassembler)
+    def __init__(self, asm: 'Disassembler'):
+        super().__init__(asm)
         self.inventory: Dict[Address, Data] = {}
         self._blocks_map: AddressMapping[int] = AddressMapping()
 
