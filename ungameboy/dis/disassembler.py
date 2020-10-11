@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import BinaryIO, List, Optional
 
+from .analysis import AnalysisManager
 from .comments import CommentsManager
 from .context import ContextManager
 from .data import DataManager, CartridgeHeader, EmptyData
@@ -26,6 +27,7 @@ class Disassembler:
         self.project_name = ""
         self.last_save = datetime.now(timezone.utc)
 
+        self.analyze = AnalysisManager(self)
         self.data = DataManager(self)
         self.comments = CommentsManager(self)
         self.context = ContextManager(self)
@@ -34,7 +36,8 @@ class Disassembler:
         self.xrefs = XRefManager(self)
 
         self.managers: List[AsmManager] = [
-            self.data, self.labels, self.xrefs, self.context, self.comments
+            self.data, self.labels, self.xrefs, self.context, self.comments,
+            self.analyze,
         ]
 
     @property

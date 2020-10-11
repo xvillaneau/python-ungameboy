@@ -21,6 +21,14 @@ class ROMBytes:
     def __getitem__(self, item):
         return self.rom[item]
 
+    @property
+    def n_banks(self) -> int:
+        banks, rem = divmod(len(self), 0x4000)
+        if rem:
+            raise ValueError(f"Invalid ROM size: {len(self):,} bytes")
+        # Tiny ROM (32 KiB) counts as a single bank
+        return 1 if banks == 2 else banks
+
     def size_of(self, offset: int) -> int:
         return CODE_POINTS[self.rom[offset]].length
 
