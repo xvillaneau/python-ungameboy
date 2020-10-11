@@ -32,7 +32,6 @@ from functools import total_ordering
 import re
 from typing import NamedTuple, Optional
 
-from .data_types import SignedByte
 
 __all__ = [
     'MemoryType', 'Address', 'BANKS',
@@ -216,12 +215,8 @@ class Address(NamedTuple):
             bank_str = f'.{self.bank:x}' if self.bank >= 0 else '.X'
         return f"{self.type.name}{bank_str}:{self.memory_address:04x}"
 
-    def __add__(self, other) -> "Address":
-        if isinstance(other, SignedByte):
-            other = other if other < 0x80 else (other - 256)
-        if isinstance(other, int):
-            return Address(self.type, self.bank, self.offset + other)
-        return NotImplemented
+    def __add__(self, other: int) -> "Address":
+        return Address(self.type, self.bank, self.offset + other)
 
     def __sub__(self, other) -> "Address":
         if isinstance(other, int):

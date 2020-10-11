@@ -49,11 +49,17 @@ class Byte(int, metaclass=ParameterMeta):
 class SignedByte(Byte):
     symbol = 'e8'
 
+    def __new__(cls, value):
+        if value >= 0x80:
+            value -= 256
+        # noinspection PyArgumentList
+        return int.__new__(cls, value)
+
     def __repr__(self):
-        if self < 0x80:
+        if self >= 0:
             return f"+${self:02x}"
         else:
-            return f"-${256-self:02x}"
+            return f"-${-self:02x}"
 
 
 class SPOffset(SignedByte):
