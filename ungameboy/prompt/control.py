@@ -43,6 +43,8 @@ class AsmControl(UIControl):
         return self.key_bindings
 
     def create_content(self, width: int, height: int) -> UIContent:
+        if not self.asm.is_loaded:
+            return UIContent(lambda _: [('', "Loading...")], 1)
         return UIContent(
             self.get_line,
             self.current_view.lines,
@@ -101,6 +103,10 @@ class AsmControl(UIControl):
 
     @cursor.setter
     def cursor(self, value: int):
+        if not self.asm.is_loaded:
+            self.cursor_y = 0
+            return
+
         new_address = self.current_view.find_address(value)
 
         if self.comment_mode:
@@ -345,7 +351,8 @@ class AsmRegionView:
         self.refresh()
 
     def refresh(self):
-        self.build_lines_map()
+        if self.control.asm.is_loaded:
+            self.build_lines_map()
 
     def build_lines_map(self):
         self._lines.clear()

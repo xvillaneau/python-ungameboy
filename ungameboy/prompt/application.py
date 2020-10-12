@@ -99,20 +99,25 @@ class UGBApplication:
     def run(self):
         main_offset = Address.from_rom_offset(0x0100)
         self.layout.main_control.seek(main_offset)
-        self.app.run()
+        self.app.run(pre_run=self.pre_run)
+
+    def pre_run(self):
+        self.asm.auto_load()
+        self.layout.refresh()
+
+        main_offset = Address.from_rom_offset(0x0100)
+        self.layout.main_control.seek(main_offset)
+        self.app.invalidate()
 
 
 def run():
     import sys
-    from ..project_save import load_project
 
     asm = Disassembler()
 
     if len(sys.argv) == 3 and sys.argv[1] == '-p':
         asm.project_name = sys.argv[2]
-        load_project(asm)
     elif len(sys.argv) == 2:
-        with open(sys.argv[1], 'rb') as rom_file:
-            asm.load_rom(rom_file)
+        asm.rom_path = sys.argv[1]
 
     UGBApplication(asm).run()
