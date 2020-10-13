@@ -1,8 +1,10 @@
-from typing import TYPE_CHECKING, Union, Callable
+from typing import TYPE_CHECKING, Callable, List, Union
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.layout import D, HSplit, Layout, VSplit, Window
-from prompt_toolkit.layout.containers import ConditionalContainer
+from prompt_toolkit.layout.containers import (
+    ConditionalContainer, Float, FloatContainer
+)
 from prompt_toolkit.layout.controls import FormattedTextControl
 
 from .control import AsmControl
@@ -19,6 +21,7 @@ class UGBLayout:
         self.main_control = AsmControl(ugb.asm)
         self.gfx_control = GraphicsControl(ugb)
         self.xrefs_control = make_xrefs_control(ugb)
+        self.floats: List[Float] = []
 
         main_window = Window(
             content=self.main_control,
@@ -28,10 +31,13 @@ class UGBLayout:
         )
 
         # noinspection PyTypeChecker
-        body = HSplit([
-            VSplit([main_window, self.build_sidebar()]),
-            ugb.prompt.container,
-        ])
+        body = FloatContainer(
+            content=HSplit([
+                VSplit([main_window, self.build_sidebar()]),
+                ugb.prompt.container,
+            ]),
+            floats=self.floats,
+        )
 
         self.layout = Layout(body, focused_element=main_window)
 

@@ -3,7 +3,10 @@ from itertools import product
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.eventloop import run_in_executor_with_context
+from prompt_toolkit.layout.containers import Float, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.styles import Style
+from prompt_toolkit.widgets.dialogs import Dialog
 
 from .filters import UGBFilters
 from .gfx_display import GraphicsDisplayState
@@ -99,20 +102,35 @@ class UGBApplication:
         )
 
     def run(self):
+        def _pre_run():
+            self.app.create_background_task(self._pre_run())
+
         main_offset = Address.from_rom_offset(0x0100)
         self.layout.main_control.seek(main_offset)
-        self.app.run(pre_run=self.pre_run)
+        self.app.run(pre_run=_pre_run)
 
-    def pre_run(self):
-        async def _pre_run():
-            """Run the initialization tasks asynchronously"""
+    async def _pre_run(self):
+        """Run the initialization tasks asynchronously"""
 
-            def _load():
-                self.asm.auto_load()
-                self.layout.refresh()
+        # Prepare the loading progress dialog
+        progress_msg = "Loading project"
+        progress_ctrl = Window(FormattedTextControl(
+            text=lambda: progress_msg, focusable=True, show_cursor=False
+        ))
+        # noinspection PyTypeChecker
+        progress_float = Float(Dialog(progress_ctrl, "Loading…"))
 
-            # Loading the project is a blocking task, therefore it needs
-            # to be run in a separate thread.
+        self.layout.floats.append(progress_float)
+        self.app.layout.focus(progress_ctrl)
+        self.app.invalidate()
+
+        # Loading the project is a blocking task, therefore it needs
+        # to be run in a separate thread.
+        def _load():
+            self.asm.auto_load()
+            self.layout.refresh()
+
+        try:
             await run_in_executor_with_context(_load)
 
             if not self.asm.is_loaded:
@@ -123,18 +141,20 @@ class UGBApplication:
             self.layout.main_control.seek(main_offset)
             self.app.invalidate()
 
-            # Index all the banks. This can take a VERY LONG time so it
-            # too needs to be threaded. I need to optimize this.
-            for bank in range(self.asm.rom.n_banks):
+            # Index all the banks. This can take a while.
+            n_banks = self.asm.rom.n_banks
+            for bank in range(n_banks):
+                progress_msg = f"Indexing bank {bank:02x}/{n_banks-1:02x}"
                 index = partial(self.asm.xrefs.index, bank)
                 await run_in_executor_with_context(index)
                 self.app.invalidate()
 
-            self.layout.refresh()
-            self.app.invalidate()
+        finally:
+            self.app.layout.focus_last()
+            self.layout.floats.remove(progress_float)
 
-        # Launch initialization task
-        self.app.create_background_task(_pre_run())
+        self.layout.refresh()
+        self.app.invalidate()
 
 
 def run():
