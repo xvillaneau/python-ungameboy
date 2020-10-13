@@ -12,7 +12,6 @@ from .models import AsmElement, Instruction, DataBlock, DataRow, RamElement
 from .sections import SectionManager
 from .xrefs import XRefManager
 from ..address import Address, ROM
-from ..project_save import load_project
 
 __all__ = ['Disassembler']
 
@@ -53,15 +52,6 @@ class Disassembler:
         if hasattr(rom_file, 'name'):
             self.rom_path = rom_file.name
         self.rom = ROMBytes(rom_file)
-
-    def auto_load(self):
-        if self.is_loaded:
-            return
-        if self.project_name:
-            load_project(self)
-        elif self.rom_path is not None:
-            with open(self.rom_path, 'rb') as rom:
-                self.load_rom(rom)
 
     def __getitem__(self, addr) -> AsmElement:
         if self.rom is None:

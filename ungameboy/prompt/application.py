@@ -16,6 +16,7 @@ from .prompt import UGBPrompt
 from .xref_browser import XRefBrowserState
 from ..address import Address
 from ..dis import Disassembler
+from ..project_save import load_project
 
 
 UGB_STYLE = {
@@ -109,11 +110,58 @@ class UGBApplication:
         self.layout.main_control.seek(main_offset)
         self.app.run(pre_run=_pre_run)
 
+    def _startup_tasks(self):
+        """
+        Sequence of tasks run when opening UGB. Iterator that yields
+        loading progress messages and awaitable objects.
+        """
+        if self.asm.is_loaded:
+            return
+
+        run_rom_setup = False
+
+        if self.asm.project_name:
+            def _load_project():
+                load_project(self.asm)
+                self.layout.refresh()
+
+            task = run_in_executor_with_context(_load_project)
+            yield "Loading project", task
+
+        elif self.asm.rom_path:
+            def _load_rom():
+                with open(self.asm.rom_path, 'rb') as rom:
+                    self.asm.load_rom(rom)
+                self.layout.refresh()
+
+            task = run_in_executor_with_context(_load_rom)
+            yield "Loading ROM", task
+            run_rom_setup = True
+
+        if not self.asm.is_loaded:
+            return
+
+        main_offset = Address.from_rom_offset(0x0100)
+        self.layout.main_control.seek(main_offset)
+        yield "", None
+
+        if run_rom_setup:
+            pass  # TODO: do stuff
+
+        # Index all the banks. This can take a while.
+        n_banks = self.asm.rom.n_banks
+        for bank in range(n_banks):
+            msg = f"Indexing bank {bank:02x}/{n_banks - 1:02x}"
+            index = partial(self.asm.xrefs.index, bank)
+            yield msg, run_in_executor_with_context(index)
+
+        yield "", run_in_executor_with_context(self.layout.refresh)
+
     async def _pre_run(self):
         """Run the initialization tasks asynchronously"""
 
         # Prepare the loading progress dialog
-        progress_msg = "Loading project"
+        progress_msg = "Starting UnGameBoy"
         progress_ctrl = Window(FormattedTextControl(
             text=lambda: progress_msg, focusable=True, show_cursor=False
         ))
@@ -124,37 +172,17 @@ class UGBApplication:
         self.app.layout.focus(progress_ctrl)
         self.app.invalidate()
 
-        # Loading the project is a blocking task, therefore it needs
-        # to be run in a separate thread.
-        def _load():
-            self.asm.auto_load()
-            self.layout.refresh()
-
         try:
-            await run_in_executor_with_context(_load)
-
-            if not self.asm.is_loaded:
-                return
-
-            # Seek to the ROM start offset
-            main_offset = Address.from_rom_offset(0x0100)
-            self.layout.main_control.seek(main_offset)
-            self.app.invalidate()
-
-            # Index all the banks. This can take a while.
-            n_banks = self.asm.rom.n_banks
-            for bank in range(n_banks):
-                progress_msg = f"Indexing bank {bank:02x}/{n_banks-1:02x}"
-                index = partial(self.asm.xrefs.index, bank)
-                await run_in_executor_with_context(index)
+            for msg, task in self._startup_tasks():
+                if msg:
+                    progress_msg = msg
+                if task:
+                    await task
                 self.app.invalidate()
 
         finally:
             self.app.layout.focus_last()
             self.layout.floats.remove(progress_float)
-
-        self.layout.refresh()
-        self.app.invalidate()
 
 
 def run():
