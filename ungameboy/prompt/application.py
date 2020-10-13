@@ -111,10 +111,6 @@ class UGBApplication:
                 self.asm.auto_load()
                 self.layout.refresh()
 
-            def _index_bank(bk):
-                self.asm.xrefs.index(bk)
-                self.layout.refresh()
-
             # Loading the project is a blocking task, therefore it needs
             # to be run in a separate thread.
             await run_in_executor_with_context(_load)
@@ -130,9 +126,12 @@ class UGBApplication:
             # Index all the banks. This can take a VERY LONG time so it
             # too needs to be threaded. I need to optimize this.
             for bank in range(self.asm.rom.n_banks):
-                index = partial(_index_bank, bank)
+                index = partial(self.asm.xrefs.index, bank)
                 await run_in_executor_with_context(index)
                 self.app.invalidate()
+
+            self.layout.refresh()
+            self.app.invalidate()
 
         # Launch initialization task
         self.app.create_background_task(_pre_run())
