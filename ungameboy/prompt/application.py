@@ -1,6 +1,8 @@
+from functools import partial
 from itertools import product
 
 from prompt_toolkit.application import Application
+from prompt_toolkit.eventloop import run_in_executor_with_context
 from prompt_toolkit.styles import Style
 
 from .filters import UGBFilters
@@ -102,12 +104,38 @@ class UGBApplication:
         self.app.run(pre_run=self.pre_run)
 
     def pre_run(self):
-        self.asm.auto_load()
-        self.layout.refresh()
+        async def _pre_run():
+            """Run the initialization tasks asynchronously"""
 
-        main_offset = Address.from_rom_offset(0x0100)
-        self.layout.main_control.seek(main_offset)
-        self.app.invalidate()
+            def _load():
+                self.asm.auto_load()
+                self.layout.refresh()
+
+            def _index_bank(bk):
+                self.asm.xrefs.index(bk)
+                self.layout.refresh()
+
+            # Loading the project is a blocking task, therefore it needs
+            # to be run in a separate thread.
+            await run_in_executor_with_context(_load)
+
+            if not self.asm.is_loaded:
+                return
+
+            # Seek to the ROM start offset
+            main_offset = Address.from_rom_offset(0x0100)
+            self.layout.main_control.seek(main_offset)
+            self.app.invalidate()
+
+            # Index all the banks. This can take a VERY LONG time so it
+            # too needs to be threaded. I need to optimize this.
+            for bank in range(self.asm.rom.n_banks):
+                index = partial(_index_bank, bank)
+                await run_in_executor_with_context(index)
+                self.app.invalidate()
+
+        # Launch initialization task
+        self.app.create_background_task(_pre_run())
 
 
 def run():
