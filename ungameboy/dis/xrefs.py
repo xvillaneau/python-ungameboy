@@ -103,7 +103,7 @@ class XRefManager(AsmManager):
                 break
 
             target = get_value(instr)
-            if isinstance(target, Address):
+            if isinstance(target, Address) and target.bank >= 0:
                 ref_type = ''
                 if op in (Op.Call, Op.Vector):
                     ref_type = 'call'
