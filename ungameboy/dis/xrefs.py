@@ -97,28 +97,25 @@ class XRefManager(AsmManager):
                 break
 
             instr = get_instr(address.rom_file_offset)
-            if instr.type is Op.Invalid:
+            address = instr.next_address
+            op = instr.type
+            if op in (Op.Invalid, Op.ReturnIntEnable):
                 break
 
             target = get_value(instr)
-            if not isinstance(target, Address):
-                address = instr.next_address
-                continue
+            if isinstance(target, Address):
+                ref_type = ''
+                if op in (Op.Call, Op.Vector):
+                    ref_type = 'call'
+                elif op is Op.AbsJump:  # Ignore relative jumps
+                    ref_type = 'jump'
+                elif op in (Op.Load, Op.LoadFast):
+                    arg = instr.args[instr.value_pos - 1]
+                    if isinstance(arg, Ref):
+                        ref_type = ('', 'write', 'read')[instr.value_pos]
 
-            op = instr.type
-            ref_type = ''
-            if op in (Op.Call, Op.Vector):
-                ref_type = 'call'
-            elif op is Op.AbsJump:  # Ignore relative jumps
-                ref_type = 'jump'
-            elif op in (Op.Load, Op.LoadFast):
-                arg = instr.args[instr.value_pos - 1]
-                if isinstance(arg, Ref):
-                    ref_type = ('', 'write', 'read')[instr.value_pos]
-
-            if ref_type:
-                self._mappings[ref_type].create_link(instr.address, target)
-            address = instr.next_address
+                if ref_type:
+                    self._mappings[ref_type].create_link(instr.address, target)
 
             arg0 = instr.args[0] if instr.args else None
             if op in terminating and not isinstance(arg0, Condition):
