@@ -60,7 +60,7 @@ class Disassembler:
         if self.project_name:
             load_project(self)
         elif self.rom_path is not None:
-            with open(self.rom_path, 'rb', encoding='utf8') as rom:
+            with open(self.rom_path, 'rb') as rom:
                 self.load_rom(rom)
 
     def __getitem__(self, addr) -> AsmElement:
