@@ -146,7 +146,12 @@ class UGBApplication:
         yield "", None
 
         if run_rom_setup:
-            pass  # TODO: do stuff
+            yield "Setting up ROM", run_in_executor_with_context(
+                self.asm.setup_new_rom
+            )
+            yield "Detecting empty banks", run_in_executor_with_context(
+                self.asm.analyze.detect_empty_banks
+            )
 
         # Index all the banks. This can take a while.
         n_banks = self.asm.rom.n_banks

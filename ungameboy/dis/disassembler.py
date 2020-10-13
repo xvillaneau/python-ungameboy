@@ -5,13 +5,14 @@ from .analysis import AnalysisManager
 from .comments import CommentsManager
 from .context import ContextManager
 from .data import DataManager, CartridgeHeader, EmptyData
-from .decoder import ROMBytes
+from .decoder import HeaderDecoder, ROMBytes
 from .labels import LabelManager
 from .manager_base import AsmManager
 from .models import AsmElement, Instruction, DataBlock, DataRow, RamElement
 from .sections import SectionManager
 from .xrefs import XRefManager
 from ..address import Address, ROM
+from ..commands import LabelName
 
 __all__ = ['Disassembler']
 
@@ -52,6 +53,26 @@ class Disassembler:
         if hasattr(rom_file, 'name'):
             self.rom_path = rom_file.name
         self.rom = ROMBytes(rom_file)
+
+    def setup_new_rom(self):
+        if not self.is_loaded:
+            return
+
+        entry_point = Address.from_rom_offset(0x100)
+        if not self.labels.get_labels(entry_point):
+            self.labels.create(entry_point, LabelName("entry_point"))
+
+        header_start = entry_point + 4
+        if not self.data.get_data(header_start):
+            self.data.create_header()
+
+        header = self.data.get_data(header_start)
+        if not isinstance(header.content, CartridgeHeader):
+            return
+
+        main = HeaderDecoder(header.data).main_offset
+        if main is not None and not self.labels.get_labels(main):
+            self.labels.create(main, LabelName("main"))
 
     def __getitem__(self, addr) -> AsmElement:
         if self.rom is None:
