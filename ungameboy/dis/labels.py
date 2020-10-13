@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, List, NamedTuple, Tuple
+from typing import TYPE_CHECKING, Iterator, List, NamedTuple, Tuple
 
 from .manager_base import AsmManager
-from ..address import Address
+from ..address import Address, MemoryType
 from ..commands import LabelName, UgbCommandGroup
 from ..data_structures import AddressMapping, SortedStrMapping
 
@@ -90,6 +90,16 @@ class LabelManager(AsmManager):
 
     def get_labels(self, address: Address) -> List[Label]:
         return self._all.get(address, [])
+
+    def get_all_in_bank(
+            self, mem_type: MemoryType, bank: int
+    ) -> Iterator[Tuple[Address, List[Label]]]:
+        """Iterate over all labels in a given bank"""
+        start = Address(mem_type, bank, 0)
+        for addr, labels in self._all.iter_from(start):
+            if (addr.bank, addr.type) != (bank, mem_type):
+                return
+            yield addr, labels
 
     def locals_at(self, addr: Address) -> List[Tuple[Address, str]]:
         try:

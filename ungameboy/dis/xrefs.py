@@ -6,7 +6,7 @@ from ..address import ROM, Address
 from ..commands import UgbCommandGroup
 from ..data_structures import AddressMapping
 from ..data_types import Ref
-from ..enums import Operation as Op
+from ..enums import Condition, Operation as Op
 
 if TYPE_CHECKING:
     from .disassembler import Disassembler
@@ -81,22 +81,25 @@ class XRefManager(AsmManager):
     def index_all(self):
         pass
 
-    def index(self, bank: int):
+    def index_from(self, address: Address) -> Address:
         if self.asm.rom is None:
-            return
+            return address
 
         get_data = self.asm.data.get_data
         get_instr = self.asm.rom.decode_instruction
         get_value = self.asm.context.instruction_value
+        terminating = {Op.AbsJump, Op.RelJump, Op.Return, Op.ReturnIntEnable}
 
-        address = Address(ROM, bank, 0)
+        bank = address.bank
         while address.bank == bank and address.is_valid:
             data = get_data(address)
             if data is not None:
-                address = data.next_address
-                continue
+                break
 
             instr = get_instr(address.rom_file_offset)
+            if instr.type is Op.Invalid:
+                break
+
             target = get_value(instr)
             if not isinstance(target, Address):
                 address = instr.next_address
@@ -116,6 +119,29 @@ class XRefManager(AsmManager):
             if ref_type:
                 self._mappings[ref_type].create_link(instr.address, target)
             address = instr.next_address
+
+            arg0 = instr.args[0] if instr.args else None
+            if op in terminating and not isinstance(arg0, Condition):
+                break
+
+        return address
+
+    def index(self, bank: int):
+        if self.asm.rom is None:
+            return
+
+        pos = [addr for addr, _ in self.asm.labels.get_all_in_bank(ROM, bank)]
+        if not pos:
+            return
+
+        pos.reverse()
+        prev_addr = pos[-1]
+
+        while pos:
+            addr = pos.pop()
+            if prev_addr > addr:
+                continue
+            prev_addr = self.index_from(addr)
 
     def auto_declare(self, address: Address):
         elem = self.asm[address]
