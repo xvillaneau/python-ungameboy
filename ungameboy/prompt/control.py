@@ -57,7 +57,12 @@ class AsmControl(UIControl):
             addr, ref_line = self.current_view.get_line_info(line)
         except IndexError:
             return []
-        return self.renderer.render(addr)[line - ref_line]
+        line -= ref_line
+        try:
+            return self.renderer.render(addr)[line]
+        except IndexError:
+            msg = f"RENDER ERROR: Line {line} out of bounds at {addr}"
+            return [("fg:ansired bold", msg)]
 
     def is_focusable(self) -> bool:
         return True
