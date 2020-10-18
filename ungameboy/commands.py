@@ -150,6 +150,11 @@ class UgbCommandGroup:
             raise ValueError("A command sub-group must have a name")
         self.commands[group.name] = group
 
+    def create_group(self, name: str):
+        group = UgbCommandGroup(self.asm, name)
+        self.add_group(group)
+        return group
+
     def get_handler(self, command: Cmd) -> Tuple[UgbCommand, Cmd]:
         if isinstance(command, str):
             instruction, _, command = command.strip().partition(' ')
@@ -170,15 +175,15 @@ class UgbCommandGroup:
 
 def create_core_cli_v2(asm: 'Disassembler') -> UgbCommandGroup:
     ugb_cli = UgbCommandGroup(asm, "ungameboy")
-    project_cli = UgbCommandGroup(asm, "project")
-    ugb_cli.add_group(project_cli)
+    plugin_cli = ugb_cli.create_group("plugin")
+    project_cli = ugb_cli.create_group("project")
 
     @ugb_cli.add_command("load-rom")
     def load_rom(rom_path: str):
         with open(rom_path, 'rb') as rom_file:
             asm.load_rom(rom_file)
 
-    ugb_cli.add_command("import-plugin", import_plugin)
+    plugin_cli.add_command("import", import_plugin)
 
     # Project commands
     @project_cli.add_command("save")

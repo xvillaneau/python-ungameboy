@@ -20,7 +20,7 @@ def get_save_state(asm: "Disassembler"):
         yield ('load-rom', Path(asm.rom_path).resolve())
 
     for plugin in PLUGINS:
-        yield ('import-plugin', plugin)
+        yield ('plugin', 'import', plugin)
 
     for mgr in asm.managers:
         yield from mgr.save_items()
