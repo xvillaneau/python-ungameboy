@@ -50,17 +50,52 @@ class LinksCollection:
             if not self.refs_out[addr_from]:
                 del self.refs_out[addr_from]
 
-    def clear(self, address: Address):
-        refs_out = list(self.refs_out.get(address, ()))
-        for addr_to in refs_out:
-            self.remove_link(address, addr_to)
+    def clear_incoming(self, address: Address):
         refs_in = list(self.refs_in.get(address, ()))
         for addr_from in refs_in:
             self.remove_link(addr_from, address)
 
+    def clear_outgoing(self, address: Address):
+        refs_out = list(self.refs_out.get(address, ()))
+        for addr_to in refs_out:
+            self.remove_link(address, addr_to)
+
+    def clear(self, address: Address):
+        self.clear_incoming(address)
+        self.clear_outgoing(address)
+
+    def get_incoming(self, address: Address) -> Set[Address]:
+        return self.refs_in.get(address, set())
+
+    def get_outgoing(self, address: Address) -> Set[Address]:
+        return self.refs_out.get(address, set())
+
     def get_links(self, address: Address) -> Tuple[Set[Address], Set[Address]]:
-        _in, _out = self.refs_in.get(address), self.refs_out.get(address)
-        return _out or set(), _in or set()
+        return self.get_outgoing(address), self.get_incoming(address)
+
+
+class XRefCollection(LinksCollection):
+    def __init__(self):
+        super().__init__()
+        self.auto = LinksCollection()
+
+    def reset(self):
+        super().reset()
+        self.auto.reset()
+
+    def get_incoming(self, address: Address) -> Set[Address]:
+        return super().get_incoming(address) | self.auto.get_incoming(address)
+
+    def get_outgoing(self, address: Address) -> Set[Address]:
+        return super().get_outgoing(address) | self.auto.get_outgoing(address)
+
+    def get_links(
+            self, address: Address, include_auto=True
+    ) -> Tuple[Set[Address], Set[Address]]:
+        if include_auto:
+            return super().get_links(address)
+        else:
+            return super().get_outgoing(address), super().get_incoming(address)
 
 
 class XRefManager(AsmManager):
@@ -68,18 +103,15 @@ class XRefManager(AsmManager):
         super().__init__(asm)
 
         self._mappings = {
-            'call': LinksCollection(),
-            'jump': LinksCollection(),
-            'read': LinksCollection(),
-            'write': LinksCollection(),
+            'call': XRefCollection(),
+            'jump': XRefCollection(),
+            'read': XRefCollection(),
+            'write': XRefCollection(),
         }
 
     def reset(self) -> None:
         for collection in self._mappings.values():
             collection.reset()
-
-    def index_all(self):
-        pass
 
     def index_from(self, address: Address) -> Address:
         if self.asm.rom is None:
@@ -105,17 +137,19 @@ class XRefManager(AsmManager):
             target = get_value(instr)
             if isinstance(target, Address) and target.bank >= 0:
                 ref_type = ''
-                if op in (Op.Call, Op.Vector):
-                    ref_type = 'call'
-                elif op is Op.AbsJump:  # Ignore relative jumps
-                    ref_type = 'jump'
-                elif op in (Op.Load, Op.LoadFast):
+                if op in (Op.Load, Op.LoadFast):
                     arg = instr.args[instr.value_pos - 1]
                     if isinstance(arg, Ref):
                         ref_type = ('', 'write', 'read')[instr.value_pos]
+                elif op in (Op.Call, Op.Vector):
+                    ref_type = 'call'
+                elif op is Op.AbsJump:  # Ignore relative jumps
+                    ref_type = 'jump'
 
                 if ref_type:
-                    self._mappings[ref_type].create_link(instr.address, target)
+                    self._mappings[ref_type].auto.create_link(
+                        instr.address, target
+                    )
 
             arg0 = instr.args[0] if instr.args else None
             if op in terminating and not isinstance(arg0, Condition):
@@ -170,16 +204,15 @@ class XRefManager(AsmManager):
             links.clear(address)
 
     def count_incoming(self, link_type: str, address: Address):
-        links = self._mappings[link_type].refs_in
-        return len(links.get(address, ()))
+        return len(self._mappings[link_type].get_incoming(address))
 
-    def get_xrefs(self, address: Address) -> XRefs:
+    def get_xrefs(self, address: Address, include_auto=True) -> XRefs:
         return XRefs(
             address,
             *(
                 arg
                 for links in self._mappings.values()
-                for arg in links.get_links(address)
+                for arg in links.get_links(address, include_auto)
             )
         )
 
