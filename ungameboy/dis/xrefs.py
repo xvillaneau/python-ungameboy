@@ -36,6 +36,9 @@ class LinksCollection:
     def items(self):
         return self.refs_out.items()
 
+    def has_link(self, addr_from: Address, addr_to: Address):
+        return addr_to in self.refs_out.get(addr_from, ())
+
     def create_link(self, addr_from: Address, addr_to: Address):
         self.refs_out.setdefault(addr_from, set()).add(addr_to)
         self.refs_in.setdefault(addr_to, set()).add(addr_from)
@@ -61,41 +64,51 @@ class LinksCollection:
             self.remove_link(address, addr_to)
 
     def clear(self, address: Address):
-        self.clear_incoming(address)
         self.clear_outgoing(address)
 
-    def get_incoming(self, address: Address) -> Set[Address]:
+    def incoming(self, address: Address) -> Set[Address]:
         return self.refs_in.get(address, set())
 
-    def get_outgoing(self, address: Address) -> Set[Address]:
+    def outgoing(self, address: Address) -> Set[Address]:
         return self.refs_out.get(address, set())
 
     def get_links(self, address: Address) -> Tuple[Set[Address], Set[Address]]:
-        return self.get_outgoing(address), self.get_incoming(address)
+        return self.outgoing(address), self.incoming(address)
 
 
-class XRefCollection(LinksCollection):
+class XRefCollection:
     def __init__(self):
         super().__init__()
         self.auto = LinksCollection()
+        self.manual = LinksCollection()
 
     def reset(self):
-        super().reset()
+        self.manual.reset()
         self.auto.reset()
 
-    def get_incoming(self, address: Address) -> Set[Address]:
-        return super().get_incoming(address) | self.auto.get_incoming(address)
+    def create_link(self, addr_from: Address, addr_to: Address, auto=False):
+        if self.auto.has_link(addr_from, addr_to):
+            return
+        if auto and self.manual.has_link(addr_from, addr_to):
+            self.manual.remove_link(addr_from, addr_to)
+        links = self.auto if auto else self.manual
+        links.create_link(addr_from, addr_to)
 
-    def get_outgoing(self, address: Address) -> Set[Address]:
-        return super().get_outgoing(address) | self.auto.get_outgoing(address)
+    def clear(self, address: Address):
+        self.auto.clear(address)
+        self.manual.clear(address)
+
+    def incoming(self, address: Address) -> Set[Address]:
+        return self.manual.incoming(address) | self.auto.incoming(address)
+
+    def outgoing(self, address: Address) -> Set[Address]:
+        return self.manual.outgoing(address) | self.auto.outgoing(address)
 
     def get_links(
             self, address: Address, include_auto=True
     ) -> Tuple[Set[Address], Set[Address]]:
-        if include_auto:
-            return super().get_links(address)
-        else:
-            return super().get_outgoing(address), super().get_incoming(address)
+        links = self if include_auto else self.manual
+        return links.outgoing(address), links.incoming(address)
 
 
 class XRefManager(AsmManager):
@@ -147,8 +160,8 @@ class XRefManager(AsmManager):
                     ref_type = 'jump'
 
                 if ref_type:
-                    self._mappings[ref_type].auto.create_link(
-                        instr.address, target
+                    self._mappings[ref_type].create_link(
+                        instr.address, target, auto=True
                     )
 
             arg0 = instr.args[0] if instr.args else None
@@ -203,8 +216,12 @@ class XRefManager(AsmManager):
         for links in self._mappings.values():
             links.clear(address)
 
+    def clear_range(self, addr_start: Address, length: int):
+        for offset in range(length):
+            self.clear(addr_start + offset)
+
     def count_incoming(self, link_type: str, address: Address):
-        return len(self._mappings[link_type].get_incoming(address))
+        return len(self._mappings[link_type].incoming(address))
 
     def get_xrefs(self, address: Address, include_auto=True) -> XRefs:
         return XRefs(
@@ -235,6 +252,6 @@ class XRefManager(AsmManager):
 
     def save_items(self):
         for _type, _links in self._mappings.items():
-            for _from, _tos in _links.items():
+            for _from, _tos in _links.manual.items():
                 for _to in _tos:
                     yield ('xref', 'declare', _type, _from, _to)
