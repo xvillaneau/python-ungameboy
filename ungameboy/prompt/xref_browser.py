@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Optional
 from prompt_toolkit.data_structures import Point
 from prompt_toolkit.layout.controls import FormattedTextControl
 
-from .key_bindings import create_xref_inspect_bindings
 from ..address import Address
 from ..dis import Label, LabelOffset
 
@@ -19,6 +18,8 @@ class XRefBrowserState:
 
 
 def make_xrefs_control(ugb: 'UGBApplication'):
+    from .key_bindings import create_xref_inspect_bindings
+
     asm = ugb.asm
 
     def get_xrefs_content():
@@ -30,9 +31,10 @@ def make_xrefs_control(ugb: 'UGBApplication'):
         jumps = list(sorted(xrefs.jumps_from))
         reads = list(sorted(xrefs.read_by))
         writes = list(sorted(xrefs.written_by))
+        refs = list(sorted(xrefs.referred_by))
         comment = asm.comments.blocks.get(ugb.xrefs.address, [])
 
-        if not any([calls, jumps, reads, writes, comment]):
+        if not any([calls, jumps, reads, writes, refs, comment]):
             return [('', 'No references found')]
 
         nl = ('', '\n')
@@ -92,6 +94,12 @@ def make_xrefs_control(ugb: 'UGBApplication'):
                 display_xref(addr)
                 line_index += 1
             tokens.append(nl)
+        if refs:
+            tokens.extend([('', 'Referred by:'), nl])
+            for addr in refs:
+                display_xref(addr)
+                line_index += 1
+            tokens.append(nl)
 
         if tokens:  # Remove last newlines
             tokens.pop()
@@ -119,33 +127,27 @@ def make_xrefs_control(ugb: 'UGBApplication'):
         n_jumps = len(xrefs.jumps_from)
         n_reads = len(xrefs.read_by)
         n_writes = len(xrefs.written_by)
+        n_refs = len(xrefs.referred_by)
+        multi_section = False
 
         # For each section, if it exists:
         # - add 1 to account for the section name,
         # - add 1 more if there was any section before,
         # - if cursor not in that section, decrement and try next.
 
-        line_pos += n_calls > 0
-        if cursor < n_calls:
-            return Point(0, line_pos)
-        multi_section = n_calls > 0
-        cursor -= n_calls
+        def _process(count):
+            nonlocal line_pos, multi_section, cursor
+            line_pos += (count > 0) * (1 + multi_section)
+            if cursor < count:
+                return Point(0, line_pos)
+            multi_section |= count > 0
+            cursor -= count
+            return None
 
-        line_pos += (n_jumps > 0) * (1 + multi_section)
-        if cursor < n_jumps:
-            return Point(0, line_pos)
-        multi_section |= n_jumps > 0
-        cursor -= n_jumps
-
-        line_pos += (n_reads > 0) * (1 + multi_section)
-        if cursor < n_reads:
-            return Point(0, line_pos)
-        multi_section |= n_reads > 0
-        cursor -= n_reads
-
-        line_pos += (n_writes > 0) * (1 + multi_section)
-        if cursor < n_writes:
-            return Point(0, line_pos)
+        for _count in (n_calls, n_jumps, n_reads, n_writes, n_refs):
+            res = _process(_count)
+            if res is not None:
+                return res
 
         return None
 
@@ -174,3 +176,35 @@ def make_xrefs_title_function(ugb: 'UGBApplication'):
         return f'XREFs for: {target}'
 
     return get_xrefs_title
+
+
+def get_selected_xref(ugb: 'UGBApplication'):
+    index = ugb.xrefs.cursor
+    if index < 0:
+        raise IndexError(index)
+
+    xr = ugb.asm.xrefs.get_xrefs(ugb.xrefs.address)
+    refs = [
+        xr.called_by,
+        xr.jumps_from,
+        xr.read_by,
+        xr.written_by,
+        xr.referred_by,
+    ]
+    for col in refs:
+        if index < len(col):
+            return list(sorted(col))[index]
+        index -= len(col)
+
+    raise IndexError(ugb.xrefs.cursor)
+
+
+def count_xrefs(ugb: 'UGBApplication'):
+    xr = ugb.asm.xrefs.get_xrefs(ugb.xrefs.address)
+    return (
+            len(xr.called_by) +
+            len(xr.jumps_from) +
+            len(xr.read_by) +
+            len(xr.written_by) +
+            len(xr.referred_by)
+    )

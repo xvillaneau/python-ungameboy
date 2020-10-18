@@ -22,6 +22,8 @@ class XRefs(NamedTuple):
     read_by: Set[Address]
     writes_to: Set[Address]
     written_by: Set[Address]
+    refers_to: Set[Address]
+    referred_by: Set[Address]
 
 
 class LinksCollection:
@@ -120,6 +122,7 @@ class XRefManager(AsmManager):
             'jump': XRefCollection(),
             'read': XRefCollection(),
             'write': XRefCollection(),
+            'ref': XRefCollection(),
         }
 
     def reset(self) -> None:
@@ -154,6 +157,8 @@ class XRefManager(AsmManager):
                     arg = instr.args[instr.value_pos - 1]
                     if isinstance(arg, Ref):
                         ref_type = ('', 'write', 'read')[instr.value_pos]
+                    else:
+                        ref_type = 'ref'
                 elif op in (Op.Call, Op.Vector):
                     ref_type = 'call'
                 elif op is Op.AbsJump:  # Ignore relative jumps

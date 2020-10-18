@@ -6,6 +6,7 @@ from prompt_toolkit.key_binding import KeyBindings, merge_key_bindings
 from prompt_toolkit.keys import Keys
 
 from .control import AsmControl
+from .xref_browser import count_xrefs, get_selected_xref
 from ..address import ROM
 
 if TYPE_CHECKING:
@@ -170,35 +171,13 @@ def quit_sidebar(ugb: 'UGBApplication'):
 def create_xref_inspect_bindings(ugb: 'UGBApplication'):
     bindings = KeyBindings()
 
-    def count_refs():
-        xr = ugb.asm.xrefs.get_xrefs(ugb.xrefs.address)
-        return (
-            len(xr.called_by) +
-            len(xr.jumps_from) +
-            len(xr.read_by) +
-            len(xr.written_by)
-        )
-
-    def get_selected_xref():
-        index = ugb.xrefs.cursor
-        if index < 0:
-            raise IndexError(index)
-
-        xr = ugb.asm.xrefs.get_xrefs(ugb.xrefs.address)
-        for col in (xr.called_by, xr.jumps_from, xr.read_by, xr.written_by):
-            if index < len(col):
-                return list(sorted(col))[index]
-            index -= len(col)
-
-        raise IndexError(ugb.xrefs.cursor)
-
     @bindings.add('up')
     def move_up(_):
         ugb.xrefs.cursor = max(ugb.xrefs.cursor - 1, 0)
 
     @bindings.add('down')
     def move_down(_):
-        ugb.xrefs.cursor = min(ugb.xrefs.cursor + 1, count_refs() - 1)
+        ugb.xrefs.cursor = min(ugb.xrefs.cursor + 1, count_xrefs(ugb) - 1)
 
     @bindings.add('enter')
     def go_to_ref(event):
@@ -207,7 +186,7 @@ def create_xref_inspect_bindings(ugb: 'UGBApplication'):
 
     @bindings.add('space')
     def show_ref(_):
-        ugb.layout.main_control.seek(get_selected_xref())
+        ugb.layout.main_control.seek(get_selected_xref(ugb))
 
     @bindings.add("q")
     @bindings.add("c-c")

@@ -62,6 +62,13 @@ class AssemblyRender:
     XREF_TYPES = {
         "call": ("calls", "called_by", "Calls", "Call from", "Calls from"),
         "jump": ("jumps_to", "jumps_from", "Jumps to", "Jump from", "Jumps from"),
+        "ref": (
+            "refers_to",
+            "referred_by",
+            "Refers to",
+            "Referred by",
+            "Referred by",
+        )
     }
 
     def __init__(self, control: 'AsmControl'):
@@ -273,7 +280,7 @@ class AssemblyRender:
             for ref in refs:
                 ref = get_context(elem.address, ref, relative=True)
                 ref, _ = self.render_reference(elem, ref)
-                lines.append(f"; {name} from {ref}")
+                lines.append(f"; {single} {ref}")
 
         margin = self.margin_for(elem.address)
         return [[margin, ('class:ugb.xrefs', line)] for line in lines]
@@ -282,6 +289,7 @@ class AssemblyRender:
         return [
             *self._render_ref_lines(elem, "call"),
             *self._render_ref_lines(elem, "jump"),
+            *self._render_ref_lines(elem, "ref"),
         ]
 
     def render_comment_at_cursor(self):
@@ -478,11 +486,9 @@ class AssemblyRender:
         lines += len(labels)
 
         if labels:
-            calls = self.asm.xrefs.count_incoming('call', address)
-            lines += calls if calls <= 3 else 1
-
-            jumps = self.asm.xrefs.count_incoming('jump', address)
-            lines += jumps if jumps <= 3 else 1
+            for ref_type in ('call', 'jump', 'ref'):
+                refs = self.asm.xrefs.count_incoming(ref_type, address)
+                lines += refs if refs <= 3 else 1
 
         lines += len(self.asm.comments.blocks.get(address, ()))
 
@@ -523,11 +529,9 @@ class AssemblyRender:
         valid.extend([False] * len(labels))
 
         if labels:
-            calls = self.asm.xrefs.count_incoming('call', address)
-            valid.extend([False] * (calls if calls <= 3 else 1))
-
-            jumps = self.asm.xrefs.count_incoming('jump', address)
-            valid.extend([False] * (jumps if jumps <= 3 else 1))
+            for ref_type in ('call', 'jump', 'ref'):
+                refs = self.asm.xrefs.count_incoming(ref_type, address)
+                valid.extend([False] * (refs if refs <= 3 else 1))
 
         comm = len(self.asm.comments.blocks.get(address, ()))
         valid.extend([com_only] * comm)
