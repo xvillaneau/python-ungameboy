@@ -114,6 +114,8 @@ class XRefCollection:
 
 
 class XRefManager(AsmManager):
+    TERMINATING = {Op.AbsJump, Op.RelJump, Op.Return, Op.ReturnIntEnable}
+
     def __init__(self, asm: "Disassembler"):
         super().__init__(asm)
 
@@ -129,7 +131,9 @@ class XRefManager(AsmManager):
         for collection in self._mappings.values():
             collection.reset()
 
-    def index_from(self, address: Address) -> Address:
+    def index_from(
+            self, address: Address, fast=False, single=False
+    ) -> Address:
         if self.asm.rom is None:
             return address
 
@@ -140,6 +144,9 @@ class XRefManager(AsmManager):
 
         bank = address.bank
         while address.bank == bank and address.is_valid:
+            if not fast:
+                self.clear(address, _index=False)
+
             data = get_data(address)
             if data is not None:
                 break
@@ -169,13 +176,16 @@ class XRefManager(AsmManager):
                         instr.address, target, auto=True
                     )
 
+            if single:
+                break
+
             arg0 = instr.args[0] if instr.args else None
             if op in terminating and not isinstance(arg0, Condition):
                 break
 
         return address
 
-    def index(self, bank: int):
+    def index(self, bank: int, fast=False):
         if self.asm.rom is None:
             return
 
@@ -190,7 +200,7 @@ class XRefManager(AsmManager):
             addr = pos.pop()
             if prev_addr > addr:
                 continue
-            prev_addr = self.index_from(addr)
+            prev_addr = self.index_from(addr, fast=fast)
 
     def auto_declare(self, address: Address):
         elem = self.asm[address]
@@ -217,9 +227,11 @@ class XRefManager(AsmManager):
     def declare(self, link_type: str, addr_from: Address, addr_to: Address):
         self._mappings[link_type].create_link(addr_from, addr_to)
 
-    def clear(self, address: Address):
+    def clear(self, address: Address, _index=True):
         for links in self._mappings.values():
             links.clear(address)
+        if _index:
+            self.index_from(address, single=True)
 
     def clear_range(self, addr_start: Address, length: int):
         for offset in range(length):

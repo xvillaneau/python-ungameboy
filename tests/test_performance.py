@@ -10,4 +10,4 @@ if __name__ == '__main__':
     load_project(asm)
     ctrl = AsmControl(asm)
     for bank in range(asm.rom.n_banks):
-        asm.xrefs.index(bank)
+        asm.xrefs.index(bank, fast=True)

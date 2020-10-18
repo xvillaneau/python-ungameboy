@@ -30,17 +30,20 @@ class ContextManager(AsmManager):
 
     def set_force_scalar(self, address: Address):
         self.force_scalar.add(address)
+        self.asm.xrefs.index_from(address, single=True)
 
     def set_bank_number(self, address: Address, bank: int):
         if bank >= 0:
             self.bank_override[address] = bank
         elif address in self.bank_override:
             self.bank_override.pop(address)
+        self.asm.xrefs.index_from(address, single=True)
 
     def clear_context(self, address: Address):
         self.force_scalar.discard(address)
         if address in self.bank_override:
             self.bank_override.pop(address)
+        self.asm.xrefs.index_from(address, single=True)
 
     def has_context(self, address: Address) -> bool:
         return address in self.force_scalar or address in self.bank_override

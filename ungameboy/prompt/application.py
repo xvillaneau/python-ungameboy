@@ -157,7 +157,7 @@ class UGBApplication:
         n_banks = self.asm.rom.n_banks
         for bank in range(n_banks):
             msg = f"Indexing bank {bank:02x}/{n_banks - 1:02x}"
-            index = partial(self.asm.xrefs.index, bank)
+            index = partial(self.asm.xrefs.index, bank, fast=True)
             yield msg, run_in_executor_with_context(index)
 
         yield "", run_in_executor_with_context(self.layout.refresh)
