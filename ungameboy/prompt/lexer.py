@@ -252,7 +252,7 @@ class AssemblyRender:
     def render_flags(self, elem: AsmElement) -> FormattedLine:
         xr = elem.xrefs
         flags = {
-            'x': any([xr.calls, xr.jumps_to, xr.reads, xr.writes_to]),
+            'x': any([xr.called_by, xr.jumps_from]) and not elem.labels,
             '+': self.asm.context.has_context(elem.address),
         }
         flags_str = ''.join(
@@ -441,11 +441,10 @@ class AssemblyRender:
 
     def render(self, address: Address) -> FormattedText:
         elem = self.asm[address]
-        lines = [
-            *self.render_labels(elem),
-            *self.render_block_xrefs(elem),
-            *self.render_block_comment(elem),
-        ]
+        lines = self.render_labels(elem)
+        if lines:
+            lines.extend(self.render_block_xrefs(elem))
+        lines.extend(self.render_block_comment(elem))
 
         if isinstance(elem, Instruction):
             line = self.render_instruction(elem)
@@ -478,11 +477,12 @@ class AssemblyRender:
             lines += self.opts.label_pad_lines
         lines += len(labels)
 
-        calls = self.asm.xrefs.count_incoming('call', address)
-        lines += calls if calls <= 3 else 1
+        if labels:
+            calls = self.asm.xrefs.count_incoming('call', address)
+            lines += calls if calls <= 3 else 1
 
-        jumps = self.asm.xrefs.count_incoming('jump', address)
-        lines += jumps if jumps <= 3 else 1
+            jumps = self.asm.xrefs.count_incoming('jump', address)
+            lines += jumps if jumps <= 3 else 1
 
         lines += len(self.asm.comments.blocks.get(address, ()))
 
@@ -522,11 +522,12 @@ class AssemblyRender:
             valid.extend([False] * self.opts.label_pad_lines)
         valid.extend([False] * len(labels))
 
-        calls = self.asm.xrefs.count_incoming('call', address)
-        valid.extend([False] * (calls if calls <= 3 else 1))
+        if labels:
+            calls = self.asm.xrefs.count_incoming('call', address)
+            valid.extend([False] * (calls if calls <= 3 else 1))
 
-        jumps = self.asm.xrefs.count_incoming('jump', address)
-        valid.extend([False] * (jumps if jumps <= 3 else 1))
+            jumps = self.asm.xrefs.count_incoming('jump', address)
+            valid.extend([False] * (jumps if jumps <= 3 else 1))
 
         comm = len(self.asm.comments.blocks.get(address, ()))
         valid.extend([com_only] * comm)
