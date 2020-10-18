@@ -118,6 +118,7 @@ class XRefManager(AsmManager):
 
     def __init__(self, asm: "Disassembler"):
         super().__init__(asm)
+        self.bypass_index = False
 
         self._mappings = {
             'call': XRefCollection(),
@@ -134,7 +135,7 @@ class XRefManager(AsmManager):
     def index_from(
             self, address: Address, fast=False, single=False
     ) -> Address:
-        if self.asm.rom is None:
+        if self.asm.rom is None or self.bypass_index:
             return address
 
         get_data = self.asm.data.get_data

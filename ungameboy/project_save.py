@@ -81,9 +81,11 @@ def load_project(asm: "Disassembler"):
 
     cli = create_core_cli_v2(asm)
     asm.reset()
+    asm.xrefs.bypass_index = True
     with open(project_path, 'r', encoding='utf8') as proj_read:
         for line in proj_read:
             cli(line.strip())
+    asm.xrefs.bypass_index = False
 
 
 def import_plugin(name: str):
