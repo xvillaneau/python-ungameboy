@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, NamedTuple, Set, Tuple
 
+from .data import DataTable
 from .manager_base import AsmManager
 from .models import DataRow, Instruction
 from ..address import ROM, Address
@@ -132,25 +133,63 @@ class XRefManager(AsmManager):
         for collection in self._mappings.values():
             collection.reset()
 
+    def index_data(self, address: Address, fast=False, single=False):
+        data = self.asm.data.get_data(address)
+        if data is None:
+            return False
+
+        content = data.content
+        if not isinstance(content, DataTable):
+            return True
+
+        offset = address.offset - data.address.offset
+        row_n = offset // content.row_size
+        n_rows = data.size // content.row_size
+        address = data.address + row_n * content.row_size
+        if not 0 <= row_n < n_rows:
+            return True
+
+        get_bank = self.asm.context.detect_addr_bank
+        while row_n < n_rows:
+            if not fast:
+                self.clear(address)
+
+            address = data.address + row_n * content.row_size
+            targets = [
+                get_bank(address, obj)
+                for obj in content.get_row(data, row_n)
+                if isinstance(obj, Address)
+            ]
+            if not targets:
+                return True
+
+            for target in targets:
+                self._mappings["ref"].create_link(address, target, auto=True)
+
+            if single:
+                return True
+
+            row_n += 1
+
+        return True
+
     def index_from(
             self, address: Address, fast=False, single=False
     ) -> Address:
         if self.asm.rom is None or self.bypass_index:
             return address
 
-        get_data = self.asm.data.get_data
         get_instr = self.asm.rom.decode_instruction
         get_value = self.asm.context.instruction_value
         terminating = {Op.AbsJump, Op.RelJump, Op.Return, Op.ReturnIntEnable}
 
         bank = address.bank
         while address.bank == bank and address.is_valid:
+            if self.index_data(address, fast, single):
+                break
+
             if not fast:
                 self.clear(address, _index=False)
-
-            data = get_data(address)
-            if data is not None:
-                break
 
             instr = get_instr(address.rom_file_offset)
             address = instr.next_address
