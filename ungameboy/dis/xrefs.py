@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, NamedTuple, Set, Tuple
 
-from .data import DataTable
+from .data import DataTable, Jumptable
 from .manager_base import AsmManager
 from .models import DataRow, Instruction
 from ..address import ROM, Address
@@ -140,6 +140,7 @@ class XRefManager(AsmManager):
 
         if not isinstance(data, DataTable):
             return True
+        ref = "jump" if isinstance(data, Jumptable) else "ref"
 
         offset = address.offset - data.address.offset
         row_n = offset // data.row_size
@@ -162,7 +163,7 @@ class XRefManager(AsmManager):
                 return True
 
             for target in targets:
-                self._mappings["ref"].create_link(address, target, auto=True)
+                self._mappings[ref].create_link(address, target, auto=True)
 
             if single:
                 return True

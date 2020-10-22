@@ -316,6 +316,26 @@ class DataTable(Data):
         return row_values
 
 
+class Jumptable(DataTable):
+    name = "jumptable"
+
+    def __init__(self, address: Address, rows: int = 0):
+        struct = [TYPES_BY_NAME['addr']]
+        super().__init__(address, rows, struct, JumpTableDetector())
+
+    @classmethod
+    def load(cls, address, size, args, processor) -> 'Data':
+        return cls(address, size)
+
+    @property
+    def type_repr(self) -> str:
+        return self.name
+
+    @property
+    def description(self) -> str:
+        return f"Jumptable: {self.rows} \u00d7 Address"
+
+
 # Manager
 
 class DataManager(AsmManager):
@@ -359,9 +379,7 @@ class DataManager(AsmManager):
         self._insert(DataTable(address, rows, [color_type] * 4))
 
     def create_jumptable(self, address: Address, rows: int = 0):
-        structure = [TYPES_BY_NAME['addr']]
-        proc = JumpTableDetector() if rows <= 0 else None
-        self._insert(DataTable(address, rows, structure, proc))
+        self._insert(Jumptable(address, rows))
 
     def create_empty(self, address: Address, size: int = 0):
         self._insert(EmptyData(address, size))
