@@ -6,11 +6,8 @@ from ..address import ROM, Address
 from ..data_types import Byte, CgbColor, IORef, Ref, Word, SPOffset
 from ..dis import (
     AsmElement,
-    CartridgeHeader,
-    Data,
     DataBlock,
     DataRow,
-    EmptyData,
     Instruction,
     Label,
     LabelOffset,
@@ -18,6 +15,7 @@ from ..dis import (
     RomElement,
     SpecialLabel,
 )
+from ..dis.data import CartridgeHeader, Data, EmptyData
 from ..dis.decoder import HeaderDecoder
 from ..enums import Condition, DoubleRegister, Register, C
 
@@ -111,7 +109,7 @@ class AssemblyRender:
 
             data = self.asm.data.get_data(reference.address)
             if data is not None and offset >= 0:
-                rows, rem = divmod(offset, data.content.row_size)
+                rows, rem = divmod(offset, data.row_size)
                 out += f" @{rows:02x}"
                 if rem:
                     out += f" +${rem:x}"
@@ -238,7 +236,7 @@ class AssemblyRender:
         bin_hex = elem.bytes.hex()
 
         bin_size = (
-            max(elem.data.content.row_size * 2, 6)
+            max(elem.data.row_size * 2, 6)
             if isinstance(elem, DataRow)
             else 6
         )
@@ -400,7 +398,7 @@ class AssemblyRender:
                 line.append(('class:ugb.comment', '; ' + elem.comment))
 
     def render_data(self, elem: Union[DataBlock, DataRow]) -> FormattedText:
-        desc = elem.data.content.describe(elem.data)
+        desc = elem.data.description
         desc = f'; {desc} ({elem.data.size} bytes)'
 
         lines = []
@@ -425,7 +423,7 @@ class AssemblyRender:
             lines.append(line)
 
         elif isinstance(elem, DataBlock):
-            if isinstance(elem.data.content, EmptyData):
+            if isinstance(elem.data, EmptyData):
                 desc_cls = 'class:ugb.data.empty'
                 addr_cls = 'ugb.data.empty'
             if self.cursor_in(elem):
@@ -434,7 +432,7 @@ class AssemblyRender:
                 [*self.render_address(elem, addr_cls), (desc_cls, desc)]
             )
 
-            if isinstance(elem.data.content, CartridgeHeader):
+            if isinstance(elem.data, CartridgeHeader):
                 block_content = self.render_cartridge_header(elem.data)
             else:
                 block_content = []
@@ -496,13 +494,13 @@ class AssemblyRender:
         if data is not None:
             lines += 1
             next_addr = data.next_address
-            if isinstance(data.content, EmptyData):
+            if isinstance(data, EmptyData):
                 pass
-            elif isinstance(data.content, CartridgeHeader):
+            elif isinstance(data, CartridgeHeader):
                 lines += 4
             else:
                 lines += (data.address == address)
-                next_addr = min(next_addr, address + data.content.row_size)
+                next_addr = min(next_addr, address + data.row_size)
 
         elif address.type is ROM:  # Instruction
             lines += 1
@@ -538,10 +536,9 @@ class AssemblyRender:
 
         data = self.asm.data.get_data(address)
         if data is not None:
-            content = data.content
-            if isinstance(content, EmptyData):
+            if isinstance(data, EmptyData):
                 valid.append(bin_only)
-            elif isinstance(content, CartridgeHeader):
+            elif isinstance(data, CartridgeHeader):
                 valid.append(bin_only)
                 valid.extend([False] * 4)
             else:

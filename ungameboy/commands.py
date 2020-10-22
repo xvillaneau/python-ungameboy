@@ -3,7 +3,7 @@ import shlex
 from typing import TYPE_CHECKING, Callable, Dict, List, Tuple, Union
 
 from .address import Address
-from .dis.data import DataContent, DataProcessor
+from .dis.data import DataProcessor
 from .project_save import save_project, load_project, import_plugin
 
 if TYPE_CHECKING:
@@ -70,7 +70,7 @@ class UgbCommand:
                 base = 10
             return int(value, base=base)
 
-        if arg_type in (DataContent, DataProcessor):
+        if arg_type is DataProcessor:
             return arg_type.parse(value)
 
         return value

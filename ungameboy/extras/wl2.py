@@ -1,15 +1,14 @@
 from typing import TYPE_CHECKING
 
 from ..address import Address
-from ..dis.data import DataContent, DataProcessor
-from ..scripts import asm_script
+from ..dis.data import DataProcessor
 
 if TYPE_CHECKING:
-    from ..dis import Disassembler, ROMBytes
+    from ..dis import ROMBytes
 
 
 class RunLengthEncodingProcessor(DataProcessor):
-    slug = "wl2.rle"
+    name = "wl2.rle"
 
     def process(self, rom: 'ROMBytes', address: Address):
         data = []
@@ -34,13 +33,13 @@ class RunLengthEncodingProcessor(DataProcessor):
 
 
 class InterlacedRLEProcessor(DataProcessor):
-    slug = "wl2.rlei"
+    name = "wl2.rlei"
 
     def __init__(self, data_size: int):
         self.data_size = data_size
 
     def dump(self):
-        return f"{self.slug}:{self.data_size}"
+        return f"{self.name}:{self.data_size}"
 
     @classmethod
     def load(cls, args: str):
@@ -77,9 +76,3 @@ class InterlacedRLEProcessor(DataProcessor):
         ]
 
         return bytes(data), pos - start_pos
-
-
-@asm_script
-def rle_block(asm: "Disassembler", address: Address):
-    rle = RunLengthEncodingProcessor()
-    asm.data.create(address, DataContent, processor=rle)

@@ -33,25 +33,25 @@ ROW_TYPES: List[RowType] = [
 ]
 TYPES_BY_NAME = {obj.name: obj for obj in ROW_TYPES}
 
-CONTENT_TYPES: Dict[str, Type['DataContent']] = {}
+DATA_TYPES: Dict[str, 'Data'] = {}
 PROCESSORS: Dict[str, Type['DataProcessor']] = {}
 
 
 # Built-in data processors
 
 class DataProcessorMeta(ABCMeta):
-    slug = ""
+    name = ""
 
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
-        if not cls.slug:
+        if not cls.name:
             raise TypeError("DataProcessor sub-classes must define a slug")
         # noinspection PyTypeChecker
-        PROCESSORS[cls.slug] = cls
+        PROCESSORS[cls.name] = cls
 
 
 class DataProcessor(metaclass=DataProcessorMeta):
-    slug = "default"
+    name = "default"
 
     @abstractmethod
     def process(self, rom: 'ROMBytes', address: Address) -> Tuple[bytes, int]:
@@ -70,33 +70,11 @@ class DataProcessor(metaclass=DataProcessorMeta):
         return cls()
 
     def dump(self):
-        return self.slug
-
-
-class SGBPacketDetector(DataProcessor):
-    slug = "sgb"
-
-    def process(self, rom: 'ROMBytes', address: Address):
-        start = address.rom_file_offset
-        return b'', 16 * (rom[start] & 0b111)
-
-
-class EmptyDataDetector(DataProcessor):
-    slug = "empty"
-
-    def process(self, rom: 'ROMBytes', address: Address):
-        pos = start = address.rom_file_offset
-        end = address.zone_end.rom_file_offset
-        while pos <= end:
-            # Special case to exclude the NOP at the entry point
-            if rom[pos] != 0 or pos == 0x100:
-                break
-            pos += 1
-        return b'', pos - start
+        return self.name
 
 
 class JumpTableDetector(DataProcessor):
-    slug = "jumptable"
+    name = "jumptable"
 
     def process(self, rom: 'ROMBytes', address: Address):
         # Auto-detect the table length, assuming it contains the
@@ -119,76 +97,130 @@ class JumpTableDetector(DataProcessor):
         return b'', rows * 2
 
 
-class CartridgeHeaderProcessor(DataProcessor):
-    slug = "header"
+# Data classes
 
-    def process(self, rom: 'ROMBytes', address: Address):
-        # As far as UGB is concerned, the header starts at $0104 and is 76
-        # bytes long. But the header parsing code works with all 80 bytes,
-        # so this is a special case where there is a mismatch.
-        if address.rom_file_offset != 0x104:
-            raise ValueError("Cartridge header can only be at $0104")
-        return rom[0x100:0x150], 0x4c
-
-
-# Data Content classes
-
-class DataContentMeta(ABCMeta):
+class DataMeta(ABCMeta):
     name = ""
 
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
         if not cls.name:
-            raise TypeError("DataContent sub-classes must define a slug")
+            raise TypeError("Data sub-classes must define a name")
         # noinspection PyTypeChecker
-        CONTENT_TYPES[cls.name] = cls
+        DATA_TYPES[cls.name] = cls
 
 
-class DataContent(metaclass=DataContentMeta):
-    name = "default"
+class Data(metaclass=DataMeta):
+    name = "basic"
     description = "Data"
-    row_size = 8
-    processor_cls: Optional[Type[DataProcessor]] = None
 
-    def dump(self):
-        return self.name
+    def __init__(
+            self,
+            address: Address,
+            size: int = 0,
+            processor: Optional[DataProcessor] = None,
+            row_size: int = 8,
+    ):
+        self.address = address
+        self.size = size
+        self.processor = processor
+        self.row_size = row_size
 
-    # noinspection PyUnusedLocal
-    def describe(self, data: 'Data') -> str:
-        return self.description
+        self.rom_bytes = b''
+        self.data_bytes = b''
 
-    @classmethod
-    def parse(cls, command: str) -> 'DataContent':
+    @staticmethod
+    def parse(address, size, command, processor) -> 'Data':
         name, _, args = command.partition(":")
-        content_cls = CONTENT_TYPES[name]
-        return content_cls.load(args)
+        data_cls = DATA_TYPES[name or "basic"]
+        return data_cls.load(address, size, args, processor)
 
     @classmethod
-    def load(cls, args: str):
+    def load(
+            cls,
+            address: Address,
+            size: int,
+            args: str,
+            processor: Optional[DataProcessor],
+    ) -> 'Data':
         if args:
             raise ValueError("No arguments expected")
-        return cls()
+        return cls(address, size, processor)
 
-    def get_row_bin(self, data: 'Data', row: int):
-        n_rows = 1 + (data.size - 1) // self.row_size
+    def save(self):
+        cmd = ('data', 'load', self.address, self.size)
+        if self.name != "basic":
+            cmd += (self.type_repr,)
+        if self.data_bytes and self.processor is not None:
+            cmd += ("--processor", self.processor.dump())
+        return cmd
+
+    @property
+    def next_address(self) -> Address:
+        return self.address + self.size
+
+    @property
+    def data(self) -> bytes:
+        return self.data_bytes or self.rom_bytes
+
+    def populate(self, rom: 'ROMBytes'):
+        proc = self.processor
+        if proc is not None:
+            self.data_bytes, self.size = proc.process(rom, self.address)
+
+        pos = self.address.rom_file_offset
+        self.rom_bytes = rom[pos:pos + self.size]
+
+    @property
+    def rows(self) -> int:
+        return 1 + (self.size - 1) // self.row_size
+
+    def get_row_bin(self, row: int) -> bytes:
+        n_rows = 1 + (self.size - 1) // self.row_size
         if not 0 <= row < n_rows:
             raise IndexError("Row index out of range")
-        return data.rom_bytes[self.row_size * row:self.row_size * (row + 1)]
+        return self.rom_bytes[self.row_size * row:self.row_size * (row + 1)]
 
-    def get_row(self, data: 'Data', row: int) -> List[RowItem]:
-        return [Byte(b) for b in self.get_row_bin(data, row)]
+    def get_row(self, row: int) -> List[RowItem]:
+        return [Byte(b) for b in self.get_row_bin(row)]
+
+    @property
+    def type_repr(self) -> str:
+        return self.name
 
 
-RAW_DATA = DataContent()
+class EmptyData(Data):
+    name = "empty"
+    description = "Empty Space"
+
+    def populate(self, rom: 'ROMBytes'):
+        if self.size <= 0:
+            pos = start = self.address.rom_file_offset
+            end = self.address.zone_end.rom_file_offset
+            while pos <= end:
+                # Special case to exclude the NOP at the entry point
+                if rom[pos] != 0 or pos == 0x100:
+                    break
+                pos += 1
+            self.size = pos - start
+        self.rom_bytes = bytes(self.size)
 
 
-class CartridgeHeader(DataContent):
+class CartridgeHeader(Data):
     name = "header"
     description = "Cartridge Header"
-    processor_cls = CartridgeHeaderProcessor
+
+    def populate(self, rom: 'ROMBytes'):
+        if self.address.rom_file_offset != 0x104:
+            raise ValueError("Cartridge header can only be at $0104")
+        self.size = 0x4c
+        self.data_bytes = rom[0x100:0x150]
+        self.rom_bytes = rom[0x104:0x150]
 
 
-class SGBPacket(DataContent):
+class SGBPacket(Data):
+    name = "sgb"
+
     COMMANDS = [
         ('PAL01', 'Set SGB Palette 0,1 Data'),
         ('PAL23', 'Set SGB Palette 2,3 Data'),
@@ -217,41 +249,63 @@ class SGBPacket(DataContent):
         ('OBJ_TRN', 'Super NES OBJ Mode'),
     ]
 
-    name = "sgb"
-    description = "SGB Packet"
-    processor_cls = SGBPacketDetector
-
-    def describe(self, data: 'Data') -> str:
-        command_code = data.data[0] // 8
+    @property
+    def description(self) -> str:
+        command_code = self.data[0] // 8
         if not 0 <= command_code < len(self.COMMANDS):
             return "Unknown"
         name, explanation = self.COMMANDS[command_code]
         return f"SGB Packet: ${command_code:02x} {name} ({explanation})"
 
+    def populate(self, rom: 'ROMBytes'):
+        self.size = 16 * (rom[self.address.rom_file_offset] & 0b111)
+        super().populate(rom)
 
-class EmptyData(DataContent):
-    name = "empty"
-    description = "Empty Space"
 
-
-class DataTable(DataContent):
+class DataTable(Data):
     name = "table"
-    description = "Table"
 
-    def __init__(self, row_struct: List[RowType]):
+    def __init__(
+            self,
+            address: Address,
+            rows: int,
+            row_struct: List[RowType],
+            processor: Optional[DataProcessor] = None,
+    ):
+        row_size = self.calc_row_size(row_struct)
         self.row_struct = row_struct
+        super().__init__(address, rows * row_size, processor, row_size)
 
-    def describe(self, data: 'Data') -> str:
-        n_rows = len(data.data) // self.row_size
-        row_str = ','.join(item.name for item in self.row_struct)
-        return f"Table: {n_rows} \u00d7 {row_str}"
+    @classmethod
+    def load(
+            cls,
+            address: Address,
+            size: int,
+            args: str,
+            processor: Optional[DataProcessor],
+    ) -> 'Data':
+        struct = [TYPES_BY_NAME[item] for item in args.split(',')]
+        rows, rem = divmod(size, sum(item.n_bytes for item in struct))
+        if rem:
+            raise ValueError()
+        return cls(address, rows, struct)
 
     @property
-    def row_size(self) -> int:
-        return sum(item.n_bytes for item in self.row_struct)
+    def type_repr(self) -> str:
+        row_str = ','.join(item.name for item in self.row_struct)
+        return f"{self.name}:{row_str}"
 
-    def get_row(self, data: 'Data', row: int) -> List[RowItem]:
-        row_bytes = self.get_row_bin(data, row)
+    @property
+    def description(self) -> str:
+        row_str = ','.join(item.name for item in self.row_struct)
+        return f"Table: {self.rows} \u00d7 {row_str}"
+
+    @classmethod
+    def calc_row_size(cls, struct: List[RowType]):
+        return sum(item.n_bytes for item in struct)
+
+    def get_row(self, row: int) -> List[RowItem]:
+        row_bytes = self.get_row_bin(row)
         row_values, pos = [], 0
 
         for t in self.row_struct:
@@ -261,64 +315,8 @@ class DataTable(DataContent):
 
         return row_values
 
-    def dump(self):
-        row_str = ','.join(item.name for item in self.row_struct)
-        return f"{self.name}:{row_str}"
 
-    @classmethod
-    def load(cls, args: str):
-        struct = [TYPES_BY_NAME[item] for item in args.split(',')]
-        return cls(struct)
-
-
-# Core elements
-
-@dataclass
-class Data:
-    address: Address
-    content: DataContent
-    size: int = 0
-    processor: Optional[DataProcessor] = None
-    rom_bytes: bytes = b''
-    data_bytes: bytes = b''
-
-    @property
-    def next_address(self) -> Address:
-        return self.address + self.size
-
-    @property
-    def data(self) -> bytes:
-        return self.data_bytes or self.rom_bytes
-
-    def populate(self, rom: 'ROMBytes'):
-        processor = None
-        if self.processor is not None:
-            processor = self.processor
-        elif self.content.processor_cls is not None:
-            processor = self.content.processor_cls()
-        if processor:
-            self.data_bytes, self.size = processor.process(rom, self.address)
-
-        pos = self.address.rom_file_offset
-        self.rom_bytes = rom[pos:pos + self.size]
-
-    def get_row(self, row: int):
-        if not 0 <= row < self.size // 8:
-            raise IndexError("Row index out of range")
-        return self.rom_bytes[8 * row:8 * (row + 1)]
-
-    @property
-    def save_command(self):
-        cmd = ('data', 'load', self.address, self.size)
-
-        if self.content.name != "default":
-            cmd += (self.content.dump(),)
-
-        if self.data_bytes and self.processor is not None:
-            cmd += ("--processor", self.processor.dump())
-
-        return cmd
-
+# Manager
 
 class DataManager(AsmManager):
 
@@ -331,14 +329,7 @@ class DataManager(AsmManager):
         self.inventory.clear()
         self._blocks_map.clear()
 
-    def create(
-            self,
-            address: Address,
-            content: DataContent,
-            size: int = 0,
-            processor: Optional[DataProcessor] = None,
-    ):
-        data = Data(address, content, size, processor)
+    def _insert(self, data: Data):
         data.populate(self.asm.rom)
 
         if not data.size and data.rom_bytes:
@@ -358,31 +349,28 @@ class DataManager(AsmManager):
     def create_basic(
             self, address: Address, size: int, processor: DataProcessor = None
     ):
-        self.create(address, RAW_DATA, size, processor)
+        self._insert(Data(address, size, processor))
 
     def create_table(self, address: Address, rows: int, structure: List[RowType]):
-        table_type = DataTable(row_struct=structure)
-        size = rows * table_type.row_size
-        self.create(address, table_type, size)
+        self._insert(DataTable(address, rows, structure))
 
     def create_palette(self, address: Address, rows: int):
         color_type = TYPES_BY_NAME['color']
-        self.create_table(address, rows, [color_type] * 4)
+        self._insert(DataTable(address, rows, [color_type] * 4))
 
     def create_jumptable(self, address: Address, rows: int = 0):
-        table_type = DataTable(row_struct=[TYPES_BY_NAME['addr']])
+        structure = [TYPES_BY_NAME['addr']]
         proc = JumpTableDetector() if rows <= 0 else None
-        self.create(address, table_type, rows * 2, proc)
+        self._insert(DataTable(address, rows, structure, proc))
 
     def create_empty(self, address: Address, size: int = 0):
-        proc = EmptyDataDetector() if size <= 0 else None
-        self.create(address, EmptyData(), size, proc)
+        self._insert(EmptyData(address, size))
 
     def create_header(self):
-        self.create(Address.from_rom_offset(0x104), CartridgeHeader())
+        self._insert(CartridgeHeader(Address.from_rom_offset(0x104)))
 
     def create_sgb(self, address: Address):
-        self.create(address, SGBPacket())
+        self._insert(SGBPacket(address))
 
     def delete(self, address: Address):
         if address not in self.inventory:
@@ -394,10 +382,10 @@ class DataManager(AsmManager):
             self,
             address: Address,
             size: int,
-            content: DataContent = RAW_DATA,
+            data_type: str = "",
             processor: DataProcessor = None,
     ):
-        self.create(address, content, size, processor)
+        self._insert(Data.parse(address, size, data_type, processor))
 
     def next_block(self, address: Address) -> Optional[Data]:
         try:
@@ -439,4 +427,4 @@ class DataManager(AsmManager):
 
     def save_items(self):
         for addr in sorted(self.inventory):
-            yield self.inventory[addr].save_command
+            yield self.inventory[addr].save()

@@ -138,26 +138,24 @@ class XRefManager(AsmManager):
         if data is None:
             return False
 
-        content = data.content
-        if not isinstance(content, DataTable):
+        if not isinstance(data, DataTable):
             return True
 
         offset = address.offset - data.address.offset
-        row_n = offset // content.row_size
-        n_rows = data.size // content.row_size
-        address = data.address + row_n * content.row_size
-        if not 0 <= row_n < n_rows:
+        row_n = offset // data.row_size
+        address = data.address + row_n * data.row_size
+        if not 0 <= row_n < data.rows:
             return True
 
         get_bank = self.asm.context.detect_addr_bank
-        while row_n < n_rows:
+        while row_n < data.rows:
             if not fast:
                 self.clear(address)
 
-            address = data.address + row_n * content.row_size
+            address = data.address + row_n * data.row_size
             targets = [
                 get_bank(address, obj)
-                for obj in content.get_row(data, row_n)
+                for obj in data.get_row(row_n)
                 if isinstance(obj, Address)
             ]
             if not targets:

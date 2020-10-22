@@ -1,4 +1,3 @@
-from .data import CartridgeHeader, Data, EmptyData
 from .decoder import ROMBytes
 from .disassembler import Disassembler
 from .labels import Label, LabelOffset
