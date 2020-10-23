@@ -182,6 +182,10 @@ class Address(NamedTuple):
         return offset
 
     @property
+    def zone(self):
+        return self.type, self.bank
+
+    @property
     def zone_end(self) -> "Address":
         if self.type in BANKS:
             bank_start = BANKS[self.type]

@@ -101,6 +101,9 @@ class XRefCollection:
         self.auto.clear(address)
         self.manual.clear(address)
 
+    def clear_auto(self, address: Address):
+        self.auto.clear(address)
+
     def incoming(self, address: Address) -> Set[Address]:
         return self.manual.incoming(address) | self.auto.incoming(address)
 
@@ -138,21 +141,20 @@ class XRefManager(AsmManager):
         if data is None:
             return False
 
+        if not fast:
+            self.clear_auto_range(data.address, data.next_address)
+
         if not isinstance(data, DataTable):
             return True
         ref = "jump" if isinstance(data, Jumptable) else "ref"
 
         offset = address.offset - data.address.offset
         row_n = offset // data.row_size
-        address = data.address + row_n * data.row_size
         if not 0 <= row_n < data.rows:
             return True
 
         get_bank = self.asm.context.detect_addr_bank
         while row_n < data.rows:
-            if not fast:
-                self.clear(address)
-
             address = data.address + row_n * data.row_size
             targets = [
                 get_bank(address, obj)
@@ -187,11 +189,11 @@ class XRefManager(AsmManager):
             if self.index_data(address, fast, single):
                 break
 
-            if not fast:
-                self.clear(address, _index=False)
-
             instr = get_instr(address.rom_file_offset)
-            address = instr.next_address
+            address, prev_address = instr.next_address, address
+            if not fast:
+                self.clear_auto_range(prev_address, address)
+
             op = instr.type
             if op in (Op.Invalid, Op.ReturnIntEnable):
                 break
@@ -272,9 +274,17 @@ class XRefManager(AsmManager):
         if _index:
             self.index_from(address, single=True)
 
-    def clear_range(self, addr_start: Address, length: int):
+    def clear_auto(self, address: Address):
+        for links in self._mappings.values():
+            links.clear_auto(address)
+
+    def clear_auto_range(self, addr_start: Address, addr_end: Address):
+        if addr_start.zone != addr_end.zone:
+            raise ValueError("Address range to clear must be in same zone")
+        length = addr_end.offset - addr_start.offset
         for offset in range(length):
-            self.clear(addr_start + offset)
+            for links in self._mappings.values():
+                links.clear_auto(addr_start + offset)
 
     def count_incoming(self, link_type: str, address: Address):
         return len(self._mappings[link_type].incoming(address))
