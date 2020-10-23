@@ -349,7 +349,7 @@ class DataManager(AsmManager):
         self.inventory.clear()
         self._blocks_map.clear()
 
-    def _insert(self, data: Data):
+    def insert(self, data: Data, initial=False):
         data.populate(self.asm.rom)
 
         if not data.size and data.rom_bytes:
@@ -366,29 +366,32 @@ class DataManager(AsmManager):
         self.inventory[data.address] = data
         self._blocks_map[data.address] = data.size
 
+        if not initial:
+            self.asm.xrefs.index_data(data.address)
+
     def create_basic(
             self, address: Address, size: int, processor: DataProcessor = None
     ):
-        self._insert(Data(address, size, processor))
+        self.insert(Data(address, size, processor))
 
     def create_table(self, address: Address, rows: int, structure: List[RowType]):
-        self._insert(DataTable(address, rows, structure))
+        self.insert(DataTable(address, rows, structure))
 
     def create_palette(self, address: Address, rows: int):
         color_type = TYPES_BY_NAME['color']
-        self._insert(DataTable(address, rows, [color_type] * 4))
+        self.insert(DataTable(address, rows, [color_type] * 4))
 
     def create_jumptable(self, address: Address, rows: int = 0):
-        self._insert(Jumptable(address, rows))
+        self.insert(Jumptable(address, rows))
 
     def create_empty(self, address: Address, size: int = 0):
-        self._insert(EmptyData(address, size))
+        self.insert(EmptyData(address, size))
 
     def create_header(self):
-        self._insert(CartridgeHeader(Address.from_rom_offset(0x104)))
+        self.insert(CartridgeHeader(Address.from_rom_offset(0x104)))
 
     def create_sgb(self, address: Address):
-        self._insert(SGBPacket(address))
+        self.insert(SGBPacket(address))
 
     def delete(self, address: Address):
         if address not in self.inventory:
@@ -403,7 +406,8 @@ class DataManager(AsmManager):
             data_type: str = "",
             processor: DataProcessor = None,
     ):
-        self._insert(Data.parse(address, size, data_type, processor))
+        data = Data.parse(address, size, data_type, processor)
+        self.insert(data, initial=True)
 
     def next_block(self, address: Address) -> Optional[Data]:
         try:
