@@ -400,6 +400,8 @@ class DataManager(AsmManager):
     def delete(self, address: Address):
         if address not in self.inventory:
             raise IndexError(address)
+        blk = self.inventory[address]
+        self.asm.xrefs.clear_auto_range(blk.address, blk.next_address)
         del self.inventory[address]
         del self._blocks_map[address]
 
