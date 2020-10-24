@@ -321,11 +321,15 @@ class Jumptable(DataTable):
 
     def __init__(self, address: Address, rows: int = 0):
         struct = [TYPES_BY_NAME['addr']]
-        super().__init__(address, rows, struct, JumpTableDetector())
+        proc = JumpTableDetector() if rows <= 0 else None
+        super().__init__(address, rows, struct, proc)
 
     @classmethod
     def load(cls, address, size, args, processor) -> 'Data':
-        return cls(address, size)
+        rows, rem = divmod(size, 2)
+        if rem:
+            raise ValueError()
+        return cls(address, rows)
 
     @property
     def type_repr(self) -> str:
