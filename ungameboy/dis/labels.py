@@ -131,6 +131,9 @@ class LabelManager(AsmManager):
         if '.' in _loc:
             raise ValueError(f"Invalid label name: {name}")
 
+        if _loc in self._locals.get(address, []):
+            return  # Already exists
+
         scope = self.scope_at(address)
         if not scope:
             raise ValueError("Local labels must be in scope of a global label")
