@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, U
 from .manager_base import AsmManager
 from ..address import Address
 from ..data_structures import AddressMapping
-from ..data_types import Byte, CgbColor, Word
+from ..data_types import Byte, CgbColor, SignedByte, Word
 
 if TYPE_CHECKING:
     from .disassembler import Disassembler
     from .decoder import ROMBytes
     from ..commands import UgbCommandGroup
 
-RowItem = Union[Byte, CgbColor, Word, Address]
+RowItem = Union[int, Address]
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,7 @@ class RowType:
 
 ROW_TYPES: List[RowType] = [
     RowType('db', Byte, n_bytes=1),
+    RowType('dbs', SignedByte, n_bytes=1),
     RowType('dw', Word),
     RowType('addr', Address.from_memory_address),
     RowType('addr_be', Address.from_memory_address, endian='big'),
@@ -173,11 +174,10 @@ class Data(metaclass=DataMeta):
 
     @property
     def rows(self) -> int:
-        return 1 + (self.size - 1) // self.row_size
+        return 1 + (len(self.data) - 1) // self.row_size
 
     def get_row_bin(self, row: int) -> bytes:
-        n_rows = 1 + (self.size - 1) // self.row_size
-        if not 0 <= row < n_rows:
+        if not 0 <= row < self.rows:
             raise IndexError("Row index out of range")
         return self.rom_bytes[self.row_size * row:self.row_size * (row + 1)]
 

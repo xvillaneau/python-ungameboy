@@ -1,7 +1,8 @@
 from typing import TYPE_CHECKING
 
 from ..address import Address
-from ..dis.data import DataProcessor
+from ..data_types import Byte, SignedByte
+from ..dis.data import Data, DataProcessor
 
 if TYPE_CHECKING:
     from ..dis import ROMBytes
@@ -76,3 +77,37 @@ class InterlacedRLEProcessor(DataProcessor):
         ]
 
         return bytes(data), pos - start_pos
+
+
+class WL2Sprite(Data):
+    name = "wl2.sprite"
+
+    def __init__(self, address: Address, size: int = 0):
+        super().__init__(address, size)
+        self.row_size = 4
+
+    def populate(self, rom: 'ROMBytes'):
+
+        if not self.size:
+            start, offset = self.address.rom_file_offset, 0
+            while rom[start + offset] != 0x80:
+                offset += 4
+            self.size = offset + 1
+
+        super().populate(rom)
+        if self.rom_bytes[-1] != 0x80:
+            raise ValueError("Sprite data must end with $80")
+
+    def save(self):
+        return ('data', 'load', self.address, self.size, self.name)
+
+    @classmethod
+    def load(cls, address, size, args, processor) -> 'Data':
+        return cls(address, size)
+
+    def get_row(self, row: int):
+        row_bin = self.get_row_bin(row)
+        if row_bin == b'\x80':
+            return [Byte(0x80)]
+        x, y, n, f = row_bin
+        return [SignedByte(x), SignedByte(y), Byte(n), Byte(f)]
