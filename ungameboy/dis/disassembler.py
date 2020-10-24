@@ -13,6 +13,7 @@ from .sections import SectionManager
 from .xrefs import XRefManager
 from ..address import Address, ROM
 from ..commands import LabelName
+from ..scripts import ScriptsManager
 
 __all__ = ['Disassembler']
 
@@ -33,12 +34,13 @@ class Disassembler:
         self.comments = CommentsManager(self)
         self.context = ContextManager(self)
         self.labels = LabelManager(self)
+        self.scripts = ScriptsManager(self)
         self.sections = SectionManager()
         self.xrefs = XRefManager(self)
 
         self.managers: List[AsmManager] = [
             self.data, self.labels, self.xrefs, self.context, self.comments,
-            self.analyze,
+            self.analyze, self.scripts,
         ]
 
     @property

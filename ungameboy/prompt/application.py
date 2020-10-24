@@ -187,6 +187,7 @@ class UGBApplication:
 
         finally:
             self.app.layout.focus_last()
+            self.prompt.refresh_completion()
             self.layout.floats.remove(progress_float)
 
 

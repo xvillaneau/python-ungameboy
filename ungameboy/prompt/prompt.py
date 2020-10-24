@@ -111,6 +111,11 @@ class UGBPrompt:
             Condition(lambda: ugb.prompt_active)
         )
 
+    def refresh_completion(self):
+        # TODO: This is a hack; make the completion dynamic
+        self.cli_v2 = create_ui_cli_v2(self.ugb)
+        self.prompt.completer = self.create_completer_v2()
+
     def create_completer_v2(self):
         label_complete = LabelCompleter(self.ugb.asm)
         addr_complete = AddressCompleter(self.ugb.asm)
