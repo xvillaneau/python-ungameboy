@@ -38,6 +38,10 @@ DATA_TYPES: Dict[str, 'Data'] = {}
 PROCESSORS: Dict[str, Type['DataProcessor']] = {}
 
 
+def parse_row_struct(row_struct: str) -> List[RowType]:
+    return [TYPES_BY_NAME[item] for item in row_struct.split(',')]
+
+
 # Built-in data processors
 
 class DataProcessorMeta(ABCMeta):
@@ -269,9 +273,11 @@ class DataTable(Data):
             self,
             address: Address,
             rows: int,
-            row_struct: List[RowType],
+            row_struct: Union[str, List[RowType]],
             processor: Optional[DataProcessor] = None,
     ):
+        if isinstance(row_struct, str):
+            row_struct = parse_row_struct(row_struct)
         row_size = self.calc_row_size(row_struct)
         self.row_struct = row_struct
         super().__init__(address, rows * row_size, processor, row_size)
@@ -320,9 +326,8 @@ class Jumptable(DataTable):
     name = "jumptable"
 
     def __init__(self, address: Address, rows: int = 0):
-        struct = [TYPES_BY_NAME['addr']]
         proc = JumpTableDetector() if rows <= 0 else None
-        super().__init__(address, rows, struct, proc)
+        super().__init__(address, rows, 'addr', proc)
 
     @classmethod
     def load(cls, address, size, args, processor) -> 'Data':
@@ -444,8 +449,7 @@ class DataManager(AsmManager):
 
         @data_create.add_command("table")
         def data_create_table(address: Address, rows: int, structure: str):
-            struct = [TYPES_BY_NAME[item] for item in structure.split(',')]
-            self.create_table(address, rows, struct)
+            self.create_table(address, rows, parse_row_struct(structure))
 
         data_cli = UgbCommandGroup(self.asm, "data")
         data_cli.add_group(data_create)
