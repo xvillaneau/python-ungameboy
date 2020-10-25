@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Iterator, List, NamedTuple, Tuple
 
 from .manager_base import AsmManager
-from ..address import Address, MemoryType
+from ..address import ROM, Address, MemoryType
 from ..commands import LabelName, UgbCommandGroup
 from ..data_structures import AddressMapping, SortedStrMapping
 
@@ -176,7 +176,8 @@ class LabelManager(AsmManager):
             self._add_local(address, name)
         else:
             self._add_global(address, name)
-        self.asm.xrefs.index_from(address)
+        if address.type is ROM:
+            self.asm.xrefs.index_from(address)
 
     def auto_create(self, address: Address, local=False):
         if address.bank < 0:
