@@ -1,3 +1,4 @@
+from pathlib import Path
 import re
 import shlex
 from typing import TYPE_CHECKING, Iterable
@@ -8,6 +9,7 @@ from prompt_toolkit.completion import (
     Completer, CompleteEvent, Completion, NestedCompleter
 )
 from prompt_toolkit.document import Document
+from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout.containers import ConditionalContainer
 from prompt_toolkit.widgets.base import TextArea
@@ -97,8 +99,12 @@ class UGBPrompt:
         self.ugb = ugb
         self.cli_v2 = create_ui_cli_v2(ugb)
 
+        hist_path = Path.home() / ".ungameboy" / "prompt_history"
+        self.history = FileHistory(str(hist_path))
+
         self.prompt = TextArea(
             prompt="> ",
+            history=self.history,
             dont_extend_height=True,
             multiline=False,
             completer=self.create_completer_v2(),
