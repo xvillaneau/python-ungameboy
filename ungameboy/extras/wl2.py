@@ -2,10 +2,11 @@ from typing import TYPE_CHECKING
 
 from ..address import Address
 from ..data_types import Byte, SignedByte
-from ..dis.data import Data, DataProcessor
+from ..dis.data import Data, DataProcessor, DataTable, JumpTableDetector
+from ..scripts import asm_script
 
 if TYPE_CHECKING:
-    from ..dis import ROMBytes
+    from ..dis import Disassembler, ROMBytes
 
 
 class RunLengthEncodingProcessor(DataProcessor):
@@ -111,3 +112,21 @@ class WL2Sprite(Data):
             return [Byte(0x80)]
         x, y, n, f = row_bin
         return [SignedByte(x), SignedByte(y), Byte(n), Byte(f)]
+
+
+@asm_script("wl2.sprites_table")
+def detect_sprites_table(asm: 'Disassembler', address: Address):
+    table = DataTable(address, 0, 'addr', JumpTableDetector())
+    asm.data.insert(table)
+
+    asm.labels.auto_create(address)
+
+    visited = set()
+    for ref, in table:
+        ref = asm.context.detect_addr_bank(address, ref)
+        if ref in visited:
+            continue
+        visited.add(ref)
+
+        asm.data.insert(WL2Sprite(ref))
+        asm.labels.auto_create(ref, local=True)

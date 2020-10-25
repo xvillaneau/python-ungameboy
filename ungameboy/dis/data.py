@@ -282,6 +282,10 @@ class DataTable(Data):
         self.row_struct = row_struct
         super().__init__(address, rows * row_size, processor, row_size)
 
+    def __iter__(self):
+        for row in range(self.rows):
+            yield self.get_row(row)
+
     @classmethod
     def load(
             cls,
