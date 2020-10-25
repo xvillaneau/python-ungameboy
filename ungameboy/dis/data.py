@@ -376,6 +376,7 @@ class DataManager(AsmManager):
         self._blocks_map[data.address] = data.size
 
         if not initial:
+            self.asm.xrefs.clear_auto_range(data.address, data.next_address)
             self.asm.xrefs.index_data(data.address)
 
     def create_basic(
