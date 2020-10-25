@@ -181,6 +181,12 @@ class LabelManager(AsmManager):
     def auto_create(self, address: Address, local=False):
         if address.bank < 0:
             raise ValueError("Cannot place label at unknown bank")
+        # Check if a label already exists
+        if local and self._locals.get(address):
+            return
+        if not local and self._globals.get(address):
+            return
+
         name = (
             f"{'.' * local}"
             f"auto_{address.type.name}"
