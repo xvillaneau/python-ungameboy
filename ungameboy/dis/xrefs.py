@@ -89,13 +89,17 @@ class XRefCollection:
         self.manual.reset()
         self.auto.reset()
 
-    def create_link(self, addr_from: Address, addr_to: Address, auto=False):
+    def create_link(self, addr_from: Address, addr_to: Address):
         if self.auto.has_link(addr_from, addr_to):
             return
-        if auto and self.manual.has_link(addr_from, addr_to):
+        self.manual.create_link(addr_from, addr_to)
+
+    def create_auto(self, addr_from: Address, addr_to: Address):
+        if self.auto.has_link(addr_from, addr_to):
+            return
+        if self.manual.has_link(addr_from, addr_to):
             self.manual.remove_link(addr_from, addr_to)
-        links = self.auto if auto else self.manual
-        links.create_link(addr_from, addr_to)
+        self.auto.create_link(addr_from, addr_to)
 
     def clear(self, address: Address):
         self.auto.clear(address)
@@ -141,36 +145,37 @@ class XRefManager(AsmManager):
         if data is None:
             return False
 
-        if not fast:
+        if not (fast or single):
             self.clear_auto_range(data.address, data.next_address)
 
         if not isinstance(data, DataTable):
             return True
-        ref = "jump" if isinstance(data, Jumptable) else "ref"
 
-        offset = address.offset - data.address.offset
-        row_n = offset // data.row_size
-        if not 0 <= row_n < data.rows:
+        ref = "jump" if isinstance(data, Jumptable) else "ref"
+        get_bank = self.asm.context.detect_addr_bank
+
+        if single:
+            row = data[address]
+
+            for item in row.items:
+                if not isinstance(item, Address):
+                    continue
+                target = get_bank(row.address, item)
+                self._mappings[ref].create_auto(row.address, target)
+
             return True
 
-        get_bank = self.asm.context.detect_addr_bank
-        while row_n < data.rows:
-            address = data.address + row_n * data.row_size
+        for row in data:
             targets = [
-                get_bank(address, obj)
-                for obj in data.get_row(row_n)
-                if isinstance(obj, Address)
+                get_bank(row.address, item)
+                for item in row.items
+                if isinstance(item, Address)
             ]
             if not targets:
                 return True
 
             for target in targets:
-                self._mappings[ref].create_link(address, target, auto=True)
-
-            if single:
-                return True
-
-            row_n += 1
+                self._mappings[ref].create_auto(row.address, target)
 
         return True
 
@@ -213,9 +218,7 @@ class XRefManager(AsmManager):
                     ref_type = 'jump'
 
                 if ref_type:
-                    self._mappings[ref_type].create_link(
-                        instr.address, target, auto=True
-                    )
+                    self._mappings[ref_type].create_auto(instr.address, target)
 
             if single:
                 break

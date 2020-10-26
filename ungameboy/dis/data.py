@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING, Callable, Dict, Iterator, List, Optional, Tuple, Type, Union
+)
 
 from .manager_base import AsmManager
 from ..address import Address
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
     from .decoder import ROMBytes
     from ..commands import UgbCommandGroup
 
-RowItem = Union[int, Address]
+RowItem = Union[int, str, Address]
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,14 @@ TYPES_BY_NAME = {obj.name: obj for obj in ROW_TYPES}
 
 DATA_TYPES: Dict[str, 'Data'] = {}
 PROCESSORS: Dict[str, Type['DataProcessor']] = {}
+
+
+@dataclass
+class Row:
+    address: Optional[Address]
+    num: int
+    items: List[RowItem]
+    bytes: bytes
 
 
 def parse_row_struct(row_struct: str) -> List[RowType]:
@@ -134,6 +144,30 @@ class Data(metaclass=DataMeta):
         self.rom_bytes = b''
         self.data_bytes = b''
 
+    def __contains__(self, item):
+        if isinstance(item, Address):
+            return self.address <= item < self.next_address
+        return False
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return Row(
+                self.address + item * self.row_size,
+                item,
+                self.get_row_items(item),
+                self.get_row_bin(item),
+            )
+
+        if isinstance(item, Address):
+            row = (item.offset - self.address.offset) // self.row_size
+            return self[row]
+
+        raise ValueError(item)
+
+    def __iter__(self) -> Iterator[Row]:
+        for row_n in range(self.rows):
+            yield self[row_n]
+
     @staticmethod
     def parse(address, size, command, processor) -> 'Data':
         name, _, args = command.partition(":")
@@ -185,7 +219,7 @@ class Data(metaclass=DataMeta):
             raise IndexError("Row index out of range")
         return self.rom_bytes[self.row_size * row:self.row_size * (row + 1)]
 
-    def get_row(self, row: int) -> List[RowItem]:
+    def get_row_items(self, row: int) -> List[RowItem]:
         return [Byte(b) for b in self.get_row_bin(row)]
 
     @property
@@ -282,10 +316,6 @@ class DataTable(Data):
         self.row_struct = row_struct
         super().__init__(address, rows * row_size, processor, row_size)
 
-    def __iter__(self):
-        for row in range(self.rows):
-            yield self.get_row(row)
-
     @classmethod
     def load(
             cls,
@@ -314,7 +344,7 @@ class DataTable(Data):
     def calc_row_size(cls, struct: List[RowType]):
         return sum(item.n_bytes for item in struct)
 
-    def get_row(self, row: int) -> List[RowItem]:
+    def get_row_items(self, row: int) -> List[RowItem]:
         row_bytes = self.get_row_bin(row)
         row_values, pos = [], 0
 

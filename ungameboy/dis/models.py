@@ -16,7 +16,7 @@ __all__ = [
     'Instruction', 'Value'
 ]
 
-Value = Union[int, Address, Label, LabelOffset, SpecialLabel]
+Value = Union[int, str, Address, Label, LabelOffset, SpecialLabel]
 
 
 @dataclass

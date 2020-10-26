@@ -9,7 +9,7 @@ from ..data_types import Byte, Word, Ref, IORef
 from ..enums import Operation as Op
 
 if TYPE_CHECKING:
-    from .data import RowItem
+    from .data import Row
     from .disassembler import Disassembler
     from .instructions import RawInstruction
     from .models import Value
@@ -82,21 +82,19 @@ class ContextManager(AsmManager):
         else:
             return value, None
 
-    def row_context(
-            self, row: List['RowItem'], address: Address
-    ) -> Tuple[List['Value'], Optional[Address]]:
+    def row_context(self, row: 'Row') -> Tuple[List['Value'], Optional[Address]]:
         n_addr, dest_addr, values = 0, None, []
 
-        for item in row:
+        for item in row.items:
             if isinstance(item, Address):
                 n_addr += 1
                 dest_addr = dest_addr or item
-                values.append(self.address_context(address, item))
+                values.append(self.address_context(row.address, item))
             else:
                 values.append(item)
 
         if n_addr == 1:
-            dest_addr = self.detect_addr_bank(address, dest_addr)
+            dest_addr = self.detect_addr_bank(row.address, dest_addr)
         else:
             dest_addr = None
 

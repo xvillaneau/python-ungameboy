@@ -106,7 +106,7 @@ class WL2Sprite(Data):
     def load(cls, address, size, args, processor) -> 'Data':
         return cls(address, size)
 
-    def get_row(self, row: int):
+    def get_row_items(self, row: int):
         row_bin = self.get_row_bin(row)
         if row_bin == b'\x80':
             return [Byte(0x80)]
@@ -122,8 +122,8 @@ def detect_sprites_table(asm: 'Disassembler', address: Address):
     asm.labels.auto_create(address)
 
     visited = set()
-    for ref, in table:
-        ref = asm.context.detect_addr_bank(address, ref)
+    for row in table:
+        ref = asm.context.detect_addr_bank(address, row.items[0])
         if ref in visited:
             continue
         visited.add(ref)

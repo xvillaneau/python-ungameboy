@@ -105,22 +105,18 @@ class Disassembler:
                     data=data,
                 )
 
-            offset = addr.offset - data.address.offset
-            row_n = offset // data.row_size
-            row_bin = data.get_row_bin(row_n)
-            row = data.get_row(row_n)
-            row_addr = data.address + row_n * data.row_size
-            row_values, dest_address = self.context.row_context(row, row_addr)
+            row = data[addr]
+            row_values, dest_address = self.context.row_context(row)
 
             return DataRow(
-                address=row_addr,
-                size=len(row_bin),
+                address=row.address,
+                size=len(row.bytes),
                 dest_address=dest_address,
                 **common_args,
-                bytes=row_bin,
+                bytes=row.bytes,
                 data=data,
                 values=row_values,
-                row=row_n,
+                row=row.num,
             )
 
         elif addr.type is ROM:
