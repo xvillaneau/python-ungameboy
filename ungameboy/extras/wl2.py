@@ -162,6 +162,7 @@ class WL2SoundVoice(Data):
             if code in self.RESET_CODES:
                 return False
             if not fallback and code < 0x80:
+                offset -= 1
                 return process_code(fallback=True)
 
             if code == 0xcd:  # Jumptable 1
