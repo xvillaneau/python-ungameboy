@@ -1,5 +1,4 @@
-from bisect import bisect_right
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.data_structures import Point
@@ -8,7 +7,7 @@ from prompt_toolkit.layout.controls import UIContent, UIControl
 from .common import ControlMode
 from .lexer import AssemblyRender
 from ..address import ROM, Address, MemoryType
-from ..data_structures import StateStack
+from ..data_structures import DoubleMapping, StateStack
 from ..dis import Disassembler, RomElement
 
 if TYPE_CHECKING:
@@ -349,8 +348,7 @@ class AsmRegionView:
         self.mem_type = m_type
         self.mem_bank = m_bank
 
-        self._lines: List[int] = []
-        self._addr: List[Address] = []
+        self.map: DoubleMapping[Address, int] = DoubleMapping()
         self.lines: int = 0
 
         self.refresh()
@@ -360,8 +358,7 @@ class AsmRegionView:
             self.build_lines_map()
 
     def build_lines_map(self):
-        self._lines.clear()
-        self._addr.clear()
+        self.map.clear()
 
         lines = 0
         address = Address(self.mem_type, self.mem_bank, 0)
@@ -369,11 +366,10 @@ class AsmRegionView:
         count_lines = self.control.renderer.get_lines_count
 
         while address < end_addr:
-            self._lines.append(lines)
-            self._addr.append(address)
+            self.map.append(address, lines)
 
-            lines, address = count_lines(address)
-            lines += self._lines[-1]
+            addr_lines, address = count_lines(address)
+            lines += addr_lines
 
         self.lines = lines
 
@@ -382,18 +378,15 @@ class AsmRegionView:
         Given a line number in the resulting document, get the address
         to query and at while line that block is referenced.
         """
-        pos = bisect_right(self._lines, line)
-        if pos == 0:
-            raise IndexError(line)
-
-        return self._addr[pos - 1], self._lines[pos - 1]
+        return self.map.get_by_second(line)
 
     def find_address(self, line: int) -> Address:
-        pos = bisect_right(self._lines, line)
-        return self._addr[max(0, pos - 1)]
+        return self.map.get_by_second(line)[0]
 
     def find_line(self, address: Address) -> int:
         if (address.type, address.bank) != (self.mem_type, self.mem_bank):
             raise KeyError(f"Address {address} is not in this region")
-        pos = bisect_right(self._addr, address)
-        return 0 if pos == 0 else self._lines[pos - 1]
+        try:
+            return self.map.get_by_first(address)[1]
+        except IndexError:
+            return 0

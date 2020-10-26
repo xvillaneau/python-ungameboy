@@ -500,7 +500,8 @@ class AssemblyRender:
                 lines += 4
             else:
                 lines += (data.address == address)
-                next_addr = min(next_addr, address + data.row_size)
+                row = data[address]
+                next_addr = row.address + len(row.bytes)
 
         elif address.type is ROM:  # Instruction
             lines += 1

@@ -1,12 +1,11 @@
 from bisect import bisect_left, bisect_right
 from operator import itemgetter
-from typing import Iterator, List, Sequence, MutableMapping, Tuple, TypeVar
+from typing import Generic, Iterator, List, Sequence, MutableMapping, Tuple, TypeVar
 
 from .address import Address
 
-__all__ = ['AddressMapping', 'SortedMapping', 'SortedStrMapping', 'StateStack']
-
 K = TypeVar('K')
+U = TypeVar('U')
 V = TypeVar('V')
 T = TypeVar('T')
 
@@ -157,3 +156,43 @@ class StateStack(Sequence[T]):
 
     def __len__(self) -> int:
         return self._head
+
+
+class DoubleMapping(Generic[U, V]):
+    def __init__(self):
+        self._us: List[U] = []
+        self._vs: List[V] = []
+
+    def clear(self):
+        self._us.clear()
+        self._vs.clear()
+
+    def __len__(self):
+        return len(self._us)
+
+    def __bool__(self):
+        return bool(self._us)
+
+    def __getitem__(self, item: int) -> Tuple[U, V]:
+        return self._us[item], self._vs[item]
+
+    def __iter__(self) -> Iterator[Tuple[U, V]]:
+        yield from zip(self._us, self._vs)
+
+    def append(self, u: U, v: V):
+        if len(self) > 0 and (u < self._us[-1] or v < self._vs[-1]):
+            raise ValueError("New value would break sort order")
+        self._us.append(u)
+        self._vs.append(v)
+
+    def get_by_first(self, u: U) -> Tuple[U, V]:
+        pos = bisect_right(self._us, u)
+        if not pos:
+            raise IndexError(u)
+        return self[pos - 1]
+
+    def get_by_second(self, v: V) -> Tuple[U, V]:
+        pos = bisect_right(self._vs, v)
+        if not pos:
+            raise IndexError(v)
+        return self[pos - 1]

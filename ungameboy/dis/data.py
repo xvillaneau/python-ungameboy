@@ -152,21 +152,28 @@ class Data(metaclass=DataMeta):
     def __getitem__(self, item):
         if isinstance(item, int):
             return Row(
-                self.address + item * self.row_size,
+                self.row_address(item),
                 item,
                 self.get_row_items(item),
                 self.get_row_bin(item),
             )
 
         if isinstance(item, Address):
-            row = (item.offset - self.address.offset) // self.row_size
-            return self[row]
+            return self[self.row_at(item)]
 
         raise ValueError(item)
 
     def __iter__(self) -> Iterator[Row]:
         for row_n in range(self.rows):
             yield self[row_n]
+
+    def row_at(self, address: Address) -> int:
+        if address.zone != self.address.zone:
+            raise IndexError("Address not in same zone")
+        return (address.offset - self.address.offset) // self.row_size
+
+    def row_address(self, row: int) -> Address:
+        return self.address + row * self.row_size
 
     @staticmethod
     def parse(address, size, command, processor) -> 'Data':
