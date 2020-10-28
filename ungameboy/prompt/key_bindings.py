@@ -7,7 +7,6 @@ from prompt_toolkit.keys import Keys
 
 from .control import AsmControl
 from .xref_browser import count_xrefs, get_selected_xref
-from ..address import ROM
 
 if TYPE_CHECKING:
     from prompt_toolkit.key_binding import KeyBindingsBase, KeyPressEvent
@@ -50,26 +49,19 @@ def create_editor_shortcuts(ugb: 'UGBApplication'):
 
     cursor = object()
     cursor_dest = object()
-    cursor_dest_rom = object()
 
     def replace_arg(control: AsmControl, arg):
         addr = control.address
         dest = control.destination_address
 
-        use_addr = arg is cursor
-        use_dest = arg is cursor_dest
-        if arg is cursor_dest_rom:
-            use_dest = addr.type is ROM
-            use_addr = not use_dest
-
-        if use_addr:
+        if arg is cursor:
             return addr
-        if use_dest:
+        elif arg is cursor_dest:
             if dest is None:
                 raise ValueError()
             return dest
-
-        return arg
+        else:
+            return arg
 
     def bind_shortcut(keys, args, filter=None, run=False):
         if isinstance(keys, str):
@@ -98,7 +90,11 @@ def create_editor_shortcuts(ugb: 'UGBApplication'):
     # Navigation shortcuts
     bind_shortcut('g', 'seek', filter=ugb.filters.editor_active)
     bind_shortcut(
-        'X', ('inspect', cursor_dest_rom), run=True,
+        'x', ('inspect', cursor), run=True,
+        filter=ugb.filters.cursor_active,
+    )
+    bind_shortcut(
+        'X', ('inspect', cursor_dest), run=True,
         filter=ugb.filters.cursor_active,
     )
     bind_shortcut(
@@ -125,20 +121,6 @@ def create_editor_shortcuts(ugb: 'UGBApplication'):
     )
     bind_shortcut(
         'Ax', ('label', 'auto', cursor_dest, '--local'), run=True,
-        filter=ugb.filters.cursor_active,
-    )
-
-    # XREF shortcuts
-    bind_shortcut(
-        'xx', ('xref', 'auto', cursor), run=True,
-        filter=ugb.filters.cursor_active,
-    )
-    bind_shortcut(
-        'xr', ('xref', 'declare', 'read', cursor),
-        filter=ugb.filters.cursor_active,
-    )
-    bind_shortcut(
-        'xw', ('xref', 'declare', 'write', cursor),
         filter=ugb.filters.cursor_active,
     )
 
