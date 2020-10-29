@@ -148,7 +148,7 @@ class Address(NamedTuple):
         return Address(ROM, bank, offset)
 
     @classmethod
-    def from_memory_address(cls, address: int) -> "Address":
+    def from_memory_address(cls, address: int, bank: int = -1) -> "Address":
         mem_type = next(
             (t for t in MemoryType if t.offset <= address < t.end),
             None,
@@ -159,9 +159,9 @@ class Address(NamedTuple):
         offset = address - mem_type.offset
         if mem_type in BANKS:
             bank_start = BANKS[mem_type]
-            bank = 0
-            if offset >= bank_start:
-                bank = -1
+            if offset < bank_start:
+                bank = 0
+            else:
                 offset -= bank_start
         else:
             bank = 0

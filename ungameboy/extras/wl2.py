@@ -133,6 +133,44 @@ def detect_sprites_table(asm: 'Disassembler', address: Address):
         asm.labels.auto_create(ref, local=True)
 
 
+class WL2SoundTrackIndex(Data):
+    name = "wl2.track_index"
+
+    def __init__(self, address: Address, size: int = 0, processor=None):
+        super().__init__(address, size, processor)
+        self.row_size = 2
+        self.voices = []
+        self.extras = []
+
+    def populate(self, rom: 'ROMBytes'):
+        n_voices = rom[self.address.rom_file_offset]
+        n_extra = rom[self.address.rom_file_offset + 1]
+        bank = self.address.bank
+
+        offset = self.address.rom_file_offset + 2
+        for i in range(n_voices * (1 + n_extra)):
+            addr = int.from_bytes(rom[offset:offset+2], "little")
+            addr = Address.from_memory_address(addr, bank)
+            offset += 2
+            if addr.zone != self.address.zone:
+                break
+            if i < n_voices:
+                self.voices.append(addr)
+            else:
+                self.extras.append(addr)
+
+        self.size = 2 * (1 + len(self.voices) + len(self.extras))
+        super().populate(rom)
+
+    def get_row_items(self, row: int) -> List[RowItem]:
+        row_bin = self.get_row_bin(row)
+        if row == 0:
+            return [Byte(b) for b in row_bin]
+        else:
+            addr = int.from_bytes(row_bin, "little")
+            return [Address.from_memory_address(addr, self.address.bank)]
+
+
 class WL2SoundVoice(Data):
     name = "wl2.voice"
 
@@ -239,3 +277,19 @@ class WL2SoundVoice(Data):
             return [f"wait {cycles} cycle{'s' * (cycles != 1)}"]
 
         return [Byte(b) for b in row_bin]
+
+
+@asm_script("wl2.track")
+def detect_audio_track(asm: 'Disassembler', address: Address):
+    index = WL2SoundTrackIndex(address)
+    asm.data.insert(index)
+
+    for voice_addr in index.voices:
+        asm.data.insert(WL2SoundVoice(voice_addr))
+
+    asm.labels.auto_create(min(index.voices))
+    for i, voice_addr in enumerate(index.voices, start=1):
+        asm.labels.create(voice_addr, f".voice_{i}")
+    for extra_addr in index.extras:
+        asm.labels.auto_create(extra_addr, local=True)
+    asm.labels.create(address, ".index")
