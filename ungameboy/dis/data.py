@@ -238,17 +238,35 @@ class EmptyData(Data):
     name = "empty"
     description = "Empty Space"
 
+    def __init__(self, address: Address, size=0, fill=0, processor=None):
+        super().__init__(address, size, processor)
+        if not 0 <= fill < 256:
+            raise ValueError("Fill value must be between 0 and 255")
+        self.fill = fill
+
+    @property
+    def type_repr(self) -> str:
+        return f"{self.name}:{self.fill}" if self.fill else self.name
+
+    @classmethod
+    def load(cls, address, size, args: str, processor) -> 'Data':
+        if args:
+            fill = int(args)
+        else:
+            fill = 0
+        return cls(address, size, fill, processor)
+
     def populate(self, rom: 'ROMBytes'):
         if self.size <= 0:
             pos = start = self.address.rom_file_offset
             end = self.address.zone_end.rom_file_offset
             while pos <= end:
                 # Special case to exclude the NOP at the entry point
-                if rom[pos] != 0 or pos == 0x100:
+                if rom[pos] != self.fill or pos == 0x100:
                     break
                 pos += 1
             self.size = pos - start
-        self.rom_bytes = bytes(self.size)
+        super().populate(rom)
 
 
 class CartridgeHeader(Data):
@@ -435,8 +453,8 @@ class DataManager(AsmManager):
     def create_jumptable(self, address: Address, rows: int = 0):
         self.insert(Jumptable(address, rows))
 
-    def create_empty(self, address: Address, size: int = 0):
-        self.insert(EmptyData(address, size))
+    def create_empty(self, address: Address, size: int = 0, fill: int = 0):
+        self.insert(EmptyData(address, size, fill=fill))
 
     def create_header(self):
         self.insert(CartridgeHeader(Address.from_rom_offset(0x104)))
