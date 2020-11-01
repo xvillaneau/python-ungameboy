@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any, List, Set, Tuple, Union
 
 from .common import ControlMode
@@ -322,19 +323,26 @@ class AssemblyRender:
             reads.discard(elem.dest_address)
             writes.discard(elem.dest_address)
 
+        cls = 'class:ugb.xrefs'
+        addr_ctx = partial(self.asm.context.address_context, elem.address)
+
         line = []
         if reads or writes:
-            line.append(('class:ugb.xrefs', ';'))
+            line.append((cls, ';'))
 
-        for addr in reads:
-            value = self.asm.context.address_context(elem.address, addr)
-            ref = 'Reads: ' + self.render_reference(elem, value)[0]
-            line.extend([S1, ('class:ugb.xrefs', ref)])
+        if reads:
+            reads_str = ", ".join(
+                self.render_reference(elem, addr_ctx(addr))[0]
+                for addr in reads
+            )
+            line.extend([S1, (cls, "Reads: " + reads_str)])
 
-        for addr in writes:
-            value = self.asm.context.address_context(elem.address, addr)
-            ref = 'Writes: ' + self.render_reference(elem, value)[0]
-            line.extend([S1, ('class:ugb.xrefs', ref)])
+        if writes:
+            writes_str = ", ".join(
+                self.render_reference(elem, addr_ctx(addr))[0]
+                for addr in writes
+            )
+            line.extend([S1, (cls, "Writes: " + writes_str)])
 
         return line
 

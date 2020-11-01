@@ -175,7 +175,7 @@ class WL2SoundVoice(Data):
     name = "wl2.voice"
 
     RESET_CODES = frozenset([0xb1, *range(0xb6, 0xbc), 0xc7, 0xc8, 0xcb, 0xcc])
-    DATA_CODES = frozenset([0xb5, *range(0xbc, 0xc7), 0xc9, 0xca])
+    DATA_CODES = frozenset([*range(0xbc, 0xc7), 0xc9, 0xca])
     ADDR_CODES = frozenset([0xb2, 0xb3])
 
     def __init__(self, address: Address, size: int = 0, processor=None):
@@ -214,6 +214,8 @@ class WL2SoundVoice(Data):
                 offset += 1
             elif code in self.ADDR_CODES:
                 offset += 2
+            elif code == 0xb5:
+                offset += 3
             elif code == 0xcf:
                 arg = rom[offset]
                 offset += 0x24 <= arg < 0x80
@@ -260,6 +262,10 @@ class WL2SoundVoice(Data):
 
         if code == 0xb4:
             return ["pop"]
+
+        if code == 0xb5:
+            addr = int.from_bytes(row_bin[2:4], "little")
+            return ["jmpN",  row_bin[1], Address.from_memory_address(addr)]
 
         if code in self.ADDR_CODES:
             addr = int.from_bytes(row_bin[1:3], "little")
