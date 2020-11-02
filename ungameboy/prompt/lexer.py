@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, List, Set, Tuple, Union
+from typing import TYPE_CHECKING, List, Set, Tuple, Union
 
 from .common import ControlMode
 from ..address import ROM, Address
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 __all__ = ['AssemblyRender']
 
 MARGIN = 4
-HIGHLIGHT = ',ugb.hl'
+HIGHLIGHT = ',hl'
 
 FormatToken = Tuple[str, str]
 FormattedLine = List[FormatToken]
@@ -133,7 +133,7 @@ class AssemblyRender:
 
         def add(item, cls=''):
             if cls:
-                cls = f'class:ugb.value.{cls}.{suffix}'.rstrip('.')
+                cls = f'class:value.{cls}.{suffix}'.rstrip('.')
             items.append((cls, str(item)))
 
         if isinstance(value, Ref):
@@ -187,7 +187,7 @@ class AssemblyRender:
 
     @classmethod
     def render_cartridge_header(cls, data: Data):
-        kc, vc = 'class:ugb.data.key', 'class:ugb.data.value'
+        kc, vc = 'class:data.key', 'class:data.value'
 
         header = HeaderDecoder(data.data)
         yield [(kc, '; Name:'), spc(5), (vc, header.title)]
@@ -218,7 +218,7 @@ class AssemblyRender:
         yield [(kc, '; SRAM:'), spc(5), (vc, sram)]
 
     def render_address(self, elem: AsmElement, extra_cls="") -> FormattedLine:
-        addr_cls = ['ugb.address']
+        addr_cls = ['address']
         if extra_cls:
             addr_cls.append(extra_cls)
 
@@ -231,7 +231,7 @@ class AssemblyRender:
             elem.address.type is not ROM and self.cursor_at(elem)
         )
         if highlight:
-            addr_cls.append('ugb.hl')
+            addr_cls.append('hl')
 
         addr_cls = f"class:{','.join(addr_cls)}" if addr_cls else ""
         return [self.margin, (addr_cls, str(elem.address)), S2]
@@ -239,7 +239,7 @@ class AssemblyRender:
     def render_bytes(self, elem: RomElement) -> FormattedLine:
         if not self.opts.show_bin:
             return []
-        bin_cls = 'class:ugb.bin'
+        bin_cls = 'class:bin'
         bin_hex = elem.bytes.hex()
 
         bin_size = (
@@ -271,7 +271,7 @@ class AssemblyRender:
             flag if cond else ' '
             for flag, cond in flags.items()
         )
-        return [('class:ugb.flags', flags_str), S1]
+        return [('class:flags', flags_str), S1]
 
     def _render_ref_lines(self, elem: AsmElement, name: str) -> FormattedText:
         _, attr, _, single, plural = self.XREF_TYPES[name]
@@ -287,7 +287,7 @@ class AssemblyRender:
                 ref, _ = self.render_reference(elem, ref)
                 lines.append(f"; {single} {ref}")
 
-        return [[self.margin, ('class:ugb.xrefs', line)] for line in lines]
+        return [[self.margin, ('class:xrefs', line)] for line in lines]
 
     def render_block_xrefs(self, elem: AsmElement) -> FormattedText:
         return [
@@ -297,7 +297,7 @@ class AssemblyRender:
         ]
 
     def render_comment_at_cursor(self):
-        cls = 'class:ugb.comment'
+        cls = 'class:comment'
         comment, pos = self.ctrl.comment_buffer, self.ctrl.cursor_x
         comment = comment or ''
         pre, post = '; ' + comment[:pos], comment[pos + 1:]
@@ -316,7 +316,7 @@ class AssemblyRender:
             if i == cursor_pos:
                 tokens = self.render_comment_at_cursor()
             else:
-                tokens = [('class:ugb.comment', '; ' + line)]
+                tokens = [('class:comment', '; ' + line)]
             lines.append([self.margin, *tokens])
         return lines
 
@@ -327,7 +327,7 @@ class AssemblyRender:
             reads.discard(elem.dest_address)
             writes.discard(elem.dest_address)
 
-        cls = 'class:ugb.xrefs'
+        cls = 'class:xrefs'
         addr_ctx = partial(self.asm.context.address_context, elem.address)
 
         line = []
@@ -351,7 +351,7 @@ class AssemblyRender:
         return line
 
     def render_labels(self, elem: AsmElement) -> FormattedText:
-        cls = 'class:ugb.label.'
+        cls = 'class:label.'
         lines = []
         if elem.labels and elem.labels[0].is_global:
             lines.extend([[] for _ in range(self.opts.label_pad_lines)])
@@ -372,7 +372,7 @@ class AssemblyRender:
             *self.render_address(elem),
             *self.render_bytes(elem),
             *self.render_flags(elem),
-            (f'class:ugb.instr.op.{op_type}', op_type),
+            (f'class:instr.op.{op_type}', op_type),
         ]
         if self.opts.align_ops and len(op_type) < 4:
             items.append(spc(4 - len(op_type)))
@@ -407,14 +407,14 @@ class AssemblyRender:
             if in_comment:
                 line.extend(self.render_comment_at_cursor())
             else:
-                line.append(('class:ugb.comment', '; ' + elem.comment))
+                line.append(('class:comment', '; ' + elem.comment))
 
     def render_data(self, elem: Union[DataBlock, DataRow]) -> FormattedText:
         desc = elem.data.description
         desc = f'; {desc} ({elem.data.size} bytes)'
 
         lines = []
-        desc_cls, addr_cls = 'class:ugb.data.header', 'ugb.data'
+        desc_cls, addr_cls = 'class:data.header', 'data'
 
         if isinstance(elem, DataRow):
             if elem.row == 0:
@@ -424,7 +424,7 @@ class AssemblyRender:
                 *self.render_address(elem, addr_cls),
                 *self.render_bytes(elem),
                 *self.render_flags(elem),
-                ('class:ugb.bin', f'{elem.row:02x}.'), S2
+                ('class:bin', f'{elem.row:02x}.'), S2
             ]
             for item in elem.values:
                 line.extend(self.render_value(elem, item))
@@ -435,8 +435,8 @@ class AssemblyRender:
 
         elif isinstance(elem, DataBlock):
             if isinstance(elem.data, EmptyData):
-                desc_cls = 'class:ugb.data.empty'
-                addr_cls = 'ugb.data.empty'
+                desc_cls = 'class:data.empty'
+                addr_cls = 'data.empty'
             if self.cursor_in(elem):
                 desc_cls += HIGHLIGHT
             lines.append(
@@ -453,7 +453,7 @@ class AssemblyRender:
         return lines
 
     def render_ram(self, elem: RamElement) -> FormattedLine:
-        var_byte = ('class:ugb.ram.byte', 'db')
+        var_byte = ('class:ram.byte', 'db')
         return [*self.render_address(elem), S4, var_byte]
 
     def render(self, address: Address) -> FormattedText:

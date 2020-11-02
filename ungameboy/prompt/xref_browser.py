@@ -43,28 +43,28 @@ def make_xrefs_control(ugb: 'UGBApplication'):
 
         if comment:
             for line in comment:
-                tokens.extend([('class:ugb.comment', f'; {line}'), nl])
+                tokens.extend([('class:comment', f'; {line}'), nl])
             tokens.append(nl)
 
         def display_xref(_addr):
             tokens.append(('', '  '))
-            sel = ',ugb.hl' * (line_index == ugb.xrefs.cursor)
-            tokens.append(('class:ugb.address' + sel, str(_addr)))
+            sel = ',hl' * (line_index == ugb.xrefs.cursor)
+            tokens.append(('class:address' + sel, str(_addr)))
 
             name = asm.context.address_context(_addr, _addr, relative=True)
             if isinstance(name, Label):
                 tokens.extend([
                     ('', ' ('),
-                    ('class:ugb.value.label', name.name),
+                    ('class:value.label', name.name),
                     ('', ')'),
                 ])
             elif isinstance(name, LabelOffset):
                 offset = f"{'-' if name.offset < 0 else '+'}${name.offset:x}"
                 tokens.extend([
                     ('', ' ('),
-                    ('class:ugb.value.label', name.label.name),
+                    ('class:value.label', name.label.name),
                     ('', ' '),
-                    ('class:ugb.value', offset),
+                    ('class:value', offset),
                     ('', ')'),
                 ])
 

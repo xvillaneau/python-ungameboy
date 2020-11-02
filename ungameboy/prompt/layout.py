@@ -84,9 +84,9 @@ def make_sidebar_container(
         else:
             text = header
 
-        format = 'class:ugb.sidebar.title'
+        format = 'class:sidebar.title'
         if get_app().layout.current_window is window:
-            format += ',ugb.hl'
+            format += ',hl'
         return [(format, text)]
 
     windows = [

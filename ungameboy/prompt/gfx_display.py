@@ -83,7 +83,7 @@ class GraphicsControl(UIControl):
         bitmap = self.bitmap
         cols, size = self.gfx.columns, self.gfx.tile_height
 
-        classes = [f'class:ugb.gfx.pixel.{i}' for i in range(4)]
+        classes = [f'class:gfx.pixel.{i}' for i in range(4)]
 
         def get_line(line: int):
             i = (line % size) * 8 + (line // size) * cols * size * 8
