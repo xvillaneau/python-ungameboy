@@ -48,7 +48,7 @@ class RenderOptions:
     # Show the ROM binary data on each line
     show_bin: bool = True
     # Margin for anything that's not a label
-    margin: int = 4
+    margin: int = 6
     # Margin to apply before local labels
     local_margin: int = 2
     # Minimum position for inline comments
@@ -92,8 +92,9 @@ class AssemblyRender:
                 elem.address <= self.ctrl.address < elem.next_address
         )
 
-    def margin_for(self, prefix: Any) -> FormatToken:
-        return spc(self.opts.margin + 12 - len(str(prefix)))
+    @property
+    def margin(self) -> FormatToken:
+        return spc(self.opts.margin)
 
     def render_reference(
             self, elem: AsmElement, reference: Reference
@@ -216,10 +217,6 @@ class AssemblyRender:
             sram = f'{header.sram_size_kb // 8} banks ({sram_size})'
         yield [(kc, '; SRAM:'), spc(5), (vc, sram)]
 
-    def render_prefix(self, prefix, *cls):
-        cls = f"class:{','.join(cls)}" if cls else ""
-        return [self.margin_for(prefix), (cls, str(prefix)), S2]
-
     def render_address(self, elem: AsmElement, extra_cls="") -> FormattedLine:
         addr_cls = ['ugb.address']
         if extra_cls:
@@ -236,7 +233,8 @@ class AssemblyRender:
         if highlight:
             addr_cls.append('ugb.hl')
 
-        return self.render_prefix(elem.address, *addr_cls)
+        addr_cls = f"class:{','.join(addr_cls)}" if addr_cls else ""
+        return [self.margin, (addr_cls, str(elem.address)), S2]
 
     def render_bytes(self, elem: RomElement) -> FormattedLine:
         if not self.opts.show_bin:
@@ -289,8 +287,7 @@ class AssemblyRender:
                 ref, _ = self.render_reference(elem, ref)
                 lines.append(f"; {single} {ref}")
 
-        margin = self.margin_for(elem.address)
-        return [[margin, ('class:ugb.xrefs', line)] for line in lines]
+        return [[self.margin, ('class:ugb.xrefs', line)] for line in lines]
 
     def render_block_xrefs(self, elem: AsmElement) -> FormattedText:
         return [
@@ -314,14 +311,13 @@ class AssemblyRender:
         else:
             cursor_pos = index
 
-        margin = self.margin_for(elem.address)
         lines = []
         for i, line in enumerate(elem.block_comment):
             if i == cursor_pos:
                 tokens = self.render_comment_at_cursor()
             else:
                 tokens = [('class:ugb.comment', '; ' + line)]
-            lines.append([margin, *tokens])
+            lines.append([self.margin, *tokens])
         return lines
 
     def render_inline_xrefs(self, elem: AsmElement) -> FormattedLine:
@@ -419,11 +415,10 @@ class AssemblyRender:
 
         lines = []
         desc_cls, addr_cls = 'class:ugb.data.header', 'ugb.data'
-        margin = self.margin_for(elem.address)
 
         if isinstance(elem, DataRow):
             if elem.row == 0:
-                lines.append([margin, (desc_cls, desc)])
+                lines.append([self.margin, (desc_cls, desc)])
 
             line = [
                 *self.render_address(elem, addr_cls),
@@ -453,7 +448,7 @@ class AssemblyRender:
             else:
                 block_content = []
             for items in block_content:
-                lines.append([margin, ('', '    '), *items])
+                lines.append([self.margin, ('', '    '), *items])
 
         return lines
 
