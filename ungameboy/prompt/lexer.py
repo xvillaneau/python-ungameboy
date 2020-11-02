@@ -45,6 +45,8 @@ S1, S2, S4 = spc(1), spc(2), spc(4)
 @dataclass
 class RenderOptions:
     """Mutable options object for rendering the assembly"""
+    # Show the ROM binary data on each line
+    show_bin: bool = True
     # Margin for anything that's not a label
     margin: int = 4
     # Margin to apply before local labels
@@ -224,7 +226,11 @@ class AssemblyRender:
             addr_cls.append(extra_cls)
 
         highlight = (
-            elem.address.type is ROM and self.cursor_at_dest(elem) or
+            elem.address.type is ROM and (
+                self.cursor_at_dest(elem)
+                if self.opts.show_bin
+                else self.cursor_at(elem)
+            ) or
             elem.address.type is not ROM and self.cursor_at(elem)
         )
         if highlight:
@@ -233,6 +239,8 @@ class AssemblyRender:
         return self.render_prefix(elem.address, *addr_cls)
 
     def render_bytes(self, elem: RomElement) -> FormattedLine:
+        if not self.opts.show_bin:
+            return []
         bin_cls = 'class:ugb.bin'
         bin_hex = elem.bytes.hex()
 
